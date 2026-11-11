@@ -80,18 +80,34 @@ func loadSettings(dir string, prev *model.Settings) (model.Settings, *model.Load
 		return fallback, &model.LoadError{File: settingsFile, Msg: err.Error()}
 	}
 
+	s, lerr := ParseSettings(src)
+	if lerr != nil {
+		return fallback, lerr
+	}
+
+	return s, nil
+}
+
+// ParseSettings parses the content of a jidoka.toml. Callers keep the
+// bytes of the last valid file and re-parse them when the file breaks (B8).
+func ParseSettings(src []byte) (model.Settings, *model.LoadError) {
 	var raw rawSettings
 	is := decode(newIssues("", settingsFile, string(src)), string(src), &raw)
 	if len(is.list) > 0 {
-		return fallback, &is.list[0]
+		return defaults(), &is.list[0]
 	}
 
 	s := buildSettings(is, raw)
 	if len(is.list) > 0 {
-		return fallback, &is.list[0]
+		return defaults(), &is.list[0]
 	}
 
 	return s, nil
+}
+
+// Commit returns the short commit of <dir>/.git/HEAD, "" if unknown.
+func Commit(dir string) string {
+	return readCommit(dir)
 }
 
 // decode strictly decodes src into v and records syntax errors, type

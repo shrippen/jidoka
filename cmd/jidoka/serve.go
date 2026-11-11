@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"syscall"
 	"time"
 
@@ -62,6 +63,10 @@ type app struct {
 	alerts  *alerts.Engine
 	beat    *beat.Sender
 	andon   *andon.Notifier
+
+	// states: last job state sent to Andon (I6).
+	stateMu sync.Mutex
+	states  map[string]model.JobState
 	ops     *ops.Service
 	status  *status.Service
 	listen  string
@@ -120,7 +125,7 @@ func build() (*app, error) {
 		return nil, err
 	}
 
-	a := &app{db: d, listen: envOr(envListen, defListen)}
+	a := &app{db: d, listen: envOr(envListen, defListen), states: map[string]model.JobState{}}
 	a.secrets = secrets.New(d)
 	a.jobs = jobs.New(d, envOr(envJobs, defJobs))
 	a.runs = runs.New(d, a.secrets, runs.Config{DataDir: dataDir, Shim: os.Getenv(envShim), UID: uid, GID: uid})
@@ -189,6 +194,7 @@ func (a *app) wire() {
 
 	a.watch.OnMissed(func(job *model.Job, since time.Time) {
 		logErr("alert missed", a.alerts.Missed(job, since))
+		a.changed(job.ID, model.JobMissed)
 	})
 
 	// A ping is a run of a watch: start, then ok or fail.
@@ -198,6 +204,7 @@ func (a *app) wire() {
 			return
 		}
 		logErr("alert ping", a.alerts.RunDone(job, run, "", alerts.AttemptFinal))
+		a.changed(job.ID, jobState(run.State))
 	})
 
 	a.jobs.OnReload(a.reloaded)
@@ -206,6 +213,40 @@ func (a *app) wire() {
 // final reports the end of a slot (after the last retry, J13).
 func (a *app) final(job *model.Job, run model.Run) {
 	logErr("alert run", a.alerts.RunDone(job, run, "", alerts.AttemptFinal))
+	a.changed(job.ID, jobState(run.State))
+}
+
+// changed tells Andon when a job's state differs from the last one seen
+// in this process (I6), so its tile and hints follow at once. After a
+// restart the first result of each job is sent once; Andon only drops its
+// cache, so that is harmless.
+func (a *app) changed(id string, state model.JobState) {
+	if state == "" {
+		return
+	}
+
+	a.stateMu.Lock()
+	same := a.states[id] == state
+	a.states[id] = state
+	a.stateMu.Unlock()
+
+	if !same {
+		a.andon.Notify(id, state)
+	}
+}
+
+// jobState maps a run's end to the board state; aborted and skipped
+// runs change nothing (J23, J5).
+func jobState(s model.RunState) model.JobState {
+	switch s {
+	case model.RunOK:
+		return model.JobOK
+	case model.RunFail:
+		return model.JobFail
+	case model.RunTimeout:
+		return model.JobTimeout
+	}
+	return ""
 }
 
 // start loads the jobs and hands them to planner and watch. Runs that

@@ -29,8 +29,9 @@ func TestOpenMigratesOnce(t *testing.T) {
 	}
 	defer d.Close()
 
+	files, _ := migrationFiles.ReadDir("migrations")
 	var n int
-	if err := d.QueryRow("SELECT COUNT(*) FROM schema_migrations").Scan(&n); err != nil || n != 1 {
+	if err := d.QueryRow("SELECT COUNT(*) FROM schema_migrations").Scan(&n); err != nil || n != len(files) {
 		t.Fatalf("migrations recorded: %d, %v", n, err)
 	}
 	if err := d.QueryRow("SELECT COUNT(*) FROM runs").Scan(&n); err != nil {

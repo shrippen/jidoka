@@ -14,6 +14,10 @@ import (
 	"jidoka/internal/web"
 )
 
+// envTrustedProxy lists the proxies whose X-Forwarded-For counts (CIDRs,
+// comma separated); the ping rate limit reads the client from it.
+const envTrustedProxy = "TRUSTED_PROXY"
+
 const (
 	// tickStale: /healthz fails when the planner has not ticked for this
 	// long (B5).
@@ -32,10 +36,17 @@ var version = "dev"
 func (a *app) startWeb(ctx context.Context) <-chan error {
 	acc := access.New(a.db, access.ConfigFromEnv(os.Getenv))
 	srv := web.New(web.Deps{
-		Access:   acc,
-		Settings: func() model.Settings { return a.jobs.Current().Settings },
-		Health:   a.health,
-		Version:  version,
+		Access:       acc,
+		Status:       a.status,
+		Plan:         a.plan,
+		Ops:          a.ops,
+		Watch:        a.watch,
+		Alerts:       a.alerts,
+		Secrets:      a.secrets,
+		TrustedProxy: os.Getenv(envTrustedProxy),
+		Settings:     func() model.Settings { return a.jobs.Current().Settings },
+		Health:       a.health,
+		Version:      version,
 	})
 
 	hs := &http.Server{Addr: a.listen, Handler: srv.Handler(), ReadHeaderTimeout: readHeaderTimeout}

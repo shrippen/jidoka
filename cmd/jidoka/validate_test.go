@@ -71,8 +71,8 @@ func TestRun(t *testing.T) {
 	if code := run(nil); code != exitUsage {
 		t.Errorf("no args: %d", code)
 	}
-	if code := run([]string{"serve"}); code != exitUsage {
-		t.Errorf("serve: %d", code)
+	if code := run([]string{"nope"}); code != exitUsage {
+		t.Errorf("unknown command: %d", code)
 	}
 	if code := run([]string{"validate"}); code != exitUsage {
 		t.Errorf("validate without dir: %d", code)

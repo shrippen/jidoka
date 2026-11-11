@@ -40,6 +40,13 @@ error:
   csrf: The request does not belong to this session. Reload the page and try again.
   bad_request: The request is incomplete.
   internal: That did not work. The log has the details.
+  busy: The job is running or waiting already.
+  disabled: The job is disabled.
+  not_running: This run is not running anymore.
+  no_key: MASTER_KEY is missing. Nothing can be stored without it.
+  secret_name: The name must start with a capital letter and contain only A-Z, 0-9 and _.
+  secret_empty: The value is missing.
+  unavailable: This part of Jidoka is not available right now.
 
 board:
   placeholder: The board with all jobs appears here.

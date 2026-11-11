@@ -17,11 +17,14 @@ import (
 	"jidoka/internal/db"
 	"jidoka/internal/model"
 	"jidoka/internal/services/alerts"
+	"jidoka/internal/services/andon"
 	"jidoka/internal/services/beat"
 	"jidoka/internal/services/jobs"
+	"jidoka/internal/services/ops"
 	"jidoka/internal/services/plan"
 	"jidoka/internal/services/runs"
 	"jidoka/internal/services/secrets"
+	"jidoka/internal/services/status"
 	"jidoka/internal/services/watch"
 )
 
@@ -58,6 +61,9 @@ type app struct {
 	watch   *watch.Watch
 	alerts  *alerts.Engine
 	beat    *beat.Sender
+	andon   *andon.Notifier
+	ops     *ops.Service
+	status  *status.Service
 	listen  string
 }
 
@@ -126,6 +132,12 @@ func build() (*app, error) {
 	})
 	a.plan = plan.New(plan.Config{DB: d, Exec: a.runs, OnFinal: a.final})
 	a.beat = beat.New(a.beatURL)
+	a.andon = andon.New(a.andonURL)
+	a.ops = ops.New(ops.Deps{DB: d, Jobs: a.jobs, Runs: a.runs, Watch: a.watch})
+	a.status = status.New(status.Deps{
+		DB: d, Jobs: a.jobs, Plan: a.plan, Watch: a.watch, Alerts: a.alerts,
+		Secrets: a.secrets, Version: version,
+	})
 	a.wire()
 
 	return a, nil
@@ -299,6 +311,15 @@ func (a *app) beatURL() string {
 		return ""
 	}
 	return values[beat.SecretURL]
+}
+
+// andonURL is Andon's webhook URL, "" when the secret is missing (I6).
+func (a *app) andonURL() string {
+	values, _, err := a.secrets.Resolve([]string{andon.SecretHookURL})
+	if err != nil {
+		return ""
+	}
+	return values[andon.SecretHookURL]
 }
 
 func envOr(name, def string) string {

@@ -40,6 +40,13 @@ error:
   csrf: Die Anfrage gehört nicht zu dieser Sitzung. Seite neu laden und noch einmal versuchen.
   bad_request: Die Anfrage ist unvollständig.
   internal: Das hat nicht geklappt. Details stehen im Log.
+  busy: Der Job läuft oder wartet schon.
+  disabled: Der Job ist deaktiviert.
+  not_running: Dieser Lauf läuft nicht mehr.
+  no_key: MASTER_KEY fehlt. Ohne ihn lässt sich nichts speichern.
+  secret_name: Der Name muss mit einem Großbuchstaben beginnen und nur A-Z, 0-9 und _ enthalten.
+  secret_empty: Der Wert fehlt.
+  unavailable: Dieser Teil von Jidoka ist gerade nicht verfügbar.
 
 board:
   placeholder: Hier erscheint die Tafel mit allen Jobs.

@@ -344,25 +344,25 @@ func itoa(n int64) string {
 func TestAPIRights(t *testing.T) {
 	e := newEnv(t)
 	ok := func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte("ok")) }
-	e.srv.mux.HandleFunc("GET /api/v1/jobs", e.srv.api(access.RightRead, ok))
-	e.srv.mux.HandleFunc("POST /api/v1/reload", e.srv.api(access.RightReload, ok))
+	e.srv.mux.HandleFunc("GET /api/v1/probe/read", e.srv.api(access.RightRead, ok))
+	e.srv.mux.HandleFunc("POST /api/v1/probe/reload", e.srv.api(access.RightReload, ok))
 
 	read, _ := e.srv.deps.Access.CreateToken("andon", []access.Right{access.RightRead})
 	reload, _ := e.srv.deps.Access.CreateToken("komodo", []access.Right{access.RightReload})
 	bearer := func(v string) map[string]string { return map[string]string{"Authorization": "Bearer " + v} }
 
-	if w := do(e.srv, "GET", "/api/v1/jobs", nil, nil, bearer(read)); w.Code != http.StatusOK {
+	if w := do(e.srv, "GET", "/api/v1/probe/read", nil, nil, bearer(read)); w.Code != http.StatusOK {
 		t.Fatalf("read: %d", w.Code)
 	}
 
 	// No CSRF for a Bearer request; a read token still cannot reload.
-	if w := do(e.srv, "POST", "/api/v1/reload", nil, nil, bearer(read)); w.Code != http.StatusForbidden {
+	if w := do(e.srv, "POST", "/api/v1/probe/reload", nil, nil, bearer(read)); w.Code != http.StatusForbidden {
 		t.Fatalf("read token reloads: %d", w.Code)
 	}
-	if w := do(e.srv, "POST", "/api/v1/reload", nil, nil, bearer(reload)); w.Code != http.StatusOK {
+	if w := do(e.srv, "POST", "/api/v1/probe/reload", nil, nil, bearer(reload)); w.Code != http.StatusOK {
 		t.Fatalf("reload: %d", w.Code)
 	}
-	if w := do(e.srv, "GET", "/api/v1/jobs", nil, nil, bearer(reload)); w.Code != http.StatusForbidden {
+	if w := do(e.srv, "GET", "/api/v1/probe/read", nil, nil, bearer(reload)); w.Code != http.StatusForbidden {
 		t.Fatalf("reload token reads: %d", w.Code)
 	}
 
@@ -372,7 +372,7 @@ func TestAPIRights(t *testing.T) {
 		"basic":   {"Authorization": "Basic " + read},
 		"raw":     {"Authorization": read},
 	} {
-		w := do(e.srv, "GET", "/api/v1/jobs", nil, nil, h)
+		w := do(e.srv, "GET", "/api/v1/probe/read", nil, nil, h)
 		if w.Code != http.StatusUnauthorized || !strings.Contains(w.Body.String(), `"error"`) {
 			t.Errorf("%s: %d %s", name, w.Code, w.Body)
 		}
@@ -441,7 +441,6 @@ func TestHealthz(t *testing.T) {
 
 func TestLogHasNoQueryNorToken(t *testing.T) {
 	e := newEnv(t)
-	e.srv.mux.HandleFunc("POST /ping/{token}", func(w http.ResponseWriter, r *http.Request) {})
 
 	do(e.srv, "POST", "/ping/sekret-ping-token?msg=sekret-query", nil, nil, nil)
 	do(e.srv, "GET", "/login?next=/sekret-next", nil, nil, nil)

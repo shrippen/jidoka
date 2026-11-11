@@ -10,16 +10,34 @@ package web
 import (
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"time"
 
 	"jidoka/internal/model"
 	"jidoka/internal/services/access"
+	"jidoka/internal/services/alerts"
+	"jidoka/internal/services/ops"
+	"jidoka/internal/services/plan"
+	"jidoka/internal/services/secrets"
+	"jidoka/internal/services/status"
+	"jidoka/internal/services/watch"
 )
 
 // Deps are the services the routes use. Fields may stay nil in tests;
 // every use is nil-safe.
 type Deps struct {
-	Access *access.Service
+	Access  *access.Service
+	Status  *status.Service
+	Plan    *plan.Planner
+	Ops     *ops.Service
+	Watch   *watch.Watch
+	Alerts  *alerts.Engine
+	Secrets *secrets.Service
+
+	// TrustedProxy is a comma-separated list of CIDRs or addresses
+	// (env TRUSTED_PROXY). Only a request from one of them may name the
+	// client in X-Forwarded-For; the ping rate limit uses that address.
+	TrustedProxy string
 
 	// Settings returns the current jidoka.toml (zone, Andon link, base URL).
 	Settings func() model.Settings
@@ -34,9 +52,10 @@ type Deps struct {
 
 // Server is the HTTP side of Jidoka.
 type Server struct {
-	deps Deps
-	mux  *http.ServeMux
-	log  *slog.Logger
+	deps    Deps
+	mux     *http.ServeMux
+	log     *slog.Logger
+	proxies []netip.Prefix
 }
 
 // New wires the routes.
@@ -46,6 +65,7 @@ func New(d Deps) *Server {
 		s.log = slog.Default()
 	}
 
+	s.proxies = s.parseProxies(d.TrustedProxy)
 	s.routes()
 	return s
 }
@@ -62,6 +82,9 @@ func (s *Server) routes() {
 	s.registerLogin()
 	s.registerHome()
 	s.registerAccess()
+	s.registerAPI()
+	s.registerPing()
+	s.registerActions()
 }
 
 // settings is the current jidoka.toml; zero values when none is wired.

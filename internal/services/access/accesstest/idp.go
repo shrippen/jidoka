@@ -30,6 +30,9 @@ type IdP struct {
 	key    *rsa.PrivateKey
 	Nonce  string
 	Claims map[string]any
+	// MetaIssuer, if set, is the issuer the metadata names instead of
+	// the provider's own URL (a misconfigured or foreign provider).
+	MetaIssuer string
 }
 
 // New starts a provider that stops with the test.
@@ -44,8 +47,12 @@ func New(t *testing.T) *IdP {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/.well-known/openid-configuration", func(w http.ResponseWriter, r *http.Request) {
 		base := idp.srv.URL
+		iss := base + "/"
+		if idp.MetaIssuer != "" {
+			iss = idp.MetaIssuer
+		}
 		_ = json.NewEncoder(w).Encode(map[string]string{
-			"issuer": base + "/", "authorization_endpoint": base + "/authorize",
+			"issuer": iss, "authorization_endpoint": base + "/authorize",
 			"token_endpoint": base + "/token", "jwks_uri": base + "/jwks",
 		})
 	})

@@ -15,6 +15,7 @@ import (
 
 	"jidoka/internal/crypto"
 	"jidoka/internal/db"
+	"jidoka/internal/drivers/git"
 	"jidoka/internal/model"
 	"jidoka/internal/redact"
 	"jidoka/internal/services/alerts"
@@ -34,6 +35,10 @@ import (
 const (
 	envData    = "DATA_DIR"
 	envJobs    = "JOBS_DIR"
+	envRepo    = "JOBS_REPO"
+	envBranch  = "JOBS_BRANCH"
+	envRepoTok = "JOBS_REPO_TOKEN"
+	envBaseURL = "BASE_URL"
 	envKey     = "MASTER_KEY"
 	envShim    = "JIDOKA_SHIM"
 	envUIDBase = "JIDOKA_UID_BASE"
@@ -42,9 +47,11 @@ const (
 	defJobs    = "/jobs"
 	defListen  = ":8080"
 	dbFile     = "jidoka.db"
-	tickEvery  = time.Second
-	pruneEvery = time.Hour
-	stopWait   = 30 * time.Second
+	// checkoutDir is the jobs checkout inside DATA_DIR (J1).
+	checkoutDir = "jobs"
+	tickEvery   = time.Second
+	pruneEvery  = time.Hour
+	stopWait    = 30 * time.Second
 )
 
 // app holds the wired services of one server process.
@@ -126,7 +133,7 @@ func build() (*app, error) {
 
 	a := &app{db: d, listen: envOr(envListen, defListen), states: map[string]model.JobState{}}
 	a.secrets = secrets.New(d)
-	a.jobs = jobs.New(d, envOr(envJobs, defJobs))
+	a.jobs = newJobs(d, dataDir)
 	a.runs = runs.New(d, a.secrets, runs.Config{DataDir: dataDir, Shim: os.Getenv(envShim), UIDBase: uidBase})
 	a.watch = watch.New(watch.Config{DB: d, Mask: a.mask})
 	a.alerts = alerts.New(alerts.Config{
@@ -187,6 +194,27 @@ func jobUIDBase() (uint32, error) {
 		return 0, fmt.Errorf("%s: %w", envUIDBase, err)
 	}
 	return uint32(n), nil
+}
+
+// newJobs is the jobs service: with JOBS_REPO it fetches the private repo
+// into DATA_DIR/jobs (J1), else it reads JOBS_DIR (development). BASE_URL
+// overrides settings.base_url.
+func newJobs(d *sql.DB, dataDir string) *jobs.Service {
+	repo := os.Getenv(envRepo)
+	if repo == "" {
+		j := jobs.New(d, envOr(envJobs, defJobs))
+		j.SetBaseURL(os.Getenv(envBaseURL))
+		return j
+	}
+
+	dir := filepath.Join(dataDir, checkoutDir)
+	j := jobs.New(d, dir)
+	j.UseRepo(git.New(git.Config{
+		URL: repo, Branch: os.Getenv(envBranch), Token: os.Getenv(envRepoTok), Dir: dir,
+	}))
+	j.SetBaseURL(os.Getenv(envBaseURL))
+
+	return j
 }
 
 // wire connects the services' hooks (see the drawing at app).
@@ -293,12 +321,18 @@ func fixed(set model.Set) []string {
 	if set.SettingsErr == nil {
 		ids = append(ids, alerts.KeyGlobal)
 	}
+	if set.RepoErr == nil {
+		ids = append(ids, alerts.KeyRepo)
+	}
 	return ids
 }
 
 // reportInvalid raises "invalid" for every file that did not load; the
 // engine's store keeps one disturbance per job, so repeats stay silent.
 func (a *app) reportInvalid(set model.Set) {
+	if set.RepoErr != nil {
+		logErr("alert repo", a.alerts.Invalid(*set.RepoErr))
+	}
 	for _, le := range set.Invalid {
 		logErr("alert invalid", a.alerts.Invalid(le))
 	}

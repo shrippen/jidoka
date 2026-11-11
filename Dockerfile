@@ -26,7 +26,7 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -tags release -trim
 # the job's process group) and CAP_CHOWN (hand folders to the job's uid).
 # tini reaps orphans of detached children (J4).
 FROM alpine:3.24
-RUN apk add --no-cache tini su-exec libcap bash curl jq python3 uv tzdata ca-certificates \
+RUN apk add --no-cache tini su-exec libcap git bash curl jq python3 uv tzdata ca-certificates \
  && addgroup -S -g 10001 jidoka && adduser -S -u 10001 -G jidoka -h /app jidoka \
  && mkdir -p /data /jobs && chown jidoka:jidoka /data
 ENV DATA_DIR=/data JOBS_DIR=/jobs JIDOKA_SHIM=/usr/local/bin/jidoka-shim JIDOKA_UID_BASE=20000 UV_PYTHON_DOWNLOADS=never

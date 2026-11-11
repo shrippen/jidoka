@@ -123,9 +123,12 @@ func (s *Service) Status() Status {
 	return st
 }
 
-// loadErrors lists every file that did not load: jidoka.toml first (O9).
+// loadErrors lists every file that did not load: the repo fetch, then jidoka.toml (O9).
 func loadErrors(set model.Set) []model.LoadError {
 	out := []model.LoadError{}
+	if set.RepoErr != nil {
+		out = append(out, *set.RepoErr)
+	}
 	if set.SettingsErr != nil {
 		out = append(out, *set.SettingsErr)
 	}

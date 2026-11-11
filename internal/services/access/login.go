@@ -40,11 +40,11 @@ type Login struct {
 	Next  string // where the user wanted to go
 }
 
-// Available reports whether OIDC login is set up: a provider, a client
-// and at least one account that may enter. Without it nobody gets in.
+// Available reports whether OIDC login is set up: a provider and a client.
+// Without it nobody gets in.
 func (s *Service) Available() bool {
 	c := s.cfg
-	return c.Issuer != "" && c.ClientID != "" && c.ClientSecret != "" && (c.AllowSub != "" || c.AllowGroup != "")
+	return c.Issuer != "" && c.ClientID != "" && c.ClientSecret != ""
 }
 
 func (s *Service) discover(ctx context.Context) (oidc.Provider, error) {
@@ -149,8 +149,13 @@ func (s *Service) Complete(ctx context.Context, baseURL string, params url.Value
 	return Login{Token: token, Next: f.next}, nil
 }
 
-// allowed: the configured sub, or a member of the configured group (Z1).
+// allowed: authentik decides who signs in (Z1), so without OIDC_ALLOW_*
+// everyone who did is let in; set, they narrow it to the configured sub
+// or a member of the configured group.
 func (s *Service) allowed(sub string, groups []string) bool {
+	if s.cfg.AllowSub == "" && s.cfg.AllowGroup == "" {
+		return true
+	}
 	if s.cfg.AllowSub != "" && sub == s.cfg.AllowSub {
 		return true
 	}

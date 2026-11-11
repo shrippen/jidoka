@@ -825,6 +825,26 @@ func TestInvalidFixedRecovers(t *testing.T) {
 	}
 }
 
+// J1: a failed fetch of the jobs repo reports under its own key and the
+// next good fetch closes it.
+func TestRepoErrorReportsAndRecovers(t *testing.T) {
+	h := newHarness(t)
+	h.set.Settings.Profiles["standard"][1].On = []model.Event{model.EvRecover}
+	_ = h.eng.Invalid(model.LoadError{File: model.RepoFile, Msg: "gitea down"})
+	h.tick()
+	h.wantApprise(1)
+	if d, _ := h.store.Disturbance(KeyRepo); d == nil {
+		t.Fatal("no disturbance under KeyRepo")
+	}
+
+	_ = h.eng.Reloaded(Reload{Fixed: []string{KeyRepo}})
+	h.tick()
+	h.wantApprise(2)
+	if d, _ := h.store.Disturbance(KeyRepo); d != nil {
+		t.Error("disturbance still open")
+	}
+}
+
 func TestTailAndAttach(t *testing.T) {
 	h := newHarness(t)
 	out := ""

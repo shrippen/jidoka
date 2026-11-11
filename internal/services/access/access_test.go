@@ -93,12 +93,23 @@ func TestGroupMemberAllowed(t *testing.T) {
 	}
 }
 
-func TestNothingAllowedWithoutAllowList(t *testing.T) {
+// Z1: authentik decides; without an allow list every signed-in account enters.
+func TestEveryAccountEntersWithoutAllowList(t *testing.T) {
 	s, idp := setup(t, Config{})
-	if s.Available() {
-		t.Fatal("OIDC must be off without an allowed account")
+	if !s.Available() {
+		t.Fatal("OIDC must be on with issuer and client")
 	}
-	idp.Claims = map[string]any{"sub": "u-1"}
+	idp.Claims = map[string]any{"sub": "anyone"}
+	if _, err := login(t, s, idp, accesstest.GoodCode); err != nil {
+		t.Fatalf("login: %v", err)
+	}
+}
+
+func TestOIDCOffWithoutClient(t *testing.T) {
+	s := New(testDB(t), Config{})
+	if s.Available() {
+		t.Fatal("OIDC must be off without issuer and client")
+	}
 	if _, _, err := s.AuthorizeURL(context.Background(), baseURL, "/"); !errors.Is(err, ErrDisabled) {
 		t.Fatalf("expected ErrDisabled, got %v", err)
 	}

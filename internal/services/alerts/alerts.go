@@ -42,6 +42,8 @@ const (
 const (
 	// KeyGlobal is the disturbance key of a broken jidoka.toml.
 	KeyGlobal = "_settings"
+	// KeyRepo is the disturbance key of a failed fetch of the jobs repo (J1).
+	KeyRepo = "_repo"
 
 	defaultProfile = "standard"
 	defaultTail    = 20
@@ -232,6 +234,9 @@ func (e *Engine) Invalid(le model.LoadError) error {
 	if id == "" {
 		id, name = KeyGlobal, le.File
 	}
+	if le.File == model.RepoFile {
+		id = KeyRepo
+	}
 	sub := subjectOf(set, id, name)
 
 	detail := le.File
@@ -410,7 +415,7 @@ func (e *Engine) fire(set model.Set, sub subject, it item, run *model.Run) error
 }
 
 func (e *Engine) flagsOf(id string) (model.Flags, error) {
-	if id == "" || id == KeyGlobal {
+	if id == "" || id == KeyGlobal || id == KeyRepo {
 		return model.Flags{}, nil
 	}
 	return e.cfg.Store.Flags(id)

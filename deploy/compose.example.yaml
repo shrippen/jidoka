@@ -1,11 +1,13 @@
 # Example for docker-compose-ploetze/jidoka/compose.yaml (B1, B2).
 # Values in ${…} come from Komodo (secrets), never from git.
 #
-#   /docker/appdata/jidoka/data  database, salt, state, uv cache (Borgmatic, B9)
-#   /docker/appdata/jidoka/jobs  checkout of jidoka-jobs by Komodo (B6), read only
+#   /docker/appdata/jidoka/data  database, salt, state, uv cache, checkout of
+#                                jidoka-jobs in jobs/ (Borgmatic, B9)
 #
-# Do not set security_opt no-new-privileges: the server binary needs its
-# file capabilities to start jobs as uid 10002 (Dockerfile).
+# Jidoka fetches jidoka-jobs itself (J1); Komodo calls POST /api/v1/reload
+# after a push (B6). Do not set security_opt no-new-privileges: the server
+# binary needs its file capabilities to start each job under its own uid
+# (Dockerfile).
 services:
   jidoka:
     image: ghcr.io/shrippen/jidoka:edge
@@ -17,14 +19,17 @@ services:
     stop_grace_period: 45s
     volumes:
       - /docker/appdata/jidoka/data:/data
-      - /docker/appdata/jidoka/jobs:/jobs:ro
     environment:
       TZ: Europe/Berlin
       MASTER_KEY: ${MASTER_KEY}
       OIDC_ISSUER: ${OIDC_ISSUER}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID}
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET}
-      OIDC_ALLOW_SUB: ${OIDC_ALLOW_SUB}
+      # authentik's policy for the application decides who may enter (Z1).
+      BASE_URL: https://jidoka.intern.arianw.de
+      JOBS_REPO: https://git.arianw.de/shrippen/jidoka-jobs.git
+      JOBS_BRANCH: main
+      JOBS_REPO_TOKEN: ${JOBS_REPO_TOKEN}
       # Caddy in front: X-Forwarded-For of pings is trusted only from it.
       TRUSTED_PROXY: 172.16.0.0/12
     networks:

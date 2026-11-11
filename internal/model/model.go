@@ -195,15 +195,21 @@ type LoadError struct {
 	Msg    string
 }
 
+// RepoFile is LoadError.File of a failed fetch of the jobs repo (J1).
+const RepoFile = "JOBS_REPO"
+
 // Set is everything loaded from /jobs at one moment.
 type Set struct {
 	Settings Settings
 	// SettingsErr: jidoka.toml did not load; Settings is the last valid copy (B8).
 	SettingsErr *LoadError
-	Jobs        map[string]*Job
-	Invalid     []LoadError
-	Commit      string // from /jobs/.git/HEAD
-	LoadedAt    time.Time
+	// RepoErr: the jobs repo could not be fetched; the last checkout
+	// is in use (J1). Nil without JOBS_REPO.
+	RepoErr  *LoadError
+	Jobs     map[string]*Job
+	Invalid  []LoadError
+	Commit   string // from /jobs/.git/HEAD
+	LoadedAt time.Time
 }
 
 // Run is one execution of a job, or one ping of a watch.

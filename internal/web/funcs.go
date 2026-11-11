@@ -85,6 +85,7 @@ func (u ui) funcs() template.FuncMap {
 		"quiet":    u.quiet,
 		"ruleText": u.ruleText,
 		"loadMsg":  u.loadMsg,
+		"isRepo":   func(le model.LoadError) bool { return le.File == model.RepoFile },
 		"words":    u.words,
 		"jobKey":   jobKey,
 		"runKey":   runKey,

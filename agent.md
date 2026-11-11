@@ -9,7 +9,7 @@ Erfolg oder Ausbleiben melden (Apprise, E-Mail). Geschwister von Andon
 Integration. Anforderungen: `LASTENHEFT.md`.
 
 ## Grundsätze
-- Jobs gehören nicht zu Jidoka: Ordner unter `/jobs`, gelesen beim Start.
+- Jobs gehören nicht zu Jidoka: Ordner im privaten Repo `jidoka-jobs`, von Jidoka nach `/data/jobs` geholt (`JOBS_REPO`; ohne: Ordner `/jobs`), beim Start und bei jedem Neuladen.
   Die Oberfläche bearbeitet keine Jobs.
 - Jidoka meldet selbst; es braucht Andon nicht, Andon braucht Jidoka nicht.
 - Geheimnisse nie in Log, Ausgabe, Seite oder API.

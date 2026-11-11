@@ -1,10 +1,13 @@
 package jobs
 
 import (
+	"context"
 	"database/sql"
+	"errors"
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"jidoka/internal/db"
@@ -153,5 +156,94 @@ func TestBrokenSettingsKeepOldAcrossRestart(t *testing.T) {
 	}
 	if cur := s2.Current(); cur.Settings.MaxParallel != 7 || cur.SettingsErr == nil {
 		t.Errorf("restart: %+v err %v", cur.Settings, cur.SettingsErr)
+	}
+}
+
+// fakeRepo stands in for the git driver; fail makes the next Sync fail.
+type fakeRepo struct {
+	calls int
+	fail  error
+	apply func()
+}
+
+func (f *fakeRepo) Sync(context.Context) error {
+	f.calls++
+	if f.fail != nil {
+		return f.fail
+	}
+	if f.apply != nil {
+		f.apply()
+	}
+	return nil
+}
+
+func TestRepoFailureKeepsOldStateAndRecovers(t *testing.T) {
+	dir := t.TempDir()
+	putJob(t, dir, "a", "echo 1\n")
+	repo := &fakeRepo{}
+
+	s := New(open(t), dir)
+	s.UseRepo(repo)
+	if err := s.Load(); err != nil {
+		t.Fatal(err)
+	}
+	if s.Current().RepoErr != nil {
+		t.Fatalf("RepoErr after a good fetch: %+v", s.Current().RepoErr)
+	}
+
+	repo.fail = errors.New("gitea down")
+	d, err := s.Reload()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cur := s.Current()
+	if cur.RepoErr == nil || cur.RepoErr.File != model.RepoFile || !strings.Contains(cur.RepoErr.Msg, "gitea down") {
+		t.Fatalf("RepoErr: %+v", cur.RepoErr)
+	}
+	if _, ok := s.Job("a"); !ok {
+		t.Error("last state lost")
+	}
+	if !slices.Contains(d.Invalid, model.RepoFile) || len(d.Removed) != 0 {
+		t.Errorf("diff: %+v", d)
+	}
+
+	// The fetch works again and brings a job: the error is gone.
+	repo.fail = nil
+	repo.apply = func() { putJob(t, dir, "b", "echo 1\n") }
+	d, err = s.Reload()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Current().RepoErr != nil || !slices.Equal(d.Added, []string{"b"}) {
+		t.Errorf("recovery: %+v %+v", s.Current().RepoErr, d)
+	}
+}
+
+// First start without a checkout: no jobs, and the error shows.
+func TestRepoFailureOnFirstStart(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "jobs")
+	s := New(open(t), dir)
+	s.UseRepo(&fakeRepo{fail: errors.New("no token")})
+
+	if err := s.Load(); err != nil {
+		t.Fatal(err)
+	}
+	cur := s.Current()
+	if cur.RepoErr == nil || len(cur.Jobs) != 0 {
+		t.Errorf("set: %+v", cur)
+	}
+}
+
+func TestBaseURLOverride(t *testing.T) {
+	dir := t.TempDir()
+	put(t, dir, "jidoka.toml", "base_url = \"https://file.example\"\n")
+
+	s := New(open(t), dir)
+	s.SetBaseURL("https://env.example")
+	if err := s.Load(); err != nil {
+		t.Fatal(err)
+	}
+	if got := s.Current().Settings.BaseURL; got != "https://env.example" {
+		t.Errorf("BaseURL %q", got)
 	}
 }

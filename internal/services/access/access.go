@@ -2,7 +2,7 @@
 // pages (Z1), API tokens with rights (Z2), CSRF tokens (Z4).
 //
 //	browser ──► /auth/oidc/login ──► authentik ──► /auth/oidc/callback
-//	                 state, nonce, verifier (memory, 10 min)   │ sub or group allowed?
+//	                 state, nonce, verifier (memory, 10 min)   │ optional sub/group limit
 //	                                                           ▼
 //	                              session: cookie token, DB holds its hash
 //
@@ -21,8 +21,8 @@ type Config struct {
 	Issuer       string // OIDC_ISSUER
 	ClientID     string // OIDC_CLIENT_ID
 	ClientSecret string // OIDC_CLIENT_SECRET
-	AllowSub     string // OIDC_ALLOW_SUB: the one account by its sub
-	AllowGroup   string // OIDC_ALLOW_GROUP: or by a group claim
+	AllowSub     string // OIDC_ALLOW_SUB: optional, only this account (by sub)
+	AllowGroup   string // OIDC_ALLOW_GROUP: optional, or this group claim
 	Dev          bool   // JIDOKA_DEV: login without OIDC, never in a release build
 }
 

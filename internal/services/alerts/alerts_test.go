@@ -896,6 +896,39 @@ func TestReloadKeepsFailDisturbance(t *testing.T) {
 	}
 }
 
+// A failing job whose file then breaks and is repaired has not run well:
+// the repair gives back the failure, no "recovered", and only a good run
+// ends it.
+func TestRepairedFileRestoresFailure(t *testing.T) {
+	h := newHarness(t)
+	h.set.Settings.Profiles["standard"][0].On = []model.Event{model.EvFail, model.EvInvalid}
+	h.set.Settings.Profiles["standard"][1].On = []model.Event{model.EvRecover}
+	a := h.job("a", nil)
+	h.done(a, model.RunFail, day(1), AttemptFinal, nil)
+	h.tick()
+	_ = h.eng.Invalid(model.LoadError{Job: "a", File: "a/job.toml", Msg: "bad"})
+	h.tick()
+	h.wantApprise(2)
+
+	_ = h.eng.Reloaded(Reload{Fixed: []string{"a"}})
+	h.tick()
+	h.wantApprise(2)
+	d, _ := h.store.Disturbance("a")
+	if d == nil || d.Event != model.EvFail {
+		t.Fatalf("after the repair: %+v", d)
+	}
+
+	h.done(a, model.RunOK, day(2), AttemptFinal, nil)
+	h.tick()
+	h.wantApprise(3)
+	if !strings.Contains(h.apprises[2].msg.Title, "erholt") {
+		t.Errorf("last = %q", h.apprises[2].msg.Title)
+	}
+	if d, _ := h.store.Disturbance("a"); d != nil {
+		t.Errorf("still open: %+v", d)
+	}
+}
+
 func TestTailAndAttach(t *testing.T) {
 	h := newHarness(t)
 	out := ""

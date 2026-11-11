@@ -21,10 +21,11 @@ type Alert struct {
 	RunID    int64     // 0 = none
 	Name     string
 	Detail   string
+	Prev     model.Event       // kind before "invalid" took over; "" = none
 	Sent     map[int]time.Time // rule index -> last message
 }
 
-const alertCols = "job, event, since, streak, last_slot, run_id, name, detail, sent"
+const alertCols = "job, event, since, streak, last_slot, run_id, name, detail, sent, prev_event"
 
 func scanAlert(s scanner) (Alert, error) {
 	var (
@@ -32,13 +33,13 @@ func scanAlert(s scanner) (Alert, error) {
 		event, since string
 		slot         sql.NullString
 		runID        sql.NullInt64
-		sent         string
+		sent, prev   string
 	)
-	err := s.Scan(&a.Job, &event, &since, &a.Streak, &slot, &runID, &a.Name, &a.Detail, &sent)
+	err := s.Scan(&a.Job, &event, &since, &a.Streak, &slot, &runID, &a.Name, &a.Detail, &sent, &prev)
 	if err != nil {
 		return a, err
 	}
-	a.Event, a.RunID = model.Event(event), runID.Int64
+	a.Event, a.RunID, a.Prev = model.Event(event), runID.Int64, model.Event(prev)
 
 	if a.Since, err = parseTime(since); err != nil {
 		return a, err
@@ -99,7 +100,7 @@ func alertArgs(a Alert) ([]any, error) {
 		runID = a.RunID
 	}
 	return []any{a.Job, string(a.Event), db.TimeStr(a.Since), a.Streak, slot, runID,
-		a.Name, a.Detail, sent}, nil
+		a.Name, a.Detail, sent, string(a.Prev)}, nil
 }
 
 // GetAlert returns the open alert of job; ErrNotFound when there is none.

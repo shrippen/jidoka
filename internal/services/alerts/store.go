@@ -21,6 +21,9 @@ type Disturbance struct {
 	RunID    int64     // last run that belongs to it, 0 = none
 	Name     string    // shown when the job is gone from the Set
 	Detail   string    // invalid: file, line, message
+	// Prev is the kind the disturbance had when a broken file made it
+	// "invalid"; the repair restores it. "" = it began as invalid.
+	Prev model.Event
 
 	// Sent holds, per rule index, when the rule last queued a message
 	// (first message or reminder). A missing entry = rule has not spoken.

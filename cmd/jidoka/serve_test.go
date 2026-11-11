@@ -183,3 +183,31 @@ func TestStartClosesRepoDisturbance(t *testing.T) {
 		t.Errorf("still open after a good start: %+v", d)
 	}
 }
+
+// A jobs folder that cannot be read is no jidoka.toml problem, yet it is
+// trouble: neither start nor reload may close it as fixed.
+func TestMissingJobsDirStaysOpen(t *testing.T) {
+	t.Setenv(envData, t.TempDir())
+	t.Setenv(envJobs, filepath.Join(t.TempDir(), "gone"))
+	t.Setenv(envKey, "")
+
+	a, err := build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.db.Close()
+	if err := a.start(); err != nil {
+		t.Fatal(err)
+	}
+
+	store := alerts.NewDBStore(a.db)
+	if d, _ := store.Disturbance(alerts.KeyGlobal); d == nil {
+		t.Fatal("start closed the disturbance")
+	}
+	if _, err := a.jobs.Reload(); err != nil {
+		t.Fatal(err)
+	}
+	if d, _ := store.Disturbance(alerts.KeyGlobal); d == nil {
+		t.Error("reload closed the disturbance")
+	}
+}

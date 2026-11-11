@@ -328,13 +328,24 @@ func fixed(set model.Set) []string {
 	for id := range set.Jobs {
 		ids = append(ids, id)
 	}
-	if set.SettingsErr == nil {
+	if set.SettingsErr == nil && !folderUnreadable(set) {
 		ids = append(ids, alerts.KeyGlobal)
 	}
 	if set.RepoErr == nil {
 		ids = append(ids, alerts.KeyRepo)
 	}
 	return ids
+}
+
+// folderUnreadable: the jobs folder itself failed (an error without a job),
+// which the engine files under KeyGlobal too.
+func folderUnreadable(set model.Set) bool {
+	for _, le := range set.Invalid {
+		if le.Job == "" {
+			return true
+		}
+	}
+	return false
 }
 
 // reportInvalid raises "invalid" for every file that did not load; the

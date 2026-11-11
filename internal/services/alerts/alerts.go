@@ -351,12 +351,28 @@ func (e *Engine) recoverable(id string) (open, announced bool, err error) {
 	return true, len(d.Sent) > 0, nil
 }
 
+// prevKind is what a repair of an "invalid" disturbance gives back: the
+// kind it had before, when ev turns it into invalid. Any other kind ends
+// the memory.
+func prevKind(d *Disturbance, ev model.Event) model.Event {
+	if d == nil || ev != model.EvInvalid || d.Event == model.EvInvalid {
+		return ""
+	}
+	return d.Event
+}
+
 // recoverOf closes an invalid-file disturbance and sends recover. Any
 // other kind (a failing run) stays: only a good run ends it.
 func (e *Engine) recoverOf(set model.Set, sub subject, now time.Time, run *model.Run) error {
 	d, err := e.cfg.Store.Disturbance(sub.id)
 	if err != nil || d == nil || d.Event != model.EvInvalid {
 		return err
+	}
+
+	// The job never ran well: give the earlier trouble back, say nothing.
+	if d.Prev != "" {
+		d.Event, d.Prev, d.Detail = d.Prev, "", ""
+		return e.cfg.Store.SaveDisturbance(*d)
 	}
 
 	if len(d.Sent) > 0 {
@@ -459,6 +475,7 @@ func (e *Engine) disturb(set model.Set, sub subject, ev model.Event, run *model.
 	if d == nil {
 		d = &Disturbance{Job: sub.id, Since: endOf(*run, now), Sent: map[int]time.Time{}}
 	}
+	d.Prev = prevKind(d, ev)
 	d.Event, d.Name, d.Detail = ev, sub.name, detail
 	if run.ID != 0 {
 		d.RunID = run.ID

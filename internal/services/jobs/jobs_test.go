@@ -54,7 +54,6 @@ func open(t *testing.T) *sql.DB {
 
 func TestReloadDiff(t *testing.T) {
 	dir := t.TempDir()
-	put(t, dir, "jidoka.toml", "[[profiles.standard]]\non = [\"fail\"]\nchannels = [\"mail\"]\n")
 	putJob(t, dir, "keep", "echo 1\n")
 	putJob(t, dir, "edit", "echo 1\n")
 	putJob(t, dir, "gone", "echo 1\n")
@@ -124,11 +123,26 @@ func TestEnsureSeen(t *testing.T) {
 	}
 }
 
-func TestBrokenSettingsKeepOldAcrossRestart(t *testing.T) {
+// storeSettings saves a settings document like the settings page does.
+func storeSettings(t *testing.T, d *sql.DB, doc string) {
+	t.Helper()
+
+	err := db.WithTx(d, func(tx *sql.Tx) error { return repos.PutSettings(tx, doc) })
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+const standardOnly = "[[profiles.standard]]\non = [\"fail\"]\nchannels = [\"mail\"]\n"
+
+// The stored settings apply at start and survive a restart; a jidoka.toml
+// in the jobs folder is not read.
+func TestStoredSettingsApply(t *testing.T) {
 	dir := t.TempDir()
 	d := open(t)
 	putJob(t, dir, "a", "echo\n")
-	put(t, dir, "jidoka.toml", "max_parallel = 7\n[[profiles.standard]]\non = [\"fail\"]\nchannels = [\"mail\"]\n")
+	put(t, dir, "jidoka.toml", "max_parallel = 3\n"+standardOnly)
+	storeSettings(t, d, "max_parallel = 7\n"+standardOnly)
 
 	s := New(d, dir)
 	if err := s.Load(); err != nil {
@@ -138,27 +152,51 @@ func TestBrokenSettingsKeepOldAcrossRestart(t *testing.T) {
 		t.Fatalf("MaxParallel %d", got)
 	}
 
-	put(t, dir, "jidoka.toml", "max_parallel = [\n")
-
-	// Same process: Reload keeps the old values.
-	diff, err := s.Reload()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if cur := s.Current(); cur.Settings.MaxParallel != 7 || cur.SettingsErr == nil {
-		t.Errorf("reload: %+v", cur.Settings)
-	}
-	if !slices.Contains(diff.Invalid, "jidoka.toml") {
-		t.Errorf("diff: %+v", diff)
-	}
-
-	// New process on the same database.
 	s2 := New(d, dir)
 	if err := s2.Load(); err != nil {
 		t.Fatal(err)
 	}
-	if cur := s2.Current(); cur.Settings.MaxParallel != 7 || cur.SettingsErr == nil {
-		t.Errorf("restart: %+v err %v", cur.Settings, cur.SettingsErr)
+	if got := s2.Current().Settings.MaxParallel; got != 7 {
+		t.Errorf("restart: MaxParallel %d", got)
+	}
+}
+
+// Changed settings check every job again, without a fetch: a job that names
+// a profile that is gone turns invalid at once, and the hooks hear of it.
+func TestRevalidateChecksJobs(t *testing.T) {
+	dir := t.TempDir()
+	d := open(t)
+	put(t, dir, "a/job.toml", jobTOML+"notify_profile = \"leise\"\n")
+	put(t, dir, "a/run.sh", "#!/bin/sh\n")
+	storeSettings(t, d, standardOnly+"[[profiles.leise]]\non = [\"fail\"]\nchannels = [\"mail\"]\n")
+
+	repo := &fakeRepo{}
+	s := New(d, dir)
+	s.UseRepo(repo)
+	if err := s.Load(); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := s.Job("a"); !ok {
+		t.Fatalf("not loaded: %+v", s.Current().Invalid)
+	}
+
+	var heard Diff
+	s.OnReload(func(d Diff, _ model.Set) { heard = d })
+
+	storeSettings(t, d, standardOnly)
+	diff, err := s.Revalidate()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, ok := s.Job("a"); ok || !slices.Contains(diff.Invalid, "a") || !slices.Contains(diff.Removed, "a") {
+		t.Errorf("job still valid: diff %+v invalid %+v", diff, s.Current().Invalid)
+	}
+	if !slices.Equal(heard.Invalid, diff.Invalid) {
+		t.Errorf("hook heard %+v", heard)
+	}
+	if repo.calls != 1 {
+		t.Errorf("fetches: %d, want only the one of Load", repo.calls)
 	}
 }
 
@@ -239,9 +277,10 @@ func TestRepoFailureOnFirstStart(t *testing.T) {
 
 func TestBaseURLOverride(t *testing.T) {
 	dir := t.TempDir()
-	put(t, dir, "jidoka.toml", "base_url = \"https://file.example\"\n")
+	d := open(t)
+	storeSettings(t, d, "base_url = \"https://stored.example\"\n"+standardOnly)
 
-	s := New(open(t), dir)
+	s := New(d, dir)
 	s.SetBaseURL("https://env.example")
 	if err := s.Load(); err != nil {
 		t.Fatal(err)
@@ -251,64 +290,33 @@ func TestBaseURLOverride(t *testing.T) {
 	}
 }
 
-const savedSettings = `
-[channels.apprise]
-url = "http://apprise:8000/notify"
+// Nothing stored: the defaults of a fresh install, with the standard
+// profile. A stored document that does not load is logged and replaced
+// by them, so the page can still open and repair it.
+func TestNoStoredSettingsMeansDefaults(t *testing.T) {
+	var buf bytes.Buffer
+	old := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, nil)))
+	t.Cleanup(func() { slog.SetDefault(old) })
 
-[[profiles.standard]]
-on = ["fail"]
-channels = ["apprise"]
-`
-
-// B8: the last valid settings outlive a restart. Whether the file is gone
-// or broken afterwards, the new process uses the saved copy (channels and
-// profiles), and says so in SettingsFrom.
-func TestSavedSettingsSurviveRestart(t *testing.T) {
-	for name, after := range map[string]func(dir string){
-		"missing": func(dir string) { _ = os.Remove(filepath.Join(dir, "jidoka.toml")) },
-		"broken":  func(dir string) { put(t, dir, "jidoka.toml", "zone = [\n") },
-	} {
-		dir := t.TempDir()
-		d := open(t)
-		putJob(t, dir, "a", "echo\n")
-		put(t, dir, "jidoka.toml", savedSettings)
-
-		first := New(d, dir)
-		if err := first.Load(); err != nil {
-			t.Fatal(err)
-		}
-		if first.Current().SettingsFrom != model.SettingsFile {
-			t.Fatalf("%s: from %q", name, first.Current().SettingsFrom)
-		}
-
-		after(dir)
-
-		second := New(d, dir)
-		if err := second.Load(); err != nil {
-			t.Fatal(err)
-		}
-		cur := second.Current()
-		if cur.SettingsErr == nil || cur.Settings.Apprise == nil || len(cur.Settings.Profiles["standard"]) != 1 {
-			t.Errorf("%s: err %v settings %+v", name, cur.SettingsErr, cur.Settings)
-		}
-		if cur.SettingsFrom != model.SettingsSaved {
-			t.Errorf("%s: from %q, want saved", name, cur.SettingsFrom)
-		}
-	}
-}
-
-// Never a valid file: defaults, and the set says so.
-func TestNoSavedSettingsMeansDefaults(t *testing.T) {
 	dir := t.TempDir()
 	putJob(t, dir, "a", "echo\n")
+	d := open(t)
 
-	s := New(open(t), dir)
+	s := New(d, dir)
 	if err := s.Load(); err != nil {
 		t.Fatal(err)
 	}
-	cur := s.Current()
-	if cur.SettingsErr == nil || cur.SettingsFrom != model.SettingsDefaults {
-		t.Errorf("err %v from %q", cur.SettingsErr, cur.SettingsFrom)
+	if len(s.Current().Settings.Profiles["standard"]) != 1 {
+		t.Errorf("settings %+v", s.Current().Settings)
+	}
+
+	storeSettings(t, d, "zone = [\n")
+	if _, err := s.Reload(); err != nil {
+		t.Fatal(err)
+	}
+	if len(s.Current().Settings.Profiles["standard"]) != 1 || !strings.Contains(buf.String(), "stored settings invalid") {
+		t.Errorf("settings %+v, log %q", s.Current().Settings, buf.String())
 	}
 }
 

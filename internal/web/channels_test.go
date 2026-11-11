@@ -13,8 +13,11 @@ import (
 // "reachable": reachability is unknown until a send went through.
 func TestChannelUnchecked(t *testing.T) {
 	b, s := seeded(t)
-	b.put("jidoka.toml", "[channels.mail]\nsmtp = \"h:25\"\nfrom = \"a@b\"\nto = [\"c@d\"]\n\n"+
+	err := repos.PutSettings(b.db, "[channels.mail]\nsmtp = \"h:25\"\nfrom = \"a@b\"\nto = [\"c@d\"]\n\n"+
 		"[[profiles.standard]]\non = [\"fail\"]\nchannels = [\"mail\"]\n")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := b.jobs.Load(); err != nil {
 		t.Fatal(err)
 	}
@@ -31,7 +34,7 @@ func TestChannelUnchecked(t *testing.T) {
 		t.Errorf("no delivery: page says reachable")
 	}
 
-	_, err := repos.AddDelivery(b.db, model.Delivery{Job: "bad", Event: model.EvFail,
+	_, err = repos.AddDelivery(b.db, model.Delivery{Job: "bad", Event: model.EvFail,
 		Channel: "mail", At: time.Now(), OK: true})
 	if err != nil {
 		t.Fatal(err)

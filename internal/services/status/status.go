@@ -99,7 +99,7 @@ type Status struct {
 	// Commit is the jobs commit of the last load.
 	Commit     string
 	ReloadedAt time.Time
-	// Invalid counts the files that did not load, jidoka.toml included.
+	// Invalid counts the files that did not load.
 	Invalid  int
 	Channels []alerts.ChannelHealth
 	// LastTick is when the planner last ticked; zero before the first.
@@ -123,27 +123,11 @@ func (s *Service) Status() Status {
 	return st
 }
 
-// settingsText is the catalog key of the banner for the settings in force:
-// none at all (no channels, also when only the jobs folder failed), the
-// saved copy of a jidoka.toml that did not load, or "" for the file.
-func settingsText(set model.Set) string {
-	switch {
-	case set.SettingsFrom == model.SettingsDefaults:
-		return "board.invalid_settings_none"
-	case set.SettingsErr == nil:
-		return ""
-	}
-	return "board.invalid_settings"
-}
-
-// loadErrors lists every file that did not load: the repo fetch, then jidoka.toml (O9).
+// loadErrors lists every file that did not load: the repo fetch first (O9).
 func loadErrors(set model.Set) []model.LoadError {
 	out := []model.LoadError{}
 	if set.RepoErr != nil {
 		out = append(out, *set.RepoErr)
-	}
-	if set.SettingsErr != nil {
-		out = append(out, *set.SettingsErr)
 	}
 	return append(out, set.Invalid...)
 }

@@ -13,10 +13,9 @@ import (
 )
 
 const (
-	settingsFile = "jidoka.toml"
-	jobFile      = "job.toml"
-	watchFile    = "watch.toml"
-	scriptFile   = "run.sh"
+	jobFile    = "job.toml"
+	watchFile  = "watch.toml"
+	scriptFile = "run.sh"
 
 	dirMode    = 0o755
 	fileMode   = 0o644
@@ -27,19 +26,14 @@ const (
 	prefixEnd   = placeEnd + " "
 )
 
-// writeJobs writes jidoka.toml and one folder per job: job.toml (or
-// watch.toml) from the world's config, and for jobs a small script.
+// writeJobs writes one folder per job: job.toml (or watch.toml) from the
+// world's config, and for jobs a small script.
 //
-//	<dir>/jidoka.toml
 //	<dir>/<id>/job.toml + run.sh     <dir>/<id>/watch.toml
 func writeJobs(dir string, d data) error {
 	if err := os.MkdirAll(dir, dirMode); err != nil {
 		return err
 	}
-	if err := writeTOML(filepath.Join(dir, settingsFile), d.Settings); err != nil {
-		return err
-	}
-
 	for _, def := range d.Jobs {
 		if err := writeJob(filepath.Join(dir, def.ID), def); err != nil {
 			return fmt.Errorf("job %s: %w", def.ID, err)
@@ -66,12 +60,22 @@ func writeJob(dir string, def jobDef) error {
 }
 
 func writeTOML(path string, v map[string]any) error {
-	var buf bytes.Buffer
-	if err := toml.NewEncoder(&buf).Encode(tomlValue(v)); err != nil {
+	doc, err := tomlDoc(v)
+	if err != nil {
 		return err
 	}
 
-	return os.WriteFile(path, buf.Bytes(), fileMode)
+	return os.WriteFile(path, doc, fileMode)
+}
+
+// tomlDoc is v as a TOML document.
+func tomlDoc(v map[string]any) ([]byte, error) {
+	var buf bytes.Buffer
+	if err := toml.NewEncoder(&buf).Encode(tomlValue(v)); err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
 }
 
 // scriptText is a tiny script: it sleeps, prints the world's lines,

@@ -27,6 +27,7 @@ func newIssues(job, file, src string) *issues {
 // occurrence of an array table ([[notify]] #2 is idx 1), or anyIdx.
 func (is *issues) at(sect string, idx int, key string, msg i18n.Msg) {
 	is.atLine(findLine(is.lines, sect, idx, key), msg)
+	is.list[len(is.list)-1].Field = joinKey(sect, key)
 }
 
 // atLine records an error with a known line (TOML syntax errors).

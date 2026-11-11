@@ -107,12 +107,21 @@ func newEnv(t *testing.T) *env {
 
 	e := &env{t: t, d: d, dir: t.TempDir(), clk: &clock{t: time.Now().UTC().Truncate(time.Second)}}
 	e.jobs = jobs.New(d, e.dir)
-	put(t, e.dir, "jidoka.toml", "[[profiles.standard]]\non = [\"fail\"]\nchannels = [\"mail\"]\n")
 	e.plan = plan.New(plan.Config{DB: d, Exec: noExec{}, Now: e.clk.Now})
 	e.w = watch.New(watch.Config{DB: d, Now: e.clk.Now})
 	e.sec = secrets.New(d)
 	e.svc = New(Deps{DB: d, Jobs: e.jobs, Plan: e.plan, Watch: e.w, Secrets: e.sec, Now: e.clk.Now, Version: "test"})
 	return e
+}
+
+// settings stores the settings document, as the settings page does.
+func (e *env) settings(doc string) {
+	e.t.Helper()
+
+	err := db.WithTx(e.d, func(tx *sql.Tx) error { return repos.PutSettings(tx, doc) })
+	if err != nil {
+		e.t.Fatal(err)
+	}
 }
 
 // run stores a finished run of job, started ago before the clock.
@@ -340,7 +349,7 @@ func TestRemovedJobs(t *testing.T) {
 func TestTimetableAcrossDST(t *testing.T) {
 	e := newEnv(t)
 	berlin, _ := time.LoadLocation("Europe/Berlin")
-	put(t, e.dir, "jidoka.toml", "zone = \"Europe/Berlin\"\n[[profiles.standard]]\non = [\"fail\"]\nchannels = [\"mail\"]\n")
+	e.settings("zone = \"Europe/Berlin\"\n[[profiles.standard]]\non = [\"fail\"]\nchannels = [\"mail\"]\n")
 	e.job("nightly", "schedule = \"30 2 * * *\"\nzone = \"Europe/Berlin\"\n")
 	e.start()
 
@@ -409,7 +418,6 @@ func TestJobPage(t *testing.T) {
 	t.Cleanup(func() { crypto.Init(nil) })
 
 	e := newEnv(t)
-	put(t, e.dir, "jidoka.toml", "[[profiles.standard]]\non = [\"fail\"]\nchannels = [\"mail\"]\n")
 	e.job("own", "secrets = [\"HAVE\", \"LACK\"]\n[[notify]]\non = [\"fail\", \"recover\"]\nchannels = [\"mail\"]\n")
 	e.job("prof", "notify_profile = \"standard\"\n")
 	e.watch("beat", "")
@@ -496,7 +504,7 @@ func TestSecretsPage(t *testing.T) {
 	t.Cleanup(func() { crypto.Init(nil) })
 
 	e := newEnv(t)
-	put(t, e.dir, "jidoka.toml", "heartbeat = \"5m\"\n[channels.apprise]\nurl = \"http://x/notify\"\n[[profiles.standard]]\non = [\"fail\"]\nchannels = [\"mail\"]\n")
+	e.settings("heartbeat = \"5m\"\n[channels.apprise]\nurl = \"http://x/notify\"\n[[profiles.standard]]\non = [\"fail\"]\nchannels = [\"mail\"]\n")
 	e.job("one", "secrets = [\"SHARED\", \"MISSING_ONE\"]\n")
 	e.job("two", "secrets = [\"SHARED\"]\n")
 	e.start()
@@ -541,7 +549,7 @@ func TestSecretsPage(t *testing.T) {
 
 func TestChannelsPage(t *testing.T) {
 	e := newEnv(t)
-	put(t, e.dir, "jidoka.toml", `
+	e.settings(`
 quiet = "22:00-07:00"
 [channels.apprise]
 url  = "http://x/notify"
@@ -596,55 +604,6 @@ func TestStatus(t *testing.T) {
 	st := e.svc.Status()
 	if st.Version != "test" || st.Invalid != 1 || st.LastTick.IsZero() || st.ReloadedAt.IsZero() {
 		t.Errorf("status: %+v", st)
-	}
-}
-
-// The banner of a missing jidoka.toml says whether a saved copy applies.
-func TestSettingsBannerText(t *testing.T) {
-	e := newEnv(t)
-	e.job("a", "")
-	e.start()
-	if b, _ := e.svc.Board(); b.SettingsText != "" {
-		t.Errorf("valid file: text %q", b.SettingsText)
-	}
-
-	if err := os.Remove(filepath.Join(e.dir, "jidoka.toml")); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := e.jobs.Reload(); err != nil {
-		t.Fatal(err)
-	}
-	b, _ := e.svc.Board()
-	if b.SettingsText != "board.invalid_settings" {
-		t.Errorf("saved copy: text %q", b.SettingsText)
-	}
-	if c, _ := e.svc.Channels(); c.SettingsText != "board.invalid_settings" {
-		t.Errorf("channels: text %q", c.SettingsText)
-	}
-
-	// A second process on the same folder, but a fresh database: no copy.
-	f := newEnv(t)
-	f.dir = e.dir
-	f.jobs = jobs.New(f.d, e.dir)
-	f.svc = New(Deps{DB: f.d, Jobs: f.jobs, Plan: f.plan, Watch: f.w, Secrets: f.sec, Now: f.clk.Now, Version: "test"})
-	f.start()
-	if b, _ := f.svc.Board(); b.SettingsText != "board.invalid_settings_none" {
-		t.Errorf("no copy: text %q", b.SettingsText)
-	}
-}
-
-// An unreadable jobs folder without a saved jidoka.toml leaves Jidoka
-// without channels: the board must say so (B8), also with no SettingsErr.
-func TestUnreadableDirBannerText(t *testing.T) {
-	e := newEnv(t)
-	e.dir = filepath.Join(e.dir, "missing")
-	e.jobs = jobs.New(e.d, e.dir)
-	e.svc = New(Deps{DB: e.d, Jobs: e.jobs, Plan: e.plan, Watch: e.w, Secrets: e.sec, Now: e.clk.Now, Version: "test"})
-	e.start()
-
-	b, _ := e.svc.Board()
-	if b.SettingsText != "board.invalid_settings_none" {
-		t.Errorf("unreadable folder, no copy: text %q", b.SettingsText)
 	}
 }
 

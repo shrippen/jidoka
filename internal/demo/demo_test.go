@@ -55,7 +55,36 @@ func prepare(t *testing.T, lang string) fixture {
 	}
 	t.Cleanup(func() { conn.Close() })
 
-	return fixture{dir: dir, now: now, set: conf.Load(jobs, nil), conn: conn}
+	return fixture{dir: dir, now: now, set: loadSet(t, conn, jobs), conn: conn}
+}
+
+// loadSet loads the jobs against the settings the demo stored in the
+// database.
+func loadSet(t *testing.T, conn *sql.DB, jobs string) model.Set {
+	t.Helper()
+
+	doc, ok, err := repos.GetSettings(conn)
+	if err != nil || !ok {
+		t.Fatalf("stored settings: %v %v", ok, err)
+	}
+	st, lerr := conf.ParseSettings([]byte(doc))
+	if lerr != nil {
+		t.Fatalf("settings: %+v", lerr)
+	}
+
+	return conf.Load(jobs, st, conf.CheckFull)
+}
+
+// The settings are in the database; the jobs folder holds only jobs.
+func TestSettingsInDatabase(t *testing.T) {
+	f := prepare(t, "en")
+
+	if _, err := os.Stat(filepath.Join(f.dir, jobsDir, "jidoka.toml")); err == nil {
+		t.Error("jidoka.toml written")
+	}
+	if len(f.set.Settings.Profiles["standard"]) == 0 || f.set.Settings.Mail == nil {
+		t.Errorf("settings: %+v", f.set.Settings)
+	}
 }
 
 func (f fixture) runs(t *testing.T, id string) []model.Run {
@@ -349,7 +378,13 @@ func TestPrepareAgain(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	set := conf.Load(jobs, nil)
+	conn, err := db.Open(filepath.Join(f.dir, dbFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+
+	set := loadSet(t, conn, jobs)
 	if set.Jobs["dyndns"] == nil {
 		t.Error("jobs missing after the second run")
 	}

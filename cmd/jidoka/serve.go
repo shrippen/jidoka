@@ -27,11 +27,12 @@ import (
 	"jidoka/internal/services/plan"
 	"jidoka/internal/services/runs"
 	"jidoka/internal/services/secrets"
+	"jidoka/internal/services/settings"
 	"jidoka/internal/services/status"
 	"jidoka/internal/services/watch"
 )
 
-// Environment of the server (B2). Everything else is in /jobs/jidoka.toml
+// Environment of the server (B2). Everything else is on the settings page
 // or a secret.
 const (
 	envData    = "DATA_DIR"
@@ -67,6 +68,7 @@ type app struct {
 	db      *sql.DB
 	secrets *secrets.Service
 	jobs    *jobs.Service
+	conf    *settings.Service
 	runs    *runs.Service
 	plan    *plan.Planner
 	watch   *watch.Watch
@@ -148,6 +150,9 @@ func build() (*app, error) {
 	a := &app{db: d, listen: envOr(envListen, defListen), states: map[string]model.JobState{}}
 	a.secrets = secrets.New(d)
 	a.jobs = newJobs(d, dataDir)
+	a.conf = settings.New(settings.Config{
+		DB: d, Jobs: a.jobs, Secrets: a.secrets, BaseURLEnv: os.Getenv(envBaseURL),
+	})
 	a.runs = runs.New(d, a.secrets, runs.Config{
 		DataDir: dataDir, Shim: os.Getenv(envShim), UIDBase: uidBase, CacheLimit: cacheLimit,
 	})
@@ -338,9 +343,9 @@ func (a *app) reloaded(d jobs.Diff, set model.Set) {
 	a.watch.Apply(set)
 	a.reportInvalid(set)
 
-	// Also with an empty diff: a repaired jidoka.toml changes no job but
-	// ends its disturbance. The engine sends "jobs changed" only when
-	// jobs changed.
+	// Also with an empty diff: a repaired jobs repo or a changed profile
+	// changes no job but ends a disturbance. The engine sends "jobs
+	// changed" only when jobs changed.
 	r := alerts.Reload{Added: d.Added, Changed: d.Changed, Removed: d.Removed, Fixed: fixed(set), Known: known(set)}
 	logErr("alert reload", a.alerts.Reloaded(r))
 }
@@ -352,7 +357,7 @@ func fixed(set model.Set) []string {
 	for id := range set.Jobs {
 		ids = append(ids, id)
 	}
-	if set.SettingsErr == nil && !folderUnreadable(set) {
+	if !folderUnreadable(set) {
 		ids = append(ids, alerts.KeyGlobal)
 	}
 	if set.RepoErr == nil {
@@ -401,9 +406,6 @@ func (a *app) reportInvalid(set model.Set) {
 	}
 	for _, le := range set.Invalid {
 		logErr("alert invalid", a.alerts.Invalid(le))
-	}
-	if set.SettingsErr != nil {
-		logErr("alert invalid", a.alerts.Invalid(*set.SettingsErr))
 	}
 }
 

@@ -5,6 +5,7 @@ nav:
   channels: Channels
   secrets: Secrets
   access: Access
+  settings: Settings
   andon: Andon
   logout: Sign out
   crumbs: Breadcrumbs
@@ -83,12 +84,11 @@ board:
   filter_tags: Tags
   nothing: Nothing in this filter.
   invalid_job: "Job not loaded: {job}"
-  invalid_settings: jidoka.toml not loaded, the last valid copy applies
-  invalid_settings_none: "jidoka.toml not loaded and no valid copy exists: no channels, no messages"
   invalid_dir: Jobs folder not readable
   invalid_repo: Jobs repo not fetched, the last fetched state applies
   invalid_repo_hint: Check JOBS_REPO, JOBS_REPO_TOKEN and whether Gitea is reachable; the next reload tries again.
   invalid_hint: Fix the file in the jobs repo; Komodo reloads the jobs after the push, or use "Reload jobs" here.
+  no_channel: "No channel configured: alerts are lost."
   channel_down: "Channel {channel} is down"
   channel_since: "Since {since}; messages wait until it is back"
   watch: Watch
@@ -284,7 +284,7 @@ job:
   edit_hint: Change it in the jobs repo, not here.
   rules: Messages
   rules_job: "from {file}"
-  rules_profile: "Profile \"{profile}\" from jidoka.toml"
+  rules_profile: "Profile \"{profile}\" from the settings"
   no_rules: "No rule, this job reports nothing."
   test_rule: Test message for this rule
   ping: Ping address
@@ -292,7 +292,7 @@ job:
   renew: Renew address
 
 channels:
-  lead: Set in jidoka.toml; passwords and keys are under Secrets.
+  lead: Set under Settings; passwords and keys are under Secrets.
   off: not set up
   up: reachable
   unchecked: not checked
@@ -308,7 +308,7 @@ channels:
   profiles: Profiles and quiet hours
   quiet: "Quiet hours {from}–{to}: messages wait and go out together afterwards; priority \"high\" at once."
   no_quiet: No quiet hours set.
-  no_profiles: No profiles in jidoka.toml.
+  no_profiles: No profiles in the settings.
   recent: Recent messages
   no_recent: No message sent yet.
   time: Time
@@ -321,6 +321,61 @@ channels:
   outbox_hint: These messages are not sent yet (quiet hours, digest or channel down).
   due: Due
   attempts: Attempts
+
+settings:
+  lead: "Jidoka's global settings. The job folders in the jobs repo hold only the individual scripts."
+  saved: Saved. Every job was checked again.
+  broken: The stored settings cannot be read. The form shows the defaults; saving replaces them.
+  not_saved: Not saved. Please correct the marked fields.
+  general: General
+  zone: Time zone
+  zone_hint: "Zone of times and schedules, e.g. Europe/Berlin. Empty: Europe/Berlin."
+  locale: Language of messages
+  locale_hint: Language of messages to Apprise and by mail.
+  quiet_from: Quiet hours from
+  quiet_to: Quiet hours to
+  quiet_hint: "HH:MM, e.g. 22:00 to 07:00. Both empty: no quiet hours."
+  heartbeat: Heartbeat
+  heartbeat_hint: "How often Jidoka calls the heartbeat address, e.g. 5m. Empty: off."
+  max_parallel: Parallel runs
+  max_parallel_hint: "Most runs at the same time. Empty: 2."
+  keep: Keep runs (age)
+  keep_runs: Keep runs per job
+  keep_hint: "Older ones are deleted, e.g. 180d. Empty: 180d."
+  keep_runs_hint: "More than this per job are deleted. Empty: 500."
+  base_url: Base URL
+  base_url_hint: Address of Jidoka in links of messages and for the sign-in.
+  base_url_env: Set by BASE_URL and not editable here.
+  andon_url: Andon address
+  andon_url_hint: "Link in the header. Empty: no link."
+  apprise_hint: Empty fields leave the channel out.
+  apprise_url: Apprise API address
+  tags: Sub channels
+  tags_hint: "Name and Apprise tag; rules name them as apprise:<name>."
+  tag_name: Name
+  tag_tag: Apprise tag
+  tag_add: Add sub channel
+  tag_remove: Remove
+  tag_row: Give a name and a tag; each name once.
+  mail_hint: Empty fields leave the channel out.
+  smtp: SMTP server
+  mail_user: User
+  mail_from: Sender
+  mail_to: Recipients
+  mail_to_hint: One address per line.
+  save: Save
+  profiles_hint: Profiles cannot be edited here yet; their editor follows. Saving leaves them as they are.
+  int: Give a whole number.
+  secret_set: set
+  secret_unset: not set
+  secret_keep: leave empty to keep
+  secret_clear: Remove the stored value
+  secret_apprise_key: Apprise key
+  secret_smtp_password: SMTP password
+  secret_heartbeat_url: Heartbeat address
+  secret_hint_apprise_key: "Never shown, a secret"
+  secret_hint_smtp_password: "Never shown, a secret"
+  secret_hint_heartbeat_url: "Never shown, a secret (e.g. push address of Uptime Kuma)"
 
 secrets:
   lead: Encrypted with a key from MASTER_KEY. Values can be set and replaced, never shown again. Jobs get only what they name under secrets in job.toml.
@@ -365,6 +420,7 @@ audit:
   replace: replaced
   delete: deleted
   rotate-key: key rotated
+  settings: settings changed
   pause: paused
   resume: resumed
   run: started by hand
@@ -376,7 +432,6 @@ conf:
   unknown_key: 'unknown key "{key}"'
   io: "Cannot read file: {detail}"
   other: "{detail}"
-  no_settings: "file is missing"
   no_standard: "[[profiles.standard]] required: messages without own rules use it"
   repo: "Fetching the jobs repo failed: {detail}"
   folder: 'folder name "{name}" must match [a-z0-9-]+'
@@ -416,7 +471,7 @@ conf:
   weekday: 'invalid weekday "{day}" (use Mon..Sun)'
   digest: 'invalid digest "{text}" (use "daily HH:MM" or "weekly Mon HH:MM")'
   channel: 'unknown channel "{channel}" (apprise, apprise:<tag>, mail)'
-  tag_undefined: 'apprise tag "{tag}" is not defined in jidoka.toml'
+  tag_undefined: 'apprise tag "{tag}" is not defined in the settings'
 
 cron:
   field:

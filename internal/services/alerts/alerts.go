@@ -41,7 +41,7 @@ const (
 )
 
 const (
-	// KeyGlobal is the disturbance key of a broken jidoka.toml.
+	// KeyGlobal is the disturbance key of an unreadable jobs folder.
 	KeyGlobal = "_settings"
 	// KeyRepo is the disturbance key of a failed fetch of the jobs repo (J1).
 	KeyRepo = "_repo"

@@ -111,7 +111,7 @@ func checkDigest(text string) error {
 }
 
 // checkChannel accepts apprise, apprise:<tag> (tag from settings) and mail.
-func checkChannel(ch string, tags map[string]string) error {
+func checkChannel(ch string, tags map[string]string, check Check) error {
 	if ch == chApprise || ch == chMail {
 		return nil
 	}
@@ -120,7 +120,7 @@ func checkChannel(ch string, tags map[string]string) error {
 	if !ok {
 		return i18n.M("conf.channel", "channel", ch)
 	}
-	if _, ok := tags[sub]; !ok {
+	if _, ok := tags[sub]; !ok && check == CheckFull {
 		return i18n.M("conf.tag_undefined", "tag", sub)
 	}
 

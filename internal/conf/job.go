@@ -60,9 +60,10 @@ type rawWatch struct {
 
 // jobCtx is what building one job needs.
 type jobCtx struct {
-	is  *issues
-	set *model.Settings
-	now time.Time
+	is    *issues
+	set   *model.Settings
+	now   time.Time
+	check Check
 }
 
 // common fills the fields jobs and watches share.
@@ -93,14 +94,14 @@ func (c jobCtx) common(j *model.Job, name, desc, link string, tags []string, zon
 	if c.set.Apprise != nil {
 		tagMap = c.set.Apprise.Tags
 	}
-	j.Rules = buildRules(is, "notify", rules, tagMap)
+	j.Rules = buildRules(is, "notify", rules, tagMap, c.check)
 
 	j.Profile = defaultProfile
 	if profile == "" {
 		return
 	}
 	j.Profile = profile
-	if _, ok := c.set.Profiles[profile]; !ok {
+	if _, ok := c.set.Profiles[profile]; !ok && c.check == CheckFull {
 		is.at("", 0, "notify_profile", i18n.M("conf.unknown_profile", "profile", profile))
 	}
 }

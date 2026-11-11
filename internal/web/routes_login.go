@@ -57,7 +57,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 // baseURL is where the IdP sends the browser back to: base_url of
-// jidoka.toml, else the address the request came in on.
+// the settings, else the address the request came in on.
 func (s *Server) baseURL(r *http.Request) string {
 	if base := s.settings().BaseURL; base != "" {
 		return base

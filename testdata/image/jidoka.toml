@@ -1,4 +1,0 @@
-# Minimal settings of the image test: B8 requires a standard profile.
-[[profiles.standard]]
-on       = ["fail"]
-channels = ["mail"]

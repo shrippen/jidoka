@@ -12,29 +12,29 @@ const tailDefault = -1
 
 // rawRule is one [[notify]] or [[profiles.<name>]] table.
 type rawRule struct {
-	On           []string `toml:"on"`
-	Channels     []string `toml:"channels"`
-	To           []string `toml:"to"`
-	After        int      `toml:"after"`
-	Remind       string   `toml:"remind"`
-	Urgent       bool     `toml:"urgent"`
-	Tail         *int     `toml:"tail"`
-	Digest       string   `toml:"digest"`
-	AttachOutput bool     `toml:"attach_output"`
+	On           []string `toml:"on,omitempty"`
+	Channels     []string `toml:"channels,omitempty"`
+	To           []string `toml:"to,omitempty"`
+	After        int      `toml:"after,omitempty"`
+	Remind       string   `toml:"remind,omitempty"`
+	Urgent       bool     `toml:"urgent,omitempty"`
+	Tail         *int     `toml:"tail,omitempty"`
+	Digest       string   `toml:"digest,omitempty"`
+	AttachOutput bool     `toml:"attach_output,omitempty"`
 }
 
 // buildRules validates the tables of one section (e.g. "notify").
-func buildRules(is *issues, sect string, raws []rawRule, tags map[string]string) []model.Rule {
+func buildRules(is *issues, sect string, raws []rawRule, tags map[string]string, check Check) []model.Rule {
 	var out []model.Rule
 
 	for i, r := range raws {
-		out = append(out, buildRule(is, sect, i, r, tags))
+		out = append(out, buildRule(is, sect, i, r, tags, check))
 	}
 
 	return out
 }
 
-func buildRule(is *issues, sect string, i int, r rawRule, tags map[string]string) model.Rule {
+func buildRule(is *issues, sect string, i int, r rawRule, tags map[string]string, check Check) model.Rule {
 	rule := model.Rule{
 		Channels: r.Channels,
 		To:       r.To,
@@ -63,7 +63,7 @@ func buildRule(is *issues, sect string, i int, r rawRule, tags map[string]string
 		is.at(sect, i, "channels", i18n.M("conf.channels_required"))
 	}
 	for _, ch := range r.Channels {
-		if err := checkChannel(ch, tags); err != nil {
+		if err := checkChannel(ch, tags, check); err != nil {
 			is.atErr(sect, i, "channels", err)
 		}
 	}

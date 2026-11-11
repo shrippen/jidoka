@@ -6,16 +6,6 @@
   <div class="page-head"><h1>{{t "nav.channels"}}</h1></div>
   <p class="muted">{{t "channels.lead"}}</p>
 
-  {{if .SettingsText}}
-  <section class="callout callout-danger" role="alert">
-    <p><strong>✕ {{t .SettingsText}}</strong></p>
-    {{with .SettingsErr}}
-    <p class="mono small">{{.File}}{{if .Line}}:{{.Line}}{{end}}</p>
-    <p>{{loadMsg .}}</p>
-    {{end}}
-  </section>
-  {{end}}
-
   <div class="tiles channel-grid">
     {{range .Rows}}
     <article class="status" data-state="{{if eq .State "down"}}bad{{else if eq .State "lastfailed"}}warn{{else if eq .State "up"}}ok{{else}}off{{end}}">

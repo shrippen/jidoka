@@ -13,7 +13,7 @@ const (
 	daysPerWeek    = 7
 )
 
-// zoneOf is the zone for settings-wide times: jidoka.toml, else UTC.
+// zoneOf is the zone for settings-wide times: the settings, else UTC.
 func zoneOf(set model.Set) *time.Location {
 	if set.Settings.Zone != nil {
 		return set.Settings.Zone
@@ -71,7 +71,7 @@ func quietEnd(w *model.Window, now time.Time, def *time.Location) (time.Time, bo
 }
 
 // nextDigest returns the first digest time after now: "daily 08:00" or
-// "weekly Mon 08:00", in the zone of jidoka.toml. ok is false for a spec
+// "weekly Mon 08:00", in the zone of the settings. ok is false for a spec
 // it cannot read; the message then goes at once.
 func nextDigest(spec string, now time.Time, loc *time.Location) (time.Time, bool) {
 	f := strings.Fields(spec)

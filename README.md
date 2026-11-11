@@ -19,7 +19,7 @@ Inhalt:
 2. [Umgebungsvariablen](#2-umgebungsvariablen)
 3. [Anmeldung mit OIDC](#3-anmeldung-mit-oidc)
 4. [Das Jobs-Repo](#4-das-jobs-repo)
-5. [`jidoka.toml`](#5-jidokatoml)
+5. [Einstellungen](#5-einstellungen)
 6. [Einen Job anlegen](#6-einen-job-anlegen)
 7. [Externe Wächter](#7-externe-wächter)
 8. [Lokal ausprobieren](#8-lokal-ausprobieren)
@@ -137,7 +137,7 @@ keine Anmeldung.
 - `BASE_URL` auf die öffentliche Adresse setzen (z. B.
   `https://jidoka.intern.arianw.de`). Daraus folgen die Redirect-URI der
   Anmeldung, die Links in Meldungen und die URLs der Ping-Adressen. Ohne
-  `BASE_URL` (und ohne `base_url` in `jidoka.toml`) nimmt Jidoka Schema
+  `BASE_URL` (und ohne Basisadresse in den Einstellungen) nimmt Jidoka Schema
   und Host der Anfrage (`X-Forwarded-Proto`, `Host`).
 - `TRUSTED_PROXY`: kommagetrennte Adressen oder CIDRs der Proxys, deren
   `X-Forwarded-For` gilt. Die Drosselung der Pings zählt je Client-Adresse;
@@ -159,8 +159,8 @@ keine Anmeldung.
 ## 2. Umgebungsvariablen
 
 Nur was vor der Anmeldung nötig ist, steht in der Umgebung. Alles
-andere steht in `jidoka.toml` oder ist ein in der Oberfläche gesetztes
-Geheimnis.
+andere steht auf der Seite „Einstellungen“ oder ist ein in der Oberfläche
+gesetztes Geheimnis.
 
 | Name | Standard | Zweck |
 |---|---|---|
@@ -168,7 +168,7 @@ Geheimnis.
 | `NEW_MASTER_KEY` | – | Nur für `jidoka rotate-key` (siehe [Schlüssel wechseln](#11-schlüssel-wechseln)). |
 | `DATA_DIR` | `/data` | Ordner für Datenbank, Salt, Checkout, Zustand. |
 | `LISTEN` | `:8080` | Adresse des Webservers. Auch `jidoka healthcheck` liest sie. |
-| `BASE_URL` | – | Öffentliche Adresse; überschreibt `base_url` aus `jidoka.toml`. |
+| `BASE_URL` | – | Öffentliche Adresse; überschreibt die Basisadresse aus den Einstellungen. |
 | `JOBS_REPO` | – | HTTPS-URL des Jobs-Repos. Gesetzt: Jidoka holt es nach `$DATA_DIR/jobs`. |
 | `JOBS_BRANCH` | `main` | Branch des Jobs-Repos. |
 | `JOBS_REPO_TOKEN` | – | Token für das Repo, optional (öffentliche Repos). |
@@ -182,7 +182,7 @@ Geheimnis.
 | `JIDOKA_UID_BASE` | Image: `20000`; ohne Angabe: `0` | Erste UID für Jobs. `0` heißt: kein Benutzerwechsel, Jobs laufen als der Server (nur Entwicklung). |
 | `JIDOKA_CACHE_LIMIT` | `2147483648` (2 GiB) | Grenze aller `uv`-Caches zusammen, in Bytes. |
 | `JIDOKA_SHIM` | Image: `/usr/local/bin/jidoka-shim` | Pfad des Shims, der jeden Job umschließt (ohne Angabe: das eigene Binary). Nicht ändern. |
-| `TZ` | – | Zeitzone des Containers. Die Zonen der Jobs stehen in `jidoka.toml` und `job.toml`; Jidoka selbst liest `TZ` nicht. |
+| `TZ` | – | Zeitzone des Containers. Die Zonen stehen in den Einstellungen und in `job.toml`; Jidoka selbst liest `TZ` nicht. |
 
 Ohne `OIDC_ISSUER`, `OIDC_CLIENT_ID` und `OIDC_CLIENT_SECRET` gibt es
 keine Anmeldung: Niemand kommt auf die Seiten.
@@ -240,7 +240,6 @@ Quelle der Jobs ist ein Git-Repo. Struktur:
 
 ```
 jidoka-jobs/
-├── jidoka.toml            Einstellungen, Kanäle, Profile (Pflicht)
 ├── shinkiryu/             ein Job: Ordnername = Id
 │   ├── job.toml
 │   └── run.sh
@@ -296,94 +295,71 @@ Ordner des Jobs hat sich geändert, auch das Skript.
 - **Ein Job ist fehlerhaft:** Er wird `invalid` (mit Datei und Zeile auf
   der Seite, Meldung `invalid`). Die anderen Jobs laufen weiter. Eine
   ältere gültige Fassung des Jobs läuft nicht weiter.
-- **`jidoka.toml` ist fehlerhaft oder fehlt:** siehe
-  [Fehlende oder kaputte Datei](#fehlende-oder-kaputte-datei).
+- **Einstellungen:** stehen nicht im Repo, sondern in Jidoka
+  ([Einstellungen](#5-einstellungen)).
 
 Das Repo ist Codeausführung: Wer nach `jidoka-jobs` pushen darf, führt
 Code im Container aus, mit Netz und den Geheimnissen der Jobs. Schreibrecht
 nur für den Eigentümer.
 
-## 5. `jidoka.toml`
+## 5. Einstellungen
 
-Liegt im Wurzelordner des Jobs-Repos. Alle Schlüssel sind optional, außer
-dass ein Profil `standard` vorhanden sein muss. Unbekannte Schlüssel sind
-ein Fehler (ebenso in `job.toml` und `watch.toml`). Keine Geheimnisse in
-diese Datei: Passwörter und Schlüssel stehen auf der Seite „Geheimnisse“.
+Die globalen Einstellungen stehen nicht im Jobs-Repo, sondern in der
+Datenbank von Jidoka und werden auf der Seite **Einstellungen** gesetzt
+(`/settings`). Jeder angemeldete Nutzer darf sie ändern. Das Jobs-Repo
+enthält nur die einzelnen Skripte. Alle Felder sind optional.
 
-```toml
-zone      = "Europe/Berlin"     # Zone der Ruhezeit und der Sammelmeldungen; Standard Europe/Berlin
-locale    = "de"                # Sprache der Meldungen: de oder en; Standard de
-quiet     = "22:00-07:00"       # Ruhezeit (HH:MM-HH:MM, in `zone`)
-heartbeat = "5m"                # eigener Herzschlag; ohne Angabe aus
-max_parallel = 2                # gleichzeitige Läufe; Standard 2, mindestens 1
-keep      = "180d"              # Aufbewahrung der Läufe; Standard 180d
-keep_runs = 500                 # höchstens so viele Läufe je Job; Standard 500
-base_url  = "https://jidoka.intern.arianw.de"   # Links in Meldungen; BASE_URL gewinnt
-andon_url = "https://andon.example.org"         # Link „Andon“ im Kopf der Seiten
+Speichern prüft alle Werte; Fehler stehen am Feld, und nichts wird
+gespeichert, solange eines falsch ist. Danach prüft Jidoka alle Jobs neu
+gegen die neuen Einstellungen (ohne das Repo zu holen): Ein Job, der einen
+Unterkanal oder ein Profil nennt, das es nicht mehr gibt, wird sofort
+`invalid`.
 
-[channels.apprise]
-url  = "http://apprise:8000/notify"             # Pflicht; der Schlüssel ist das Geheimnis APPRISE_KEY
-tags = { handy = "handy", desktop = "kde" }     # apprise:handy -> Apprise-Tag "handy"
-
-[channels.mail]
-smtp = "smtp.example.org:587"   # Pflicht, host:port
-user = "jidoka"                 # optional; mit user ist das Geheimnis SMTP_PASSWORD nötig
-from = "jidoka@example.org"     # Pflicht
-to   = ["admin@example.org"]    # Standard-Empfänger
-
-[[profiles.standard]]           # Pflicht: das Profil "standard"
-on       = ["fail", "timeout", "missed", "invalid", "reload"]
-channels = ["apprise", "mail"]
-remind   = "24h"
-
-[[profiles.standard]]
-on       = ["recover"]
-channels = ["apprise"]
-
-[[profiles.leise]]              # weiteres Profil, per notify_profile gewählt
-on       = ["fail", "missed"]
-after    = 3
-channels = ["mail"]
-```
-
-| Schlüssel | Bedeutung |
+| Feld | Bedeutung |
 |---|---|
-| `zone` | IANA-Zone (`Europe/Berlin`). Gilt für `quiet`, `digest` und als Standard der Jobs. Die Zonendaten sind im Binary. |
-| `locale` | `de` oder `en`: Sprache der Meldungen. Die Oberfläche folgt dem Browser (`Accept-Language`). |
-| `quiet` | Ruhezeit, `HH:MM-HH:MM`; `22:00-07:00` geht über Mitternacht. Anfang und Ende dürfen nicht gleich sein. |
-| `heartbeat` | Abstand des eigenen Herzschlags, siehe unten. |
-| `max_parallel` | Wie viele Läufe gleichzeitig laufen. Weitere warten in einer Schlange. |
-| `keep`, `keep_runs` | Aufbewahrung. Ältere Läufe und Läufe über der Anzahl werden stündlich gelöscht; Läufe entfernter Jobs nach `keep`. |
-| `base_url` | Basis der Links, `http` oder `https`. Ohne sie (und ohne `BASE_URL`) haben die Links in Meldungen und API keine Basis. |
-| `andon_url` | Link im Kopf der Seiten. |
-| `channels.apprise.url` | Basis der Apprise-API. Jidoka sendet `POST <url>/<APPRISE_KEY>` (JSON mit `title`, `body`, `type`, `tag`, `format`). Der Typ folgt dem Auslöser: Störung `failure`, `missed` `warning`, `recover`/`success` `success`, sonst `info`. |
-| `channels.apprise.tags` | Unterkanäle: `apprise:<name>` in einer Regel sendet mit dem Tag, den die Tabelle nennt. `apprise` ohne Zusatz sendet ohne Tag. |
-| `channels.mail` | SMTP mit STARTTLS (wenn der Server es anbietet). Anmeldung (PLAIN) nur mit `user`; unverschlüsselt zu einem entfernten Host verweigert Jidoka sie. |
-
-### Dauern
+| Zeitzone | IANA-Zone (`Europe/Berlin`, Standard). Gilt für die Ruhezeit, Sammelmeldungen und als Standard der Jobs. Die Zonendaten sind im Binary. |
+| Sprache der Meldungen | `de` (Standard) oder `en`. Die Oberfläche folgt dem Browser (`Accept-Language`). |
+| Ruhezeit von / bis | `HH:MM`, in der Zeitzone; `22:00` bis `07:00` geht über Mitternacht. Anfang und Ende dürfen nicht gleich sein. Beide leer: keine Ruhezeit. |
+| Herzschlag | Abstand des eigenen Herzschlags, siehe unten; leer: aus. |
+| Parallele Läufe | Wie viele Läufe gleichzeitig laufen (Standard 2, mindestens 1). Weitere warten in einer Schlange. |
+| Läufe aufbewahren, Alter / je Job | Standard `180d` und 500. Ältere Läufe und Läufe über der Anzahl werden stündlich gelöscht; Läufe entfernter Jobs nach dem Alter. |
+| Basisadresse | Basis der Links in Meldungen und der Anmeldung, `http` oder `https`. `BASE_URL` gewinnt; dann zeigt das Feld sie gesperrt. Ohne beide haben die Links in Meldungen und API keine Basis. |
+| Adresse von Andon | Link „Andon“ im Kopf der Seiten. |
+| Apprise: Adresse der API | Basis der Apprise-API. Jidoka sendet `POST <Adresse>/<Apprise-Schlüssel>` (JSON mit `title`, `body`, `type`, `tag`, `format`). Der Typ folgt dem Auslöser: Störung `failure`, `missed` `warning`, `recover`/`success` `success`, sonst `info`. Alle Apprise-Felder leer: der Kanal fehlt. |
+| Apprise: Unterkanäle | Zeilen aus Name und Apprise-Tag: `apprise:<name>` in einer Regel sendet mit dem Tag. `apprise` ohne Zusatz sendet ohne Tag. |
+| Mail | SMTP mit STARTTLS (wenn der Server es anbietet): Server (`host:port`), Absender, Empfänger (eine Adresse je Zeile). Anmeldung (PLAIN) nur mit Benutzer und Passwort; unverschlüsselt zu einem entfernten Host verweigert Jidoka sie. Alle Mail-Felder leer: der Kanal fehlt. |
 
 Dauern sind Go-Dauern (`90s`, `5m`, `26h`) oder ganze Tage (`365d`).
 Negative Werte sind ungültig.
 
+### Geheimnisse auf der Seite
+
+Der Apprise-Schlüssel (`APPRISE_KEY`), das SMTP-Passwort
+(`SMTP_PASSWORD`) und die Herzschlag-Adresse (`HEARTBEAT_URL`) werden hier
+in Passwortfeldern eingegeben und wie alle Geheimnisse verschlüsselt
+gespeichert (ohne `MASTER_KEY` geht das nicht). Die Seite zeigt nie einen
+gespeicherten Wert, nur „gesetzt“. Ein leeres Feld behält den Wert; „Gespeicherten Wert
+entfernen“ löscht ihn. Die Seite „Geheimnisse“ führt sie weiter auf.
+
 ### Profile und Regeln
 
-Ein Profil ist eine Liste von Regeln (`[[profiles.<name>]]`), siehe
+Ein Profil ist eine Liste von Regeln, siehe
 [Regeln für Meldungen](#regeln-für-meldungen). Jobs ohne eigene
 `[[notify]]`-Regeln nutzen das Profil `standard` oder das in
 `notify_profile` genannte. Das Profil `standard` gilt außerdem für
 Ereignisse ohne lesbare Job-Regeln: `reload`, `invalid` eines Jobs, dessen
-`job.toml` nicht lädt, eine kaputte `jidoka.toml` und ein gescheitertes
-Holen des Repos.
+`job.toml` nicht lädt, und ein gescheitertes Holen des Repos. Es muss
+immer vorhanden sein.
 
-### Fehlende oder kaputte Datei
+Die Seite zeigt die Profile; ein Editor dafür folgt. Bis dahin bleiben
+gespeicherte Profile beim Speichern unverändert, und eine neue Installation
+beginnt mit dem Profil `standard` (Fehler, Timeout, Ausbleiben und
+ungültige Dateien an Apprise und Mail, Erinnerung nach 24 h).
 
-- Die letzte gültige Fassung bleibt in Kraft. Jidoka speichert sie in der
-  Datenbank; das gilt auch nach einem Neustart. Der Fehler steht oben
-  (Datei und Zeile) und geht über die alten Kanäle raus.
-- Gab es nie eine gültige Fassung, läuft Jidoka ohne Kanäle und ohne
-  Profile; die Seite zeigt es.
-- Eine Datei ohne Profil `standard` ist ungültig; eine fehlende Datei ist
-  ein Fehler wie diese.
+### Neustart und Updates
+
+Die Einstellungen stehen in der Datenbank und überdauern Neustarts. Eine
+`jidoka.toml` im Jobs-Repo liest Jidoka nicht mehr.
 
 ### Eigener Herzschlag
 
@@ -423,7 +399,7 @@ tags        = ["aikido", "kalender"]               # Filter auf der Tafel
 run         = "run.sh"          # Pflicht: Datei im Ordner des Jobs, relativ, ohne ..
 args        = ["--kalender", "aikido"]
 schedule    = "0 6 * * *"       # Pflicht: Cron mit 5 Feldern
-zone        = "Europe/Berlin"   # Zone des Zeitplans; Standard: zone aus jidoka.toml
+zone        = "Europe/Berlin"   # Zone des Zeitplans; Standard: Zeitzone aus den Einstellungen
 jitter      = "5m"              # zufällige Verzögerung bis zu dieser Dauer
 timeout     = "5m"              # Standard 10m
 slow        = "2m"              # Auslöser slow, wenn ein erfolgreicher Lauf länger dauert
@@ -432,7 +408,7 @@ retry_delay = "10m"             # Abstand der Versuche; Standard 5m
 catchup     = true              # verpassten Termin nach dem Start nachholen
 lock        = "davis"           # Jobs mit gleichem lock laufen nie gleichzeitig
 expect      = "26h"             # Wächter: mindestens ein Erfolg in dieser Zeit
-keep        = "365d"            # Aufbewahrung dieses Jobs; Standard: keep aus jidoka.toml
+keep        = "365d"            # Aufbewahrung dieses Jobs; Standard: Aufbewahrung aus den Einstellungen
 quiet       = "22:00-07:00"     # Ruhezeit dieses Jobs (in `zone` des Jobs)
 enabled     = true              # false: sichtbar als „deaktiviert“, läuft nicht
 notify_profile = "leise"        # Profil statt standard
@@ -618,7 +594,7 @@ ohne Wirkung erkennt der Wächter nicht; dafür ist `$JIDOKA_SUMMARY`.
 ### Regeln für Meldungen
 
 Eine Regel ist ein Eintrag `[[notify]]` im Job oder `[[profiles.<name>]]`
-in `jidoka.toml`. Regeln im Job **ersetzen** das Profil ganz, sie mischen
+in den Einstellungen. Regeln im Job **ersetzen** das Profil ganz, sie mischen
 sich nicht.
 
 | Schlüssel | Bedeutung |
@@ -630,7 +606,7 @@ sich nicht.
 | `remind` | Erinnerung in diesem Abstand, solange die Störung anhält; `"never"` oder fehlend: keine |
 | `urgent` | `true`: durchbricht die Ruhezeit |
 | `tail` | Anzahl der letzten Ausgabezeilen in der Meldung; Standard 20, `0` keine |
-| `digest` | `"daily 08:00"` oder `"weekly Mon 08:00"` (Zone aus `jidoka.toml`) |
+| `digest` | `"daily 08:00"` oder `"weekly Mon 08:00"` (Zone aus den Einstellungen) |
 | `attach_output` | `true`: ganze Ausgabe als Anhang der Mail |
 
 Auslöser (`on`):
@@ -642,7 +618,7 @@ Auslöser (`on`):
 | `missed` | Job oder Wächter hat im Fenster keinen Erfolg (`expect`, `watch.toml`) |
 | `recover` | erster Erfolg nach einer gemeldeten Störung |
 | `success` | jeder erfolgreiche Lauf |
-| `invalid` | Datei des Jobs oder `jidoka.toml` lädt nicht |
+| `invalid` | Datei des Jobs lädt nicht |
 | `reload` | ein Neuladen hat Jobs geändert |
 | `change` | erfolgreicher Lauf, bei dem `$JIDOKA_NOTIFY` Text enthält |
 | `start` | ein Lauf beginnt (erster Versuch) |
@@ -726,7 +702,7 @@ keinen Server.
 
 ### `jidoka validate <ordner>`
 
-Prüft `jidoka.toml`, alle `job.toml` und `watch.toml` und listet jeden
+Prüft alle `job.toml` und `watch.toml` und listet jeden
 Job mit den nächsten drei Terminen. Fehler stehen als `Datei:Zeile:
 Meldung` auf stderr; Exit-Code 1, wenn etwas kaputt ist. Damit lässt sich
 das Jobs-Repo in der CI prüfen:
@@ -739,8 +715,10 @@ jidoka validate .
 docker run --rm -v "$PWD:/jobs:ro" ghcr.io/shrippen/jidoka:edge validate /jobs
 ```
 
-Die Ausgabe endet mit `N valid, M invalid`. Anders als `run` braucht
-`validate` eine `jidoka.toml`.
+Die Ausgabe endet mit `N valid, M invalid`. `validate` kennt die
+gespeicherten Einstellungen nicht: Es prüft gegen die Standardwerte und
+lässt Profilnamen und Apprise-Unterkanäle aus (`notify_profile`,
+`apprise:<name>`); die prüft der Server beim Laden.
 
 ### `jidoka run [-secrets datei] [-dry] <jobs-ordner> <id>`
 
@@ -757,7 +735,7 @@ jidoka run -secrets .secrets.local -dry jidoka-jobs shinkiryu
 - `-dry`: setzt `JIDOKA_TRIGGER=dry`; ohne die Option ist es `manual`. Auch ein Probelauf braucht die Geheimnisse, die der Job nennt.
 - Die Ausgabe des Skripts geht auf stdout; Zustand, Dauer, Zusammenfassung
   und Fehler auf stderr. Exit-Code 0 nur bei `ok`.
-- `jidoka.toml` ist nicht nötig.
+- Die Einstellungen sind nicht nötig; es gilt dasselbe wie bei `validate`.
 - Eine Wegwerf-Datenbank und ein Wegwerf-Zustandsordner: nichts bleibt
   erhalten, auch `$JIDOKA_STATE` nicht. Keine Meldungen, kein
   Benutzerwechsel.
@@ -771,13 +749,14 @@ Zum selben Ergebnis wie im Betrieb: im Image laufen lassen, z. B.
 
 | Seite | Inhalt |
 |---|---|
-| Tafel (`/`) | Kacheln je Job und Wächter: Zustand, Zusammenfassung, Verlauf, letzter und nächster Lauf. Störungen oben. Filter: Alle, Braucht dich, Jobs, Wächter, Tags. Knopf „Jobs neu laden“. Ladefehler (ungültige Jobs, kaputte `jidoka.toml`) mit Datei und Zeile oben. |
+| Tafel (`/`) | Kacheln je Job und Wächter: Zustand, Zusammenfassung, Verlauf, letzter und nächster Lauf. Störungen oben. Filter: Alle, Braucht dich, Jobs, Wächter, Tags. Knopf „Jobs neu laden“. Ladefehler (ungültige Jobs) mit Datei und Zeile oben. |
 | Fahrplan (`/plan`) | gestern, heute, morgen: eine Spur je Job, Läufe als Marken, Geplantes hohl |
 | Job (`/jobs/<id>`) | Einstellungen, wirksame Regeln, Dauer je Lauf, Liste der Läufe, Knöpfe, bei Wächtern die Ping-Adresse |
 | Lauf (`/runs/<id>`) | Zustand, Exit-Code, Dauer, Auslöser, Ausgabe, gesendete Meldungen |
 | Kanäle (`/channels`) | Zustand je Kanal, letzte Sendungen, Testknopf |
 | Geheimnisse (`/secrets`) | Setzen, Ersetzen, Löschen; Name, zuletzt geändert |
 | Zugang (`/access`) | API-Token anlegen und löschen |
+| Einstellungen (`/settings`) | Zone, Sprache, Kanäle, Profile, Ruhezeit und mehr setzen; Fehler am Feld, nichts gespeichert |
 
 Uhrzeiten tragen die Zone, wo der Browser abweicht. Die Oberfläche gibt
 es auf Deutsch und Englisch.
@@ -826,7 +805,7 @@ Zusammenfassung, letzte Zeilen der Ausgabe, Link zum Lauf.
 
 ### Ruhezeit
 
-`quiet` in `jidoka.toml` gilt für alle Jobs, `quiet` im Job überschreibt es.
+Die Ruhezeit in den Einstellungen gilt für alle Jobs, `quiet` im Job überschreibt es.
 Meldungen in der Ruhezeit warten bis zum Ende und gehen dann gebündelt
 raus: Störung um 02:15 und Erholung um 03:15 ergeben um 07:00 eine
 Meldung mit beidem. Regeln mit `urgent = true` gehen sofort.

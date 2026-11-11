@@ -19,15 +19,13 @@ const (
 
 // validate checks a jobs folder (T1): lists every job with its next
 // slots on out, every error as file:line: msg on errOut. It returns 1 if
-// anything is broken, so it can run as CI.
+// anything is broken, so it can run as CI. It knows no stored settings:
+// the defaults apply, and profile names and Apprise tags are not checked
+// (the server does, when it loads the jobs).
 func validate(dir string, out, errOut io.Writer) int {
-	set := conf.Load(dir, nil)
+	set := conf.Load(dir, conf.DefaultSettings(), conf.CheckOffline)
 	broken := false
 
-	if e := set.SettingsErr; e != nil {
-		broken = true
-		fmt.Fprintln(errOut, formatErr(*e))
-	}
 	for _, e := range set.Invalid {
 		broken = true
 		fmt.Fprintln(errOut, formatErr(e))

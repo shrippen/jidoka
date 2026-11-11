@@ -86,7 +86,6 @@ func (u ui) funcs() template.FuncMap {
 		"ruleText": u.ruleText,
 		"loadMsg":  u.loadMsg,
 		"isRepo":   func(le model.LoadError) bool { return le.File == model.RepoFile },
-		"isDir":    func(le model.LoadError) bool { return le.Job == "" && le.File == model.DirFile },
 		"words":    u.words,
 		"jobKey":   jobKey,
 		"runKey":   runKey,

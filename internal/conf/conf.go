@@ -1,11 +1,12 @@
-// Package conf loads /jobs (jidoka.toml, <id>/job.toml, <id>/watch.toml)
-// into a model.Set. Pure apart from reading files; never panics on bad
-// input. A broken job never stops the others (J2).
+// Package conf loads the job folders of /jobs (<id>/job.toml,
+// <id>/watch.toml) into a model.Set, and parses and checks the settings
+// document. Pure apart from reading files; never panics on bad input. A
+// broken job never stops the others (J2).
 //
-//	<dir>/jidoka.toml           -> Set.Settings (broken: keep prev, B8)
-//	<dir>/<id>/job.toml         -> Set.Jobs[id]    (broken: Set.Invalid)
-//	<dir>/<id>/watch.toml       -> Set.Jobs[id]
-//	<dir>/.git/HEAD             -> Set.Commit
+//	Settings ─────────────────────┐
+//	<dir>/<id>/job.toml           ├─► Set.Jobs[id]   (broken: Set.Invalid)
+//	<dir>/<id>/watch.toml         ┘
+//	<dir>/.git/HEAD               ──► Set.Commit
 package conf
 
 import (
@@ -25,32 +26,26 @@ import (
 )
 
 const (
-	settingsFile = "jidoka.toml"
-	jobFile      = "job.toml"
-	watchFile    = "watch.toml"
+	jobFile   = "job.toml"
+	watchFile = "watch.toml"
 )
 
-// Need says whether a missing jidoka.toml is an error.
-type Need int
+// Check says how strictly a job is held to the settings.
+type Check int
 
 const (
-	// SettingsRequired: the server; without the file there are no channels
-	// and no messages (B8).
-	SettingsRequired Need = iota
-	// SettingsOptional: `jidoka run` tries single jobs without it.
-	SettingsOptional
+	// CheckFull: the server; a job may only name profiles and Apprise tags
+	// the settings define.
+	CheckFull Check = iota
+	// CheckOffline: `jidoka validate` and `jidoka run` know no stored
+	// settings; profile names and sub channels are checked on the server.
+	CheckOffline
 )
 
-// Load reads dir for the server: jidoka.toml is required. prev is the last
-// valid Settings, kept if jidoka.toml is broken or missing; nil means
-// defaults.
-func Load(dir string, prev *model.Settings) model.Set {
-	return LoadWith(dir, prev, SettingsRequired)
-}
-
-// LoadWith is Load with a choice about a missing jidoka.toml.
-func LoadWith(dir string, prev *model.Settings, need Need) model.Set {
+// Load reads the job folders of dir and builds them against s.
+func Load(dir string, s model.Settings, check Check) model.Set {
 	set := model.Set{
+		Settings: s,
 		Jobs:     map[string]*model.Job{},
 		Commit:   readCommit(dir),
 		LoadedAt: time.Now().UTC(),
@@ -58,15 +53,11 @@ func LoadWith(dir string, prev *model.Settings, need Need) model.Set {
 
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		// One error for the folder; its settings file is no second one.
-		set.Settings, set.SettingsFrom = fallbackSettings(prev)
 		set.Invalid = append(set.Invalid, loadError("", model.DirFile, 0, i18n.M("conf.io", "detail", err.Error())))
 		return set
 	}
 
-	set.Settings, set.SettingsErr, set.SettingsFrom = loadSettings(dir, prev, need)
-
-	ctx := loadCtx{dir: dir, set: &set, now: set.LoadedAt}
+	ctx := loadCtx{dir: dir, set: &set, now: set.LoadedAt, check: check}
 	for _, e := range entries {
 		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
 			continue
@@ -82,58 +73,6 @@ func LoadWith(dir string, prev *model.Settings, need Need) model.Set {
 	})
 
 	return set
-}
-
-// loadSettings reads jidoka.toml; on any error it returns the fallback.
-func loadSettings(dir string, prev *model.Settings, need Need) (model.Settings, *model.LoadError, model.SettingsSource) {
-	fallback, from := fallbackSettings(prev)
-
-	src, err := os.ReadFile(filepath.Join(dir, settingsFile))
-	if errors.Is(err, os.ErrNotExist) && need == SettingsOptional {
-		return fallback, nil, from
-	}
-	if errors.Is(err, os.ErrNotExist) {
-		le := loadError("", settingsFile, 0, i18n.M("conf.no_settings"))
-		return fallback, &le, from
-	}
-	if err != nil {
-		le := loadError("", settingsFile, 0, i18n.M("conf.io", "detail", err.Error()))
-		return fallback, &le, from
-	}
-
-	s, lerr := ParseSettings(src)
-	if lerr != nil {
-		return fallback, lerr, from
-	}
-
-	return s, nil, model.SettingsFile
-}
-
-// fallbackSettings is what stays in force when jidoka.toml does not load:
-// the last valid copy, else the defaults.
-func fallbackSettings(prev *model.Settings) (model.Settings, model.SettingsSource) {
-	if prev != nil {
-		return *prev, model.SettingsSaved
-	}
-
-	return defaults(), model.SettingsDefaults
-}
-
-// ParseSettings parses the content of a jidoka.toml. Callers keep the
-// bytes of the last valid file and re-parse them when the file breaks (B8).
-func ParseSettings(src []byte) (model.Settings, *model.LoadError) {
-	var raw rawSettings
-	is := decode(newIssues("", settingsFile, string(src)), string(src), &raw)
-	if len(is.list) > 0 {
-		return defaults(), &is.list[0]
-	}
-
-	s := buildSettings(is, raw)
-	if len(is.list) > 0 {
-		return defaults(), &is.list[0]
-	}
-
-	return s, nil
 }
 
 // Commit returns the short commit of <dir>/.git/HEAD, "" if unknown.
@@ -181,9 +120,10 @@ func typeErrLine(err error) (int, string) {
 
 // loadCtx carries what loading job folders needs.
 type loadCtx struct {
-	dir string
-	set *model.Set
-	now time.Time
+	dir   string
+	set   *model.Set
+	now   time.Time
+	check Check
 }
 
 // loadEntry loads one folder, if it holds a job.toml or watch.toml.
@@ -220,7 +160,7 @@ func (c loadCtx) loadEntry(id string) {
 	j := &model.Job{ID: id, File: file}
 	j.Dir, _ = filepath.Abs(filepath.Join(c.dir, id))
 
-	jc := jobCtx{is: is, set: &c.set.Settings, now: c.now}
+	jc := jobCtx{is: is, set: &c.set.Settings, now: c.now, check: c.check}
 	if hasJob {
 		var raw rawJob
 		decode(is, string(src), &raw)

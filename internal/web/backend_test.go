@@ -23,6 +23,7 @@ import (
 	"jidoka/internal/services/plan"
 	"jidoka/internal/services/runs"
 	"jidoka/internal/services/secrets"
+	"jidoka/internal/services/settings"
 	"jidoka/internal/services/status"
 	"jidoka/internal/services/watch"
 )
@@ -45,6 +46,7 @@ type backend struct {
 	plan    *plan.Planner
 	watch   *watch.Watch
 	secrets *secrets.Service
+	conf    *settings.Service
 	acc     *access.Service
 }
 
@@ -76,6 +78,7 @@ func newBackend(t *testing.T, proxies string) *backend {
 	b := &backend{env: e, dir: t.TempDir(), acc: access.New(e.db, e.cfg)}
 	b.secrets = secrets.New(e.db)
 	b.jobs = jobs.New(e.db, b.dir)
+	b.conf = settings.New(settings.Config{DB: e.db, Jobs: b.jobs, Secrets: b.secrets})
 	rn := runs.New(e.db, b.secrets, runs.Config{DataDir: t.TempDir()})
 	b.watch = watch.New(watch.Config{DB: e.db})
 	al := alerts.New(alerts.Config{
@@ -84,7 +87,6 @@ func newBackend(t *testing.T, proxies string) *backend {
 	})
 	b.plan = plan.New(plan.Config{DB: e.db, Exec: rn})
 
-	b.put("jidoka.toml", "[[profiles.standard]]\non = [\"fail\"]\nchannels = [\"mail\"]\n")
 	b.job("hello", "echo \"token=$TOKEN\"\necho '3 things' > \"$JIDOKA_SUMMARY\"\n", "secrets = [\"TOKEN\"]\n")
 	b.put("beat/watch.toml", "period = \"1h\"\ngrace = \"5m\"\n")
 	if err := b.jobs.Load(); err != nil {
@@ -96,7 +98,7 @@ func newBackend(t *testing.T, proxies string) *backend {
 
 	b.srv = e.server(func(d *Deps) {
 		d.Status = status.New(status.Deps{DB: e.db, Jobs: b.jobs, Plan: b.plan, Watch: b.watch, Alerts: al, Secrets: b.secrets, Version: "test"})
-		d.Plan, d.Watch, d.Alerts, d.Secrets = b.plan, b.watch, al, b.secrets
+		d.Plan, d.Watch, d.Alerts, d.Secrets, d.Config = b.plan, b.watch, al, b.secrets, b.conf
 		d.Ops = ops.New(ops.Deps{DB: e.db, Jobs: b.jobs, Runs: rn, Watch: b.watch})
 		d.TrustedProxy = proxies
 	})
@@ -489,7 +491,7 @@ func TestActionsNeedSessionAndCSRF(t *testing.T) {
 	for _, path := range []string{
 		"/reload", "/jobs/hello/run", "/jobs/hello/dry", "/jobs/hello/pause", "/jobs/hello/resume",
 		"/jobs/hello/ack", "/jobs/hello/mute", "/jobs/hello/unmute", "/jobs/beat/renew-token",
-		"/jobs/hello/rules/0/test", "/runs/1/cancel", "/channels/mail/test", "/secrets", "/secrets/X/delete",
+		"/jobs/hello/rules/0/test", "/runs/1/cancel", "/channels/mail/test", "/secrets", "/secrets/X/delete", "/settings",
 	} {
 		if w := do(b.srv, "POST", path, url.Values{}, nil, nil); w.Code != http.StatusSeeOther ||
 			!strings.HasPrefix(w.Header().Get("Location"), "/login") {

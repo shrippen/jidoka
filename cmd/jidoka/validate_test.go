@@ -27,7 +27,6 @@ func write(t *testing.T, files map[string]string) string {
 
 func TestValidateOK(t *testing.T) {
 	dir := write(t, map[string]string{
-		"jidoka.toml":  "[[profiles.standard]]\non = [\"fail\"]\nchannels = [\"mail\"]\n",
 		"a/job.toml":   "run = \"x.sh\"\nschedule = \"0 6 * * *\"\n",
 		"a/x.sh":       "",
 		"w/watch.toml": "period = \"24h\"\ngrace = \"1h\"\n",
@@ -50,9 +49,8 @@ func TestValidateOK(t *testing.T) {
 
 func TestValidateErrors(t *testing.T) {
 	dir := write(t, map[string]string{
-		"jidoka.toml": "zone = \"Mars/Base\"\n",
-		"a/job.toml":  "run = \"x.sh\"\nschedule = \"0 25 * * *\"\n",
-		"a/x.sh":      "",
+		"a/job.toml": "run = \"x.sh\"\nschedule = \"0 25 * * *\"\n",
+		"a/x.sh":     "",
 	})
 
 	var out, errOut bytes.Buffer
@@ -61,10 +59,30 @@ func TestValidateErrors(t *testing.T) {
 	}
 
 	got := errOut.String()
-	for _, want := range []string{"jidoka.toml:1: unknown zone", "a/job.toml:2: invalid schedule: hour"} {
+	for _, want := range []string{"a/job.toml:2: invalid schedule: hour"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("stderr missing %q:\n%s", want, got)
 		}
+	}
+}
+
+// The CLI knows no stored settings: a job may name a profile or an Apprise
+// sub channel that only the server's settings define, and the jidoka.toml
+// of an older jobs repo is not read.
+func TestValidateOffline(t *testing.T) {
+	dir := write(t, map[string]string{
+		"jidoka.toml": "zone = \"Mars/Base\"\n",
+		"a/job.toml": "run = \"x.sh\"\nschedule = \"0 6 * * *\"\nnotify_profile = \"leise\"\n" +
+			"[[notify]]\non = [\"fail\"]\nchannels = [\"apprise:handy\"]\n",
+		"a/x.sh": "",
+	})
+
+	var out, errOut bytes.Buffer
+	if code := validate(dir, &out, &errOut); code != exitOK {
+		t.Fatalf("exit %d: %s%s", code, out.String(), errOut.String())
+	}
+	if !strings.Contains(out.String(), "1 valid, 0 invalid") {
+		t.Errorf("output:\n%s", out.String())
 	}
 }
 

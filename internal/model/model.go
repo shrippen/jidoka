@@ -1,7 +1,7 @@
 // Package model holds Jidoka's domain types. No I/O, no logic beyond
 // small helpers; every layer speaks these types.
 //
-//	/jobs ──conf──► Set{Settings, Jobs, Invalid}
+//	/jobs + Settings ──conf──► Set{Settings, Jobs, Invalid}
 //	                      │
 //	          plan ──► Run ──► runs (exec) ──► Run{State, Output}
 //	                      │
@@ -172,7 +172,8 @@ type Mail struct {
 	To   []string
 }
 
-// Settings is /jobs/jidoka.toml.
+// Settings are the global settings, kept in the database and edited on
+// the settings page.
 type Settings struct {
 	Zone        *time.Location
 	Quiet       *Window
@@ -190,9 +191,12 @@ type Settings struct {
 
 // LoadError is a file Jidoka could not load (O9).
 type LoadError struct {
-	Job  string // "" for jidoka.toml
+	Job  string // "" for the settings
 	File string // relative to /jobs
 	Line int    // 0 = unknown
+	// Field is the settings key the error is about, e.g. "channels.mail.smtp";
+	// "" for anything else.
+	Field string
 	// Key and Params are the catalog text of the error, for the UI and
 	// alerts in the reader's language; Msg is the same in English, for the
 	// CLI and logs. Key is "" for an error made without the catalog.
@@ -207,27 +211,9 @@ const RepoFile = "JOBS_REPO"
 // DirFile is LoadError.File when the jobs folder itself could not be read.
 const DirFile = "."
 
-// SettingsSource says where Set.Settings came from.
-type SettingsSource string
-
-const (
-	// SettingsFile: the current jidoka.toml, valid.
-	SettingsFile SettingsSource = "file"
-	// SettingsSaved: the file is missing or broken; the last valid copy
-	// from an earlier load applies (B8).
-	SettingsSaved SettingsSource = "saved"
-	// SettingsDefaults: no valid copy ever; no channels, no profiles.
-	SettingsDefaults SettingsSource = "defaults"
-)
-
-// Set is everything loaded from /jobs at one moment.
+// Set is the settings and everything loaded from /jobs at one moment.
 type Set struct {
 	Settings Settings
-	// SettingsErr: jidoka.toml did not load; Settings is the saved copy, or
-	// the defaults without channels if there is none (SettingsFrom, B8).
-	SettingsErr *LoadError
-	// SettingsFrom: which copy of the settings is in force.
-	SettingsFrom SettingsSource
 	// RepoErr: the jobs repo could not be fetched; the last checkout
 	// is in use (J1). Nil without JOBS_REPO.
 	RepoErr  *LoadError

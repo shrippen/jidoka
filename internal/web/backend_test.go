@@ -233,6 +233,9 @@ func TestAPIShapes(t *testing.T) {
 	}
 
 	jobsOut := decode(t, b.call("GET", "/api/v1/jobs", read))
+	if inner, ok := jobsOut["status"].(map[string]any); !ok || inner["version"] != "test" {
+		t.Errorf("jobs must carry the status: %v", jobsOut["status"])
+	}
 	list := jobsOut["jobs"].([]any)
 	if len(list) != 2 || jobsOut["total"].(float64) != 2 {
 		t.Fatalf("jobs: %v", jobsOut)

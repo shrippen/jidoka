@@ -128,6 +128,12 @@ func (s *Server) apiStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.writeJSON(w, http.StatusOK, s.statusOf())
+}
+
+// statusOf is /api/v1/status; /api/v1/jobs carries it too, so Andon
+// needs one request per fetch.
+func (s *Server) statusOf() apiStatus {
 	st := s.deps.Status.Status()
 	out := apiStatus{
 		Version: st.Version, Commit: st.Commit, ReloadedAt: apiTime(st.ReloadedAt),
@@ -140,7 +146,7 @@ func (s *Server) apiStatus(w http.ResponseWriter, r *http.Request) {
 			Since: apiTime(c.Since),
 		})
 	}
-	s.writeJSON(w, http.StatusOK, out)
+	return out
 }
 
 type apiRunRef struct {
@@ -212,7 +218,7 @@ func (s *Server) apiJobs(w http.ResponseWriter, r *http.Request) {
 		}
 		out = append(out, j)
 	}
-	s.writeJSON(w, http.StatusOK, map[string]any{"jobs": out, "total": len(b.Tiles)})
+	s.writeJSON(w, http.StatusOK, map[string]any{"jobs": out, "total": len(b.Tiles), "status": s.statusOf()})
 }
 
 // historyOf keeps the newest historyMax ticks, oldest first.

@@ -69,8 +69,8 @@
           <div class="chart-axis" aria-hidden="true"><span class="unit">{{.Unit}}</span>{{range .Axis}}<span>{{.}}</span>{{end}}</div>
           <div class="chart-wrap" data-readout>
             <svg class="chart" viewBox="0 0 {{.N}} {{.H}}" preserveAspectRatio="none" role="img" aria-label="{{if .Watch}}{{t "job.gap"}}{{else}}{{t "job.length"}}{{end}}">
-              <defs><pattern id="k-stripe" width="10" height="6" patternUnits="userSpaceOnUse"><rect class="stripe-bar" width="10" height="6"/><rect class="stripe-gap" y="2" width="10" height="2.5"/></pattern></defs><line class="grid" x1="0" x2="{{.N}}" y1="0" y2="0"/><line class="grid" x1="0" x2="{{.N}}" y1="50" y2="50"/><line class="grid" x1="0" x2="{{.N}}" y1="100" y2="100"/>
-              {{range .Bars}}<a href="{{.Href}}" data-tip="{{.Tip}}"><rect class="ev" data-state="{{.State}}" x="{{.X}}" y="{{.Y}}" width=".8" height="{{.H}}"/></a>{{end}}
+              <line class="grid" x1="0" x2="{{.N}}" y1="0" y2="0"/><line class="grid" x1="0" x2="{{.N}}" y1="50" y2="50"/><line class="grid" x1="0" x2="{{.N}}" y1="100" y2="100"/>
+              {{range .Bars}}<a href="{{.Href}}" data-tip="{{.Tip}}"><rect class="ev is-bar" data-state="{{.State}}" x="{{.X}}" y="{{.Y}}" width=".8" height="{{.H}}"/></a>{{end}}
             </svg>
             <div class="readout"></div>
           </div>

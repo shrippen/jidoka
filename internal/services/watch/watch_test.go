@@ -283,6 +283,26 @@ func TestDeadlineEarlyPing(t *testing.T) {
 	}
 }
 
+// A grace longer than the gap between slots must not delay the alarm: a
+// ping answers its own slot, not every slot within the grace after it.
+func TestDeadlineGraceOverGap(t *testing.T) {
+	at := func(h, m int) time.Time { return time.Date(2026, 11, 12, h, m, 0, 0, time.UTC) }
+	for _, c := range []struct {
+		name, sched string
+		grace       time.Duration
+		ping, want  time.Time
+	}{
+		{"hourly, ping at the slot", "0 * * * *", 2 * time.Hour, at(10, 0), at(13, 0)},
+		{"every 5 min, ping at the slot", "*/5 * * * *", time.Hour, at(10, 0), at(11, 5)},
+		{"hourly, ping just before", "0 * * * *", 2 * time.Hour, at(9, 58), at(13, 0)},
+	} {
+		job := &model.Job{Kind: model.KindWatch, Zone: time.UTC, Schedule: c.sched, Grace: c.grace, Expect: time.Hour}
+		if got := Deadline(job, c.ping); !got.Equal(c.want) {
+			t.Errorf("%s: Deadline = %v, want %v", c.name, got, c.want)
+		}
+	}
+}
+
 func TestWatchScheduleEarlyPing(t *testing.T) {
 	e := newEnv(t, &model.Job{ID: "w", Kind: model.KindWatch, Enabled: true, Zone: time.UTC,
 		Schedule: "0 3 * * *", Grace: 2 * time.Hour, Expect: 26 * time.Hour})

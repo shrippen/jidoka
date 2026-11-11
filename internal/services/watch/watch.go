@@ -273,15 +273,15 @@ func (w *Watch) Due(job *model.Job, firstSeen, lastOK time.Time) time.Time {
 // A watch with a schedule: the first slot after base must be answered by
 // an ok run within the grace, e.g. slots Mon+Tue 03:00, grace 2 h, ok Mon
 // 03:10 -> missed Tue 05:00, not after the longest gap (Expect). A ping
-// up to grace before a slot answers that slot: base + grace skips it
-// (ok 02:59 for slot 03:00 -> next slot).
+// shortly before a slot answers that slot (ok 02:59 for 03:00 -> next
+// slot); see dueSlot.
 func Deadline(job *model.Job, base time.Time) time.Time {
 	if job.Kind == model.KindWatch && job.Schedule != "" {
 		sched, err := cron.Parse(job.Schedule, job.Zone)
 		if err != nil {
 			return time.Time{}
 		}
-		slot := sched.Next(base.Add(job.Grace))
+		slot := dueSlot(sched, base, job.Grace)
 		if slot.IsZero() {
 			return time.Time{}
 		}
@@ -487,4 +487,22 @@ func clip(s string, n int) string {
 		n--
 	}
 	return s[:n]
+}
+
+// dueSlot is the slot an ok ping at base leaves open. A ping answers the
+// slot nearest to it: an early one (at most grace before the next slot
+// and closer to it than to the previous) answers the next, so the one
+// after is due. A grace longer than the gap between slots must not let
+// one ping cover several: hourly, grace 2 h, ok 10:00 -> 11:00 is due.
+func dueSlot(sched *cron.Schedule, base time.Time, grace time.Duration) time.Time {
+	next := sched.Next(base)
+	if next.IsZero() || next.Sub(base) > grace {
+		return next
+	}
+
+	prev := sched.Last(base)
+	if !prev.IsZero() && next.Sub(base) >= base.Sub(prev) {
+		return next
+	}
+	return sched.Next(next)
 }

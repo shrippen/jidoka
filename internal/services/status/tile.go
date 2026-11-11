@@ -74,8 +74,10 @@ type Tile struct {
 	LastOK *Tick
 	// Next is the next planned slot; for a watch the time its window ends.
 	Next time.Time
-	// Due is when the watch window ends (W1): last success or first sight
-	// plus expect. Past Due without an ok run, the job is missed.
+	// Due is when the watch window ends (W1, W2), as the alarm reckons it
+	// (watch.Due): from the last success, first sight or resume, plus
+	// expect or period, or the slot left open plus grace for a schedule.
+	// Past Due without an ok run, the job is missed.
 	Due time.Time
 	// Ticks are the last runs, oldest first: the strip reads left to right.
 	Ticks []Tick

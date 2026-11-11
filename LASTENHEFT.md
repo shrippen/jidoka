@@ -24,7 +24,7 @@ Davis-Kalender schreiben.
  ┌──────────────────────────────── Container jidoka ─────────────────┐
  │                                                                   │
  │  /jobs (nur lesen)          Planer ──► Läufer ──► Prozess (Skript) │
- │   jidoka.toml   ─ Start ─►    │           │ Exit, Ausgabe, Dauer   │
+ │   jidoka.toml   ─ Laden ─►    │           │ Exit, Ausgabe, Dauer   │
  │   shinkiryu/                  │           ▼                        │
  │     job.toml                  │        Läufe (SQLite, /data)       │
  │     main.py                   ▼           │                        │
@@ -56,7 +56,7 @@ Priorität: **M** muss, **S** soll, **K** kann.
 
 | Nr. | Prio | Anforderung                                                                                                                                                                                         |
 | --- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| J1  | M    | Jobs sind Ordner unter `/jobs` (Bind-Mount, nur lesen) aus dem Git-Repo `jidoka-jobs` auf Gitea. Jidoka liest sie beim Start. Hinzufügen, Entfernen und Ändern wirken nach einem Neustart des Containers.                                    |
+| J1 | M | Jobs sind Ordner unter `/jobs` (Bind-Mount, nur lesen) aus dem Git-Repo `jidoka-jobs` auf Gitea. Jidoka liest sie beim Start und beim Neuladen (J20). |
 | J2  | M    | Ein Job, dessen `job.toml` fehlerhaft ist, verhindert den Start nicht. Er erscheint als `ungültig` mit Fehlertext auf der Seite und löst eine Meldung aus.                                          |
 | J3  | M    | Zeitplan als Cron-Ausdruck (5 Felder) in der Zone des Jobs, Standard `Europe/Berlin`. Umstellung auf Sommer- und Winterzeit ohne doppelten oder fehlenden Lauf.                                     |
 | J4  | M    | Erfolg heißt Exit-Code 0, alles andere ist `fehler`. Nach dem Timeout (Standard 10 min) wird die ganze Prozessgruppe beendet, Zustand `zeitüberschreitung`.                                         |
@@ -75,6 +75,8 @@ Priorität: **M** muss, **S** soll, **K** kann.
 | J17 | S | `description`, `link`, `tags`: Beschreibung und Ziel-Link auf der Job-Seite, Filter nach Tags auf der Tafel. |
 | J18 | S | `keep` je Job: Aufbewahrung abweichend vom Standard. |
 | J19 | S | `enabled = false`: Job bleibt sichtbar, läuft aber nicht (anders als Pause: im Repo festgelegt). |
+| J20 | M | Neuladen zur Laufzeit, ohne Neustart: Knopf „Jobs neu laden“, `POST /api/v1/reload` (Token) und optional Beobachten des Ordners (`watch = true` in `jidoka.toml`). Jidoka liest alle Jobs, prüft sie und tauscht erst dann aus. Laufende Läufe enden mit der alten Fassung. Das Ergebnis steht auf der Seite: neu, geändert, entfernt, ungültig, dazu der Commit von `/jobs`, falls es ein Git-Ordner ist. |
+| J21 | M | Ein entfernter Job verschwindet von der Tafel; seine Läufe bleiben bis zum Ende der Aufbewahrung unter „Entfernt“ lesbar. Pause, Bestätigen und Stummschalten bleiben am Job-Namen hängen, falls er zurückkommt. |
 
 Beispiel `job.toml` (alle Felder außer `run` und `schedule` sind
 optional):
@@ -215,7 +217,7 @@ digest = "daily"
 | B3 | M | Zeit in UTC gespeichert. |
 | B4 | S | Leerlauf unter 30 MB RAM. Höchstens 2 Läufe gleichzeitig (einstellbar). |
 | B5 | S | `/healthz` für Docker und Andon. |
-| B6 | S | Komodo checkt `jidoka-jobs` auf regis aus (Repo-Ressource). Ein Push ins Jobs-Repo lässt Komodo das Repo aktualisieren und Jidoka neu starten. |
+| B6 | S | Komodo checkt `jidoka-jobs` auf regis aus (Repo-Ressource). Nach einem Push zieht Komodo das Repo und ruft `POST /api/v1/reload` auf; ein Neustart ist nicht nötig. |
 
 ## 5. Technik (Vorschlag)
 
@@ -253,6 +255,7 @@ Repo, kein gemeinsames Go-Modul mit Andon. Was beide brauchen, wird
 - Jobs in Python mit `uv` und sh/bash (11.11.2026).
 - Mehr Einstellungen je Job, vor allem für Meldungen: Regeln, Profile,
   Ruhezeit, Sammelmeldung, Bestätigen und Stummschalten (11.11.2026).
+- Jobs zur Laufzeit neu laden, ohne Neustart des Containers (11.11.2026).
 
 ## 9. Offene Fragen
 

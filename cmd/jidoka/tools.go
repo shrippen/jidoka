@@ -67,7 +67,7 @@ func rotateKey() int {
 		return exitUsage
 	}
 
-	salt, err := db.ReadSalt(filepath.Join(dataDir, saltFile))
+	salt, err := db.ReadSalt(filepath.Join(dataDir, dbFile))
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "salt:", err)
 		return exitInvalid

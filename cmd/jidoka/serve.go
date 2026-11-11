@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -42,7 +41,6 @@ const (
 	defJobs    = "/jobs"
 	defListen  = ":8080"
 	dbFile     = "jidoka.db"
-	saltFile   = "jidoka.salt"
 	tickEvery  = time.Second
 	pruneEvery = time.Hour
 	stopWait   = 30 * time.Second
@@ -157,14 +155,18 @@ func initKey(dataDir string) error {
 		return nil
 	}
 
-	path := filepath.Join(dataDir, saltFile)
+	// The salt lives next to the database (db.ReadSalt adds ".salt");
+	// none yet means first start.
+	path := filepath.Join(dataDir, dbFile)
 	salt, err := db.ReadSalt(path)
-	if errors.Is(err, os.ErrNotExist) {
-		salt = crypto.NewSalt()
-		err = db.WriteSalt(path, salt)
-	}
 	if err != nil {
 		return fmt.Errorf("salt: %w", err)
+	}
+	if salt == nil {
+		salt = crypto.NewSalt()
+		if err := db.WriteSalt(path, salt); err != nil {
+			return fmt.Errorf("salt: %w", err)
+		}
 	}
 
 	crypto.Init(crypto.Derive(secret, salt))

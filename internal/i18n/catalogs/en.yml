@@ -61,6 +61,9 @@ error:
   secret_empty: The value is missing.
   unavailable: This part of Jidoka is not available right now.
 
+alert:
+  file_fixed_failing: "file valid again, last run failed"
+
 board:
   loaded: Jobs loaded
   commit: commit

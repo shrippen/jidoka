@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"jidoka/internal/crypto"
+	"jidoka/internal/model"
 	"jidoka/internal/services/alerts"
 )
 
@@ -209,5 +210,59 @@ func TestMissingJobsDirStaysOpen(t *testing.T) {
 	}
 	if d, _ := store.Disturbance(alerts.KeyGlobal); d == nil {
 		t.Error("reload closed the disturbance")
+	}
+}
+
+// An unreadable jobs folder says nothing about which jobs exist: trouble of
+// a job stays open until a good run, also after the folder is back.
+func TestUnreadableDirKeepsRunTrouble(t *testing.T) {
+	dir := t.TempDir()
+	jobs := filepath.Join(dir, "jobs")
+	if err := os.MkdirAll(filepath.Join(jobs, "a"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	os.WriteFile(filepath.Join(jobs, "a", "job.toml"), []byte("run = \"run.sh\"\nschedule = \"0 6 * * *\"\n"), 0o644)
+	os.WriteFile(filepath.Join(jobs, "a", "run.sh"), []byte("#!/bin/sh\n"), 0o755)
+
+	t.Setenv(envData, t.TempDir())
+	t.Setenv(envJobs, jobs)
+	t.Setenv(envKey, "")
+
+	a, err := build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.db.Close()
+	if err := a.start(); err != nil {
+		t.Fatal(err)
+	}
+
+	store := alerts.NewDBStore(a.db)
+	err = store.SaveDisturbance(alerts.Disturbance{
+		Job: "a", Event: model.EvFail, Since: time.Now(), Sent: map[int]time.Time{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	gone := filepath.Join(dir, "away")
+	if err := os.Rename(jobs, gone); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.jobs.Reload(); err != nil {
+		t.Fatal(err)
+	}
+	if d, _ := store.Disturbance("a"); d == nil {
+		t.Fatal("closed while the folder was unreadable")
+	}
+
+	if err := os.Rename(gone, jobs); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.jobs.Reload(); err != nil {
+		t.Fatal(err)
+	}
+	if d, _ := store.Disturbance("a"); d == nil {
+		t.Error("closed by the reload; only a good run ends it")
 	}
 }

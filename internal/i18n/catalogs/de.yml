@@ -61,6 +61,9 @@ error:
   secret_empty: Der Wert fehlt.
   unavailable: Dieser Teil von Jidoka ist gerade nicht verfügbar.
 
+alert:
+  file_fixed_failing: "Datei wieder gültig, letzter Lauf fehlgeschlagen"
+
 board:
   loaded: Jobs geladen
   commit: Commit

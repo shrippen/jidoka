@@ -912,6 +912,9 @@ func TestRepairedFileKeepsFailure(t *testing.T) {
 	_ = h.eng.Reloaded(Reload{Fixed: []string{"a"}})
 	h.tick()
 	h.wantApprise(3)
+	if title := h.apprises[2].msg.Title; !strings.Contains(title, "Datei wieder gültig") || strings.HasSuffix(title, "erholt") {
+		t.Errorf("repair with the failure still open: %q", title)
+	}
 	if d, _ := h.store.Disturbance(FileKey("a")); d != nil {
 		t.Errorf("file trouble open: %+v", d)
 	}
@@ -1054,6 +1057,47 @@ func TestRemovedJobClosesSilently(t *testing.T) {
 	for _, c := range h.apprises[3:] {
 		if !strings.Contains(c.msg.Title, "Jobs geändert") {
 			t.Errorf("message after the removal: %q", c.msg.Title)
+		}
+	}
+}
+
+// "Until recovery" flags end when the job has no trouble left, run or file.
+func TestFileRepairResetsFlags(t *testing.T) {
+	h := newHarness(t)
+	a := h.job("a", nil)
+	h.store.flags["a"] = model.Flags{Job: "a", MuteRecover: true}
+	_ = h.eng.Invalid(model.LoadError{Job: "a", File: "a/job.toml", Msg: "bad"})
+
+	_ = h.eng.Reloaded(Reload{Fixed: []string{"a"}})
+	if f := h.store.flags["a"]; f.MuteRecover {
+		t.Fatalf("flags kept after the repair: %+v", f)
+	}
+
+	h.done(a, model.RunFail, day(1), AttemptFinal, nil)
+	h.tick()
+	h.wantApprise(1)
+}
+
+func TestOkRunKeepsFlagsWhileFileBroken(t *testing.T) {
+	ack := time.Now()
+	for name, f := range map[string]model.Flags{
+		"mute": {Job: "a", MuteRecover: true},
+		"ack":  {Job: "a", AckedAt: &ack},
+	} {
+		h := newHarness(t)
+		a := h.job("a", nil)
+		h.done(a, model.RunFail, day(1), AttemptFinal, nil)
+		_ = h.eng.Invalid(model.LoadError{Job: "a", File: "a/job.toml", Msg: "bad"})
+		h.store.flags["a"] = f
+
+		h.done(a, model.RunOK, day(2), AttemptFinal, nil)
+		if got := h.store.flags["a"]; got.AckedAt != f.AckedAt || got.MuteRecover != f.MuteRecover {
+			t.Errorf("%s: flags reset while the file is broken: %+v", name, got)
+		}
+
+		_ = h.eng.Reloaded(Reload{Fixed: []string{"a"}})
+		if got := h.store.flags["a"]; got.AckedAt != nil || got.MuteRecover {
+			t.Errorf("%s: flags kept after everything is fixed: %+v", name, got)
 		}
 	}
 }

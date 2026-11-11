@@ -51,6 +51,10 @@ const (
 	// Job ids are [a-z0-9-]+, so the keys never meet.
 	fileSuffix = "/file"
 
+	// noteFileFixed is the catalog key of the recover title when the file
+	// works again but the last run still failed.
+	noteFileFixed = "alert.file_fixed_failing"
+
 	defaultProfile = "standard"
 	defaultTail    = 20
 	// DefaultLocale is used when the settings name no known language.
@@ -387,7 +391,19 @@ func (e *Engine) okRun(set model.Set, sub subject, run model.Run) error {
 	if err := e.cfg.Store.CloseDisturbance(sub.id); err != nil {
 		return err
 	}
-	return e.cfg.Store.ResetFlags(sub.id)
+	return e.endFlags(sub.id)
+}
+
+// endFlags ends what lasts "until recovery" (ack, mute) once the job has no
+// trouble left, neither run nor file.
+func (e *Engine) endFlags(id string) error {
+	for _, key := range []string{id, FileKey(id)} {
+		d, err := e.cfg.Store.Disturbance(key)
+		if err != nil || d != nil {
+			return err
+		}
+	}
+	return e.cfg.Store.ResetFlags(id)
 }
 
 // recoverable reports whether a disturbance is open, and whether at least
@@ -402,8 +418,9 @@ func (e *Engine) recoverable(id string) (open, announced bool, err error) {
 }
 
 // recoverOf closes the file or settings disturbance sub.key and sends
-// recover if a rule announced it. The job's run trouble and flags are not
-// touched.
+// recover if a rule announced it. With the job's run trouble still open the
+// message says so (Note) instead of a bare "recovered". The run trouble
+// stays; the flags end only when nothing is left (endFlags).
 func (e *Engine) recoverOf(set model.Set, sub subject, now time.Time, run *model.Run) error {
 	d, err := e.cfg.Store.Disturbance(sub.key)
 	if err != nil || d == nil {
@@ -412,11 +429,23 @@ func (e *Engine) recoverOf(set model.Set, sub subject, now time.Time, run *model
 
 	if len(d.Sent) > 0 {
 		it := e.baseItem(set, sub, model.EvRecover, now)
+		if sub.key != sub.id {
+			runTrouble, err := e.cfg.Store.Disturbance(sub.id)
+			if err != nil {
+				return err
+			}
+			if runTrouble != nil {
+				it.Note = noteFileFixed
+			}
+		}
 		if err := e.fire(set, sub, it, run); err != nil {
 			return err
 		}
 	}
-	return e.cfg.Store.CloseDisturbance(sub.key)
+	if err := e.cfg.Store.CloseDisturbance(sub.key); err != nil {
+		return err
+	}
+	return e.endFlags(sub.id)
 }
 
 // firstOf picks the first event, in the given order, the rule listens to.

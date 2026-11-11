@@ -338,8 +338,14 @@ func fixed(set model.Set) []string {
 }
 
 // known lists the job ids the engine may keep trouble for: loaded jobs and
-// jobs with a load error. Trouble of any other id belongs to a removed job.
+// jobs with a load error. Trouble of any other id belongs to a removed job;
+// nil when the folder could not be read.
 func known(set model.Set) []string {
+	// An unreadable folder tells nothing about which jobs exist.
+	if folderUnreadable(set) {
+		return nil
+	}
+
 	ids := make([]string, 0, len(set.Jobs))
 	for id := range set.Jobs {
 		ids = append(ids, id)

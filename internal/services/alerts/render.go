@@ -28,6 +28,7 @@ type item struct {
 	Streak   int
 	Since    time.Time
 	Reminder bool
+	Note     string // catalog key; replaces the event word in the title
 }
 
 func (e *Engine) baseItem(set model.Set, sub subject, ev model.Event, at time.Time) item {
@@ -190,6 +191,9 @@ func (e *Engine) render(set model.Set, p payload) rendered {
 
 	last := p.Items[len(p.Items)-1]
 	title := last.Name + ": " + l.events[last.Event]
+	if last.Note != "" {
+		title = last.Name + ": " + i18n.T(last.Note, i18n.Locale(localeOf(set)), nil)
+	}
 	if last.Reminder {
 		title += " (" + l.reminder + ")"
 	}

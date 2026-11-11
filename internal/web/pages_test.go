@@ -3,6 +3,7 @@ package web
 import (
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"strings"
 	"testing"
@@ -199,20 +200,32 @@ func TestDeliveryNoteShownNotRecovery(t *testing.T) {
 	}
 }
 
-// The board shows an invalid settings file and an invalid jobs folder
+// The board shows an invalid settings file and an unreadable jobs folder
 // (B8); both read the settings source from the page data.
 func TestBoardShowsInvalidSettings(t *testing.T) {
-	b, s := seeded(t)
-	b.put("jidoka.toml", "[[profiles.standard]\n")
-	b.put("odd.toml", "")
-	if err := b.jobs.Load(); err != nil {
-		t.Fatal(err)
+	tests := []struct {
+		name  string
+		spoil func(b *backend)
+	}{
+		{"settings", func(b *backend) { b.put("jidoka.toml", "[[profiles.standard]\n") }},
+		{"dir", func(b *backend) {
+			if err := os.Chmod(b.dir, 0); err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = os.Chmod(b.dir, 0o700) })
+		}},
 	}
 
-	for _, path := range []string{"/", "/board/tiles"} {
-		w := do(b.srv, "GET", path, nil, s.cookies, nil)
-		if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "callout-danger") {
-			t.Errorf("%s: %d, no error callout: %s", path, w.Code, w.Body)
+	for _, tc := range tests {
+		b, s := seeded(t)
+		tc.spoil(b)
+		_ = b.jobs.Load()
+
+		for _, path := range []string{"/", "/board/tiles"} {
+			w := do(b.srv, "GET", path, nil, s.cookies, nil)
+			if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "callout-danger") {
+				t.Errorf("%s %s: %d, no error callout: %s", tc.name, path, w.Code, w.Body)
+			}
 		}
 	}
 }

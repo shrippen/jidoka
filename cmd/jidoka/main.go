@@ -49,6 +49,10 @@ func run(args []string) int {
 		return healthcheck()
 	}
 
+	if fn, ok := extraCommands[args[0]]; ok {
+		return fn(args[1:])
+	}
+
 	fmt.Fprintf(os.Stderr, "jidoka: unknown command %q\n", args[0])
 
 	return exitUsage

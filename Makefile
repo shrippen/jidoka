@@ -20,3 +20,4 @@ run:
 
 build:
 	CGO_ENABLED=0 go build -tags release -trimpath -ldflags="-s -w" -o bin/jidoka ./cmd/jidoka
+	scripts/release-check.sh bin/jidoka

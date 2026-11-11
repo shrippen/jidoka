@@ -54,7 +54,7 @@ var (
 // issuer may also be given as its configuration URL, as Authentik shows it:
 // https://auth.example/application/o/jidoka/.well-known/openid-configuration
 func Discover(ctx context.Context, issuer string) (Provider, error) {
-	base := strings.TrimSuffix(issuer, discoveryPath)
+	base := strings.TrimSuffix(strings.TrimSuffix(issuer, "/"), discoveryPath)
 	if !strings.HasSuffix(base, "/") {
 		base += "/"
 	}
@@ -72,6 +72,12 @@ func Discover(ctx context.Context, issuer string) (Provider, error) {
 	}
 	if p.Issuer == "" || p.Authorize == "" || p.Token == "" || p.JWKSURI == "" {
 		return Provider{}, errors.New("discovery: incomplete metadata")
+	}
+
+	// The metadata must name the issuer it was fetched for (OIDC Discovery
+	// 4.3); the ID token's iss is checked against it.
+	if strings.TrimSuffix(p.Issuer, "/") != strings.TrimSuffix(base, "/") {
+		return Provider{}, fmt.Errorf("discovery: issuer %q, expected %q", p.Issuer, base)
 	}
 
 	discoveryMu.Lock()

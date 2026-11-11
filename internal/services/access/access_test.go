@@ -83,6 +83,29 @@ func TestIssuerAsConfigURL(t *testing.T) {
 	}
 }
 
+// A configuration URL with a slash at the end works too.
+func TestIssuerAsConfigURLWithSlash(t *testing.T) {
+	idp := accesstest.New(t)
+	cfg := Config{Issuer: idp.Issuer() + ".well-known/openid-configuration/", ClientID: accesstest.ClientID, ClientSecret: accesstest.Secret}
+	s := New(testDB(t), cfg)
+	idp.Claims = map[string]any{"sub": "u-1"}
+
+	if _, err := login(t, s, idp, accesstest.GoodCode); err != nil {
+		t.Fatalf("login with the configuration URL and a slash: %v", err)
+	}
+}
+
+// The metadata must name the issuer Jidoka was given (OIDC Discovery 4.3);
+// else tokens of another issuer would pass the iss check.
+func TestForeignMetaIssuerRefused(t *testing.T) {
+	s, idp := setup(t, Config{})
+	idp.MetaIssuer = "https://other.example/"
+
+	if _, _, err := s.AuthorizeURL(context.Background(), baseURL, "/"); err == nil {
+		t.Fatal("authorize with a foreign issuer in the metadata: no error")
+	}
+}
+
 func TestOtherAccountRefused(t *testing.T) {
 	s, idp := setup(t, Config{AllowSub: "u-1"})
 	idp.Claims = map[string]any{"sub": "u-2", "name": "Fremd", "groups": []string{"jidoka"}}

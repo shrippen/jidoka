@@ -17,16 +17,20 @@ func TestAlerts(t *testing.T) {
 	must(t, OpenAlert(d, a))
 	got, err := GetAlert(d, "a")
 	must(t, err)
-	if got.Streak != 1 || got.FirstSent != nil || got.Event != model.EvFail || !got.Since.Equal(t0) {
+	if got.Streak != 1 || len(got.Sent) != 0 || got.Sent == nil || got.Event != model.EvFail ||
+		!got.Since.Equal(t0) || !got.LastSlot.IsZero() || got.RunID != 0 {
 		t.Fatalf("open: %+v", got)
 	}
 
 	sent := t0.Add(time.Minute)
-	a.Streak, a.FirstSent, a.LastSent, a.Event = 3, &sent, &sent, model.EvTimeout
-	must(t, UpdateAlert(d, a))
+	a.Streak, a.Event, a.LastSlot, a.RunID = 3, model.EvTimeout, sent, 7
+	a.Name, a.Detail, a.Sent = "Job A", "line 3", map[int]time.Time{0: sent, 2: t0}
+	must(t, OpenAlert(d, a))
 	got, _ = GetAlert(d, "a")
-	if got.Streak != 3 || got.FirstSent == nil || !got.LastSent.Equal(sent) || got.Event != model.EvTimeout {
-		t.Fatalf("update: %+v", got)
+	if got.Streak != 3 || got.Event != model.EvTimeout || !got.LastSlot.Equal(sent) || got.RunID != 7 ||
+		got.Name != "Job A" || got.Detail != "line 3" ||
+		len(got.Sent) != 2 || !got.Sent[0].Equal(sent) || !got.Sent[2].Equal(t0) {
+		t.Fatalf("replace: %+v", got)
 	}
 
 	if all, _ := AllAlerts(d); len(all) != 1 {

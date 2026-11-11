@@ -55,13 +55,26 @@ func AddOutbox(q db.Queryer, o OutboxItem) (int64, error) {
 	if o.RunID != nil {
 		runID = *o.RunID
 	}
-	res, err := q.Exec(`INSERT INTO outbox (created, due, job, run_id, event, channel, digest, payload)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, db.TimeStr(o.Created), db.TimeStr(o.Due),
-		o.Job, runID, string(o.Event), o.Channel, o.Digest, o.Payload)
+	res, err := q.Exec(`INSERT INTO outbox (created, due, job, run_id, event, channel, digest, payload,
+		attempts, last_error) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, db.TimeStr(o.Created), db.TimeStr(o.Due),
+		o.Job, runID, string(o.Event), o.Channel, o.Digest, o.Payload, o.Attempts, o.LastError)
 	if err != nil {
 		return 0, err
 	}
 	return res.LastInsertId()
+}
+
+// SaveOutbox replaces every column of the row with o.ID.
+func SaveOutbox(q db.Queryer, o OutboxItem) error {
+	var runID any
+	if o.RunID != nil {
+		runID = *o.RunID
+	}
+	_, err := q.Exec(`UPDATE outbox SET created = ?, due = ?, job = ?, run_id = ?, event = ?,
+		channel = ?, digest = ?, payload = ?, attempts = ?, last_error = ? WHERE id = ?`,
+		db.TimeStr(o.Created), db.TimeStr(o.Due), o.Job, runID, string(o.Event), o.Channel,
+		o.Digest, o.Payload, o.Attempts, o.LastError, o.ID)
+	return err
 }
 
 // DueOutbox returns the messages due at now, oldest first.

@@ -96,3 +96,10 @@ func ClearMuted(q db.Queryer, job string) error {
 	_, err := q.Exec("UPDATE flags SET muted_until = NULL, mute_recover = 0 WHERE job = ?", job)
 	return err
 }
+
+// ResetRecover ends what lasts until recovery: clears the acknowledgement
+// and the mute-until-recovery. MutedUntil and the pause stay.
+func ResetRecover(q db.Queryer, job string) error {
+	_, err := q.Exec("UPDATE flags SET acked_at = NULL, mute_recover = 0 WHERE job = ?", job)
+	return err
+}

@@ -41,12 +41,15 @@ CREATE TABLE schedule (
 
 -- Ongoing disturbance per job and what was already sent (M3, M5).
 CREATE TABLE alerts (
-    job        TEXT PRIMARY KEY,
-    since      TEXT NOT NULL,
-    streak     INTEGER NOT NULL DEFAULT 0,  -- slots in a row with disturbance
-    first_sent TEXT,
-    last_sent  TEXT,
-    event      TEXT NOT NULL
+    job       TEXT PRIMARY KEY,
+    event     TEXT NOT NULL,
+    since     TEXT NOT NULL,
+    streak    INTEGER NOT NULL DEFAULT 0,  -- slots in a row with disturbance
+    last_slot TEXT,                        -- slot counted last
+    run_id    INTEGER,                     -- last run that belongs to it
+    name      TEXT NOT NULL DEFAULT '',
+    detail    TEXT NOT NULL DEFAULT '',
+    sent      TEXT NOT NULL DEFAULT '{}'   -- JSON: rule index -> time of last message
 );
 
 -- Messages waiting: quiet hours, digest, retry, both channels down (M6, M7, M9).

@@ -101,20 +101,17 @@ type Window struct {
 	Zone       *time.Location
 }
 
-// RemindNever is Rule.Remind for remind = "never"; 0 means not set.
-const RemindNever = -time.Nanosecond
-
 // Rule is one [[notify]] entry (M3).
 type Rule struct {
 	On       []Event
-	Channels []string // "apprise", "apprise:handy", "mail"
-	To       []string // mail recipients, overrides the channel default
-	After    int      // from the n-th slot in a row with disturbance; 0 and 1 mean at once
-	Remind   time.Duration
-	Urgent   bool   // breaks quiet hours
-	Tail     int    // last lines of output; -1 = default (20)
-	Digest   string // "daily 08:00", "weekly Mon 08:00"; "" = at once
-	Attach   bool   // attach_output: whole output as mail attachment
+	Channels []string      // "apprise", "apprise:handy", "mail"
+	To       []string      // mail recipients, overrides the channel default
+	After    int           // from the n-th slot in a row with disturbance; 0 and 1 mean at once
+	Remind   time.Duration // 0 = never (also when not set)
+	Urgent   bool          // breaks quiet hours
+	Tail     int           // last lines of output; -1 = default (20)
+	Digest   string        // "daily 08:00", "weekly Mon 08:00"; "" = at once
+	Attach   bool          // attach_output: whole output as mail attachment
 }
 
 // Job is one folder under /jobs, scripted (job.toml) or watched (watch.toml).

@@ -95,11 +95,9 @@ func buildRule(is *issues, sect string, i int, r rawRule, tags map[string]string
 }
 
 func ruleRemind(is *issues, sect string, i int, text string) time.Duration {
-	if text == "" {
+	// Not set and "never" both mean no reminder.
+	if text == "" || text == remindNever {
 		return 0
-	}
-	if text == remindNever {
-		return RemindNever
 	}
 
 	d, err := parseDur(text)

@@ -425,7 +425,7 @@ func TestRemindNever(t *testing.T) {
 	})
 
 	j := Load(dir, nil).Jobs["a"]
-	if j == nil || j.Rules[0].Remind != RemindNever {
+	if j == nil || j.Rules[0].Remind != 0 {
 		t.Errorf("job: %+v", j)
 	}
 }

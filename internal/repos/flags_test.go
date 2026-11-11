@@ -44,3 +44,17 @@ func TestFlags(t *testing.T) {
 		t.Fatalf("cleared: %+v", f)
 	}
 }
+
+func TestResetRecover(t *testing.T) {
+	d := testDB(t)
+	until := t0.Add(time.Hour)
+	must(t, SetPaused(d, "a", "x", t0))
+	must(t, SetAcked(d, "a", t0))
+	must(t, SetMuted(d, "a", &until, true))
+	must(t, ResetRecover(d, "a"))
+
+	f, _ := GetFlags(d, "a")
+	if f.AckedAt != nil || f.MuteRecover || f.MutedUntil == nil || f.PausedAt == nil {
+		t.Fatalf("reset: %+v", f)
+	}
+}

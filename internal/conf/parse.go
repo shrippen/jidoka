@@ -21,9 +21,6 @@ const (
 	weeklyWord  = "weekly"
 )
 
-// RemindNever is Rule.Remind for remind = "never" (0 means: not set).
-const RemindNever = model.RemindNever
-
 var (
 	idRe     = regexp.MustCompile(`^[a-z0-9-]+$`)
 	secretRe = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)

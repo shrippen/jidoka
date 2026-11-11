@@ -2,6 +2,8 @@ package repos
 
 import (
 	"database/sql"
+	"encoding/json"
+	"strconv"
 	"time"
 
 	"jidoka/internal/db"
@@ -11,37 +13,93 @@ import (
 // Alert is the ongoing disturbance of one job and what was already sent
 // about it (M3, M5): a restart repeats no message.
 type Alert struct {
-	Job       string
-	Since     time.Time
-	Streak    int // slots in a row with disturbance
-	FirstSent *time.Time
-	LastSent  *time.Time
-	Event     model.Event
+	Job      string
+	Event    model.Event
+	Since    time.Time
+	Streak   int       // slots in a row with disturbance
+	LastSlot time.Time // zero = none
+	RunID    int64     // 0 = none
+	Name     string
+	Detail   string
+	Sent     map[int]time.Time // rule index -> last message
 }
 
-const alertCols = "job, since, streak, first_sent, last_sent, event"
+const alertCols = "job, event, since, streak, last_slot, run_id, name, detail, sent"
 
 func scanAlert(s scanner) (Alert, error) {
 	var (
-		a           Alert
-		since       string
-		first, last sql.NullString
-		event       string
+		a            Alert
+		event, since string
+		slot         sql.NullString
+		runID        sql.NullInt64
+		sent         string
 	)
-	if err := s.Scan(&a.Job, &since, &a.Streak, &first, &last, &event); err != nil {
+	err := s.Scan(&a.Job, &event, &since, &a.Streak, &slot, &runID, &a.Name, &a.Detail, &sent)
+	if err != nil {
 		return a, err
 	}
-	a.Event = model.Event(event)
+	a.Event, a.RunID = model.Event(event), runID.Int64
 
-	var err error
 	if a.Since, err = parseTime(since); err != nil {
 		return a, err
 	}
-	if a.FirstSent, err = parseNull(first); err != nil {
+	last, err := parseNull(slot)
+	if err != nil {
 		return a, err
 	}
-	a.LastSent, err = parseNull(last)
+	if last != nil {
+		a.LastSlot = *last
+	}
+	a.Sent, err = decodeSent(sent)
 	return a, err
+}
+
+// encodeSent turns the per-rule times into the JSON column.
+func encodeSent(m map[int]time.Time) (string, error) {
+	out := make(map[string]string, len(m))
+	for i, t := range m {
+		out[strconv.Itoa(i)] = db.TimeStr(t)
+	}
+	b, err := json.Marshal(out)
+	return string(b), err
+}
+
+// decodeSent reads the JSON column; never returns a nil map.
+func decodeSent(s string) (map[int]time.Time, error) {
+	var raw map[string]string
+	if err := json.Unmarshal([]byte(s), &raw); err != nil {
+		return nil, err
+	}
+
+	out := make(map[int]time.Time, len(raw))
+	for k, v := range raw {
+		i, err := strconv.Atoi(k)
+		if err != nil {
+			return nil, err
+		}
+		if out[i], err = parseTime(v); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
+// alertArgs lists the column values of a in alertCols order.
+func alertArgs(a Alert) ([]any, error) {
+	sent, err := encodeSent(a.Sent)
+	if err != nil {
+		return nil, err
+	}
+
+	var slot, runID any
+	if !a.LastSlot.IsZero() {
+		slot = db.TimeStr(a.LastSlot)
+	}
+	if a.RunID != 0 {
+		runID = a.RunID
+	}
+	return []any{a.Job, string(a.Event), db.TimeStr(a.Since), a.Streak, slot, runID,
+		a.Name, a.Detail, sent}, nil
 }
 
 // GetAlert returns the open alert of job; ErrNotFound when there is none.
@@ -63,19 +121,13 @@ func AllAlerts(q db.Queryer) (map[string]Alert, error) {
 	return out, nil
 }
 
-// OpenAlert starts the alert of a job; one already open is replaced.
+// OpenAlert stores the alert of a job; one already open is replaced.
 func OpenAlert(q db.Queryer, a Alert) error {
-	_, err := q.Exec(`INSERT OR REPLACE INTO alerts (`+alertCols+`) VALUES (?, ?, ?, ?, ?, ?)`,
-		a.Job, db.TimeStr(a.Since), a.Streak, db.NullTimeStr(a.FirstSent),
-		db.NullTimeStr(a.LastSent), string(a.Event))
-	return err
-}
-
-// UpdateAlert changes streak, sent times and event of the open alert.
-func UpdateAlert(q db.Queryer, a Alert) error {
-	_, err := q.Exec(`UPDATE alerts SET streak = ?, first_sent = ?, last_sent = ?, event = ?
-		WHERE job = ?`, a.Streak, db.NullTimeStr(a.FirstSent), db.NullTimeStr(a.LastSent),
-		string(a.Event), a.Job)
+	args, err := alertArgs(a)
+	if err != nil {
+		return err
+	}
+	_, err = q.Exec(`INSERT OR REPLACE INTO alerts (`+alertCols+`) VALUES (`+marks(len(args))+`)`, args...)
 	return err
 }
 

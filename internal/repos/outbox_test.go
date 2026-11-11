@@ -43,3 +43,24 @@ func TestOutbox(t *testing.T) {
 		t.Fatalf("after delete: %+v", all)
 	}
 }
+
+func TestSaveOutbox(t *testing.T) {
+	d := testDB(t)
+	id, err := AddOutbox(d, OutboxItem{Created: t0, Due: t0, Event: "fail", Channel: "apprise", Payload: "{}"})
+	must(t, err)
+
+	run := int64(5)
+	must(t, SaveOutbox(d, OutboxItem{ID: id, Created: t0, Due: t0.Add(time.Hour), Job: "j", RunID: &run,
+		Event: "fail", Channel: "mail", Digest: "k", Payload: "{1}", Attempts: 2, LastError: "boom"}))
+
+	all, err := AllOutbox(d)
+	must(t, err)
+	if len(all) != 1 {
+		t.Fatalf("rows: %+v", all)
+	}
+	o := all[0]
+	if o.Channel != "mail" || o.Digest != "k" || o.Attempts != 2 || o.LastError != "boom" ||
+		o.RunID == nil || *o.RunID != 5 || !o.Due.Equal(t0.Add(time.Hour)) || o.Job != "j" {
+		t.Fatalf("saved: %+v", o)
+	}
+}

@@ -2,6 +2,8 @@
 // should have succeeded by now, and takes the pings of external watches.
 //
 //	Tick ──► per job with expect / watch: deadline = base + window
+//	         (a watch with a schedule: the slot base leaves open, plus grace;
+//	         an ok ping answers the slot nearest to it, see dueSlot)
 //	         base = max(last ok run, first seen, last resume)
 //	         past the deadline, grace over ──► missed ──► OnMissed (once)
 //	         ok run again ──► missed ends (alerts sees the ok run: recover)
@@ -218,17 +220,17 @@ func (w *Watch) checkJob(job *model.Job, st *state, fl model.Flags, row repos.Sc
 		st.inactive, st.resumed = false, now
 	}
 
-	base := latest(row.FirstSeen, st.resumed)
 	ok, err := repos.LastOKRun(w.cfg.DB, job.ID)
 	if err != nil && !errors.Is(err, repos.ErrNotFound) {
 		slog.Error("watch: last ok", "job", job.ID, "err", err)
 		return nil
 	}
+	var lastOK time.Time
 	if err == nil {
-		base = latest(base, endOf(ok))
+		lastOK = endOf(ok)
 	}
 
-	deadline := w.deadline(job, base, now)
+	deadline := dueOf(job, st, row.FirstSeen, lastOK)
 	if deadline.IsZero() || now.Before(deadline) {
 		st.missed = time.Time{}
 		return nil
@@ -247,27 +249,75 @@ func (w *Watch) checkJob(job *model.Job, st *state, fl model.Flags, row repos.Sc
 	return &hit{job, deadline}
 }
 
-// deadline is the instant by which the job needed an ok run; zero if none
-// is due. base is the newest of last ok, first seen and resume.
-func (w *Watch) deadline(job *model.Job, base, now time.Time) time.Time {
+// dueOf is the deadline from the newest of last ok, first seen and resume.
+func dueOf(job *model.Job, st *state, firstSeen, lastOK time.Time) time.Time {
+	base, kind := BaseOf(latest(firstSeen, st.resumed), lastOK)
+	return Deadline(job, base, kind)
+}
+
+// Base says what the window of a job starts from.
+type Base int
+
+const (
+	// BaseStart: first sight or a resume; it answers no slot.
+	BaseStart Base = iota
+	// BaseOK: an ok run or ping; it may answer the slot just after it.
+	BaseOK
+)
+
+// BaseOf picks the newer of start (first sight, resume) and the last ok
+// run, and says which it is.
+func BaseOf(start, lastOK time.Time) (time.Time, Base) {
+	if !lastOK.IsZero() && !lastOK.Before(start) {
+		return lastOK, BaseOK
+	}
+	return start, BaseStart
+}
+
+// Due is the deadline of a job as the alarm sees it, resume after a pause
+// included; the board shows this instant. lastOK is zero if none.
+func (w *Watch) Due(job *model.Job, firstSeen, lastOK time.Time) time.Time {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	st := w.states[job.ID]
+	if st == nil {
+		st = &state{}
+	}
+	return dueOf(job, st, firstSeen, lastOK)
+}
+
+// Deadline is the end of the window of a job that last had an ok run (or
+// was first seen or resumed) at base; zero if it has none. The board shows
+// the same instant.
+//
+// A watch with a schedule: the first slot after base must be answered by
+// an ok run within the grace, e.g. slots Mon+Tue 03:00, grace 2 h, ok Mon
+// 03:10 -> missed Tue 05:00, not after the longest gap (Expect). A ping
+// shortly before a slot answers that slot (ok 02:59 for 03:00 -> next
+// slot); see dueSlot.
+func Deadline(job *model.Job, base time.Time, kind Base) time.Time {
+	if job.Kind == model.KindWatch && job.Schedule != "" {
+		sched, err := cron.Parse(job.Schedule, job.Zone)
+		if err != nil {
+			return time.Time{}
+		}
+		slot := sched.Next(base)
+		if kind == BaseOK {
+			slot = dueSlot(sched, base, job.Grace)
+		}
+		if slot.IsZero() {
+			return time.Time{}
+		}
+		return slot.Add(job.Grace)
+	}
 	if job.Expect > 0 {
 		return base.Add(job.Expect)
 	}
 	if job.Period > 0 {
 		return base.Add(job.Period + job.Grace)
 	}
-
-	// A watch with a schedule: the newest slot after base must have been
-	// answered by an ok run within the grace.
-	sched, err := cron.Parse(job.Schedule, job.Zone)
-	if err != nil {
-		return time.Time{}
-	}
-	due := sched.Last(now)
-	if due.IsZero() || !due.After(base) {
-		return time.Time{}
-	}
-	return due.Add(job.Grace)
+	return time.Time{}
 }
 
 func latest(a, b time.Time) time.Time {
@@ -461,4 +511,22 @@ func clip(s string, n int) string {
 		n--
 	}
 	return s[:n]
+}
+
+// dueSlot is the slot an ok ping at base leaves open. A ping answers the
+// slot nearest to it: an early one (at most grace before the next slot
+// and closer to it than to the previous) answers the next, so the one
+// after is due. A grace longer than the gap between slots must not let
+// one ping cover several: hourly, grace 2 h, ok 10:00 -> 11:00 is due.
+func dueSlot(sched *cron.Schedule, base time.Time, grace time.Duration) time.Time {
+	next := sched.Next(base)
+	if next.IsZero() || next.Sub(base) > grace {
+		return next
+	}
+
+	prev := sched.Last(base)
+	if !prev.IsZero() && next.Sub(base) >= base.Sub(prev) {
+		return next
+	}
+	return sched.Next(next)
 }

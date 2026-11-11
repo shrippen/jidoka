@@ -208,7 +208,7 @@ func TestCleanEnv(t *testing.T) {
 	}
 
 	allowed := []string{
-		"PATH", "HOME", "TZ", "LANG", "MY_URL", "TOKEN", "JIDOKA_JOB", "JIDOKA_RUN",
+		"PATH", "HOME", "TZ", "LANG", "UV_PYTHON_DOWNLOADS", "MY_URL", "TOKEN", "JIDOKA_JOB", "JIDOKA_RUN",
 		"JIDOKA_TRIGGER", "JIDOKA_LAST_OK", "JIDOKA_STATE", "JIDOKA_SUMMARY",
 		"JIDOKA_NOTIFY", "TMPDIR",
 	}
@@ -224,6 +224,10 @@ func TestCleanEnv(t *testing.T) {
 	}
 	for k := range got {
 		t.Errorf("unexpected env %s", k)
+	}
+	// uv uses the image's Python and loads none of its own (J11).
+	if !strings.Contains(r.Output, "UV_PYTHON_DOWNLOADS=never") {
+		t.Errorf("uv may download a Python: %q", r.Output)
 	}
 	if !strings.Contains(r.Output, "JIDOKA_TRIGGER=manual") || !strings.Contains(r.Output, "PATH=/usr/local/bin:/usr/bin:/bin") {
 		t.Errorf("output: %q", r.Output)

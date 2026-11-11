@@ -40,6 +40,9 @@ const (
 	jobPath = "/usr/local/bin:/usr/bin:/bin"
 	jobLang = "C.UTF-8"
 
+	// uvDownloads keeps uv to the image's Python; a job loads none (J11).
+	uvDownloads = "never"
+
 	summaryMax = 200
 	notifyMax  = 4 << 10
 
@@ -382,6 +385,8 @@ func (s *Service) env(job *model.Job, run *model.Run, sec map[string]string,
 		"HOME": s.homeDir(job),
 		"TZ":   tz,
 		"LANG": jobLang,
+
+		"UV_PYTHON_DOWNLOADS": uvDownloads,
 	}
 	for k, v := range job.Env {
 		m[k] = v

@@ -647,3 +647,47 @@ func TestUnreadableDirBannerText(t *testing.T) {
 		t.Errorf("unreadable folder, no copy: text %q", b.SettingsText)
 	}
 }
+
+func (e *env) cronWatch(id string) {
+	e.t.Helper()
+	put(e.t, e.dir, id+"/watch.toml", "name = \""+id+"\"\nschedule = \"0 3 * * *\"\nzone = \"UTC\"\ngrace = \"2h\"\n")
+}
+
+func TestScheduleWatchDue(t *testing.T) {
+	e := newEnv(t)
+	e.clk.Set(time.Date(2026, 11, 11, 10, 0, 0, 0, time.UTC))
+	e.cronWatch("w")
+	e.start()
+	e.w.Tick(e.clk.Now())
+
+	// First slot after first seen (Wed 10:00) is Thu 03:00; due 05:00.
+	want := time.Date(2026, 11, 12, 5, 0, 0, 0, time.UTC)
+	if tl := e.tile("w"); !tl.Due.Equal(want) || !tl.Next.Equal(want) {
+		t.Errorf("Due = %v, Next = %v, want %v", tl.Due, tl.Next, want)
+	}
+}
+
+func TestScheduleWatchDueAfterPause(t *testing.T) {
+	e := newEnv(t)
+	e.clk.Set(time.Date(2026, 11, 11, 10, 0, 0, 0, time.UTC))
+	e.cronWatch("w")
+	e.start()
+	e.w.Tick(e.clk.Now())
+
+	if err := repos.SetPaused(e.d, "w", "t", e.clk.Now()); err != nil {
+		t.Fatal(err)
+	}
+	e.clk.Set(e.clk.Now().Add(time.Hour))
+	e.w.Tick(e.clk.Now())
+
+	// Resumed Thu 06:00: the window starts anew, no due date in the past.
+	if err := repos.ClearPaused(e.d, "w"); err != nil {
+		t.Fatal(err)
+	}
+	e.clk.Set(time.Date(2026, 11, 12, 6, 0, 0, 0, time.UTC))
+	e.w.Tick(e.clk.Now())
+
+	if tl := e.tile("w"); tl.Due.Before(e.clk.Now()) {
+		t.Errorf("Due %v lies before now %v", tl.Due, e.clk.Now())
+	}
+}

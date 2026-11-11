@@ -65,5 +65,6 @@ expect otherhome=denied
 expect groups=own
 expect python=ok
 expect uv=ok
+expect pep723=ok
 
 exit $fail

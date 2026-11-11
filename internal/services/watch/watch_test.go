@@ -263,6 +263,37 @@ func TestWatchScheduleNewWatch(t *testing.T) {
 	}
 }
 
+func TestDeadlineEarlyPing(t *testing.T) {
+	job := &model.Job{Kind: model.KindWatch, Zone: time.UTC, Schedule: "0 3 * * *",
+		Grace: 2 * time.Hour, Expect: 26 * time.Hour}
+	day := func(d, h, m int) time.Time { return time.Date(2026, 11, d, h, m, 0, 0, time.UTC) }
+
+	for _, c := range []struct {
+		name       string
+		ping, want time.Time
+	}{
+		{"after the slot", day(12, 3, 10), day(13, 5, 0)},
+		{"just before the slot", day(12, 2, 59), day(13, 5, 0)},
+		{"within grace before", day(12, 1, 30), day(13, 5, 0)},
+		{"long before", day(12, 0, 30), day(12, 5, 0)},
+	} {
+		if got := Deadline(job, c.ping); !got.Equal(c.want) {
+			t.Errorf("%s: Deadline = %v, want %v", c.name, got, c.want)
+		}
+	}
+}
+
+func TestWatchScheduleEarlyPing(t *testing.T) {
+	e := newEnv(t, &model.Job{ID: "w", Kind: model.KindWatch, Enabled: true, Zone: time.UTC,
+		Schedule: "0 3 * * *", Grace: 2 * time.Hour, Expect: 26 * time.Hour})
+
+	addOK(t, e.d, "w", time.Date(2026, 11, 12, 2, 59, 0, 0, time.UTC))
+	e.tick(time.Date(2026, 11, 12, 5, 30, 0, 0, time.UTC))
+	if len(e.events()) != 0 {
+		t.Fatalf("false alarm after an early ping: %+v", e.events())
+	}
+}
+
 func useKey(t *testing.T) {
 	t.Helper()
 	crypto.Init([]byte("0123456789abcdef0123456789abcdef"))

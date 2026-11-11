@@ -93,6 +93,7 @@ board:
   channel_since: "Since {since}; messages wait until it is back"
   watch: Watch
   expect: "expected every {every}"
+  grace: "grace {grace}"
   no_schedule: no schedule
   acked: acknowledged, no reminders
   muted: muted
@@ -268,6 +269,7 @@ job:
   settings: Settings
   schedule: Schedule
   expect: Expected
+  grace: Grace
   timeout: Timeout
   retries: Retries
   jitter: Jitter

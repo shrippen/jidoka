@@ -65,7 +65,7 @@
       <a class="name" href="/jobs/{{.Job.ID}}">{{.Job.Name}}</a>
       {{template "jobpill" .State}}
       <div class="row">
-        {{if eq .Job.Kind "watch"}}{{t "board.watch"}}{{if .Job.Expect}} · {{t "board.expect" "every" (dur .Job.Expect)}}{{end}}
+        {{if eq .Job.Kind "watch"}}{{t "board.watch"}}{{if .Job.Schedule}} · <span title="{{.Job.Schedule}}">{{words .Job.Schedule}}</span> · {{t "board.grace" "grace" (dur .Job.Grace)}}{{else if .Job.Expect}} · {{t "board.expect" "every" (dur .Job.Expect)}}{{end}}
         {{else if .Job.Schedule}}<span title="{{.Job.Schedule}}">{{words .Job.Schedule}}</span>{{else}}{{t "board.no_schedule"}}{{end}}
       </div>
 

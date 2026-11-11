@@ -438,11 +438,11 @@ func (t *Tile) fillWhen(s *Service, d *data, recent []model.Run, missed time.Tim
 	}
 
 	if job.Expect > 0 {
-		base := d.sched[job.ID].FirstSeen
-		if t.LastOK != nil && t.LastOK.End.After(base) {
-			base = t.LastOK.End
+		var lastOK time.Time
+		if t.LastOK != nil {
+			lastOK = t.LastOK.End
 		}
-		t.Due = watch.Deadline(job, base)
+		t.Due = s.due(job, d.sched[job.ID].FirstSeen, lastOK)
 	}
 
 	if s.d.Plan != nil && job.Kind == model.KindJob {
@@ -481,4 +481,19 @@ func sortTiles(tiles []Tile) {
 		}
 		return a.Job.ID < b.Job.ID
 	})
+}
+
+// due asks the watch, so board and alarm share one base (resume included).
+func (s *Service) due(job *model.Job, firstSeen, lastOK time.Time) time.Time {
+	if s.d.Watch == nil {
+		return watch.Deadline(job, latest(firstSeen, lastOK))
+	}
+	return s.d.Watch.Due(job, firstSeen, lastOK)
+}
+
+func latest(a, b time.Time) time.Time {
+	if b.After(a) {
+		return b
+	}
+	return a
 }

@@ -112,7 +112,12 @@
         <h2 class="h-label">{{t "job.settings"}}</h2>
         <dl class="kv">
           {{if $watch}}
+          {{if .Tile.Job.Schedule}}
+          <dt>{{t "job.schedule"}}</dt><dd><span title="{{.Tile.Job.Schedule}}">{{words .Tile.Job.Schedule}}</span>{{if .Tile.Job.Zone}} · {{.Tile.Job.Zone}}{{end}}</dd>
+          <dt>{{t "job.grace"}}</dt><dd>{{dur .Tile.Job.Grace}}</dd>
+          {{else}}
           <dt>{{t "job.expect"}}</dt><dd>{{dur .Tile.Job.Expect}}</dd>
+          {{end}}
           {{if not .Tile.Due.IsZero}}<dt>{{t "board.due"}}</dt><dd>{{when .Tile.Due}}{{tzMark}}</dd>{{end}}
           {{else}}
           <dt>{{t "job.schedule"}}</dt><dd><span title="{{.Tile.Job.Schedule}}">{{words .Tile.Job.Schedule}}</span>{{if .Tile.Job.Zone}} · {{.Tile.Job.Zone}}{{end}}</dd>

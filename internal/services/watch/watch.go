@@ -2,6 +2,7 @@
 // should have succeeded by now, and takes the pings of external watches.
 //
 //	Tick ──► per job with expect / watch: deadline = base + window
+//	         (a watch with a schedule: first slot after base + grace, plus grace)
 //	         base = max(last ok run, first seen, last resume)
 //	         past the deadline, grace over ──► missed ──► OnMissed (once)
 //	         ok run again ──► missed ends (alerts sees the ok run: recover)
@@ -218,17 +219,17 @@ func (w *Watch) checkJob(job *model.Job, st *state, fl model.Flags, row repos.Sc
 		st.inactive, st.resumed = false, now
 	}
 
-	base := latest(row.FirstSeen, st.resumed)
 	ok, err := repos.LastOKRun(w.cfg.DB, job.ID)
 	if err != nil && !errors.Is(err, repos.ErrNotFound) {
 		slog.Error("watch: last ok", "job", job.ID, "err", err)
 		return nil
 	}
+	var lastOK time.Time
 	if err == nil {
-		base = latest(base, endOf(ok))
+		lastOK = endOf(ok)
 	}
 
-	deadline := Deadline(job, base)
+	deadline := dueOf(job, st, row.FirstSeen, lastOK)
 	if deadline.IsZero() || now.Before(deadline) {
 		st.missed = time.Time{}
 		return nil
@@ -247,20 +248,40 @@ func (w *Watch) checkJob(job *model.Job, st *state, fl model.Flags, row repos.Sc
 	return &hit{job, deadline}
 }
 
+// dueOf is the deadline from the newest of last ok, first seen and resume.
+func dueOf(job *model.Job, st *state, firstSeen, lastOK time.Time) time.Time {
+	return Deadline(job, latest(latest(firstSeen, st.resumed), lastOK))
+}
+
+// Due is the deadline of a job as the alarm sees it, resume after a pause
+// included; the board shows this instant. lastOK is zero if none.
+func (w *Watch) Due(job *model.Job, firstSeen, lastOK time.Time) time.Time {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	st := w.states[job.ID]
+	if st == nil {
+		st = &state{}
+	}
+	return dueOf(job, st, firstSeen, lastOK)
+}
+
 // Deadline is the end of the window of a job that last had an ok run (or
 // was first seen or resumed) at base; zero if it has none. The board shows
 // the same instant.
 //
 // A watch with a schedule: the first slot after base must be answered by
 // an ok run within the grace, e.g. slots Mon+Tue 03:00, grace 2 h, ok Mon
-// 03:10 -> missed Tue 05:00, not after the longest gap (Expect).
+// 03:10 -> missed Tue 05:00, not after the longest gap (Expect). A ping
+// up to grace before a slot answers that slot: base + grace skips it
+// (ok 02:59 for slot 03:00 -> next slot).
 func Deadline(job *model.Job, base time.Time) time.Time {
 	if job.Kind == model.KindWatch && job.Schedule != "" {
 		sched, err := cron.Parse(job.Schedule, job.Zone)
 		if err != nil {
 			return time.Time{}
 		}
-		slot := sched.Next(base)
+		slot := sched.Next(base.Add(job.Grace))
 		if slot.IsZero() {
 			return time.Time{}
 		}

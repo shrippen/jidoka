@@ -12,6 +12,9 @@ services:
     container_name: jidoka
     hostname: jidoka
     restart: unless-stopped
+    # Jidoka ends running jobs on SIGTERM (10 s grace each, 30 s at most)
+    # and records them as aborted; Docker's default 10 s would cut that.
+    stop_grace_period: 45s
     volumes:
       - /docker/appdata/jidoka/data:/data
       - /docker/appdata/jidoka/jobs:/jobs:ro

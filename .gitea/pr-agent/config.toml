@@ -1,0 +1,49 @@
+# PR-Agent settings for Jidoka (.gitea/workflows/pr-agent.yml, copied from
+# Andon 468474a); the rest are PR-Agent's defaults.
+[config]
+git_provider = "gitea"
+response_language = "de-DE"
+max_model_tokens = 128000
+fallback_models = []
+publish_output_progress = false
+# Claude Opus 4.7+ and Claude 5 take no temperature, only adaptive thinking
+# with an effort (Opus 5.5 defaults to medium); the effort applies to other
+# reasoning models too.
+enable_claude_adaptive_thinking = true
+reasoning_effort = "high"
+# The repository rules and the review guide go along as context.
+repo_context_files = ["agent.md", "REVIEW.md"]
+
+[pr_reviewer]
+num_max_findings = 5
+require_can_be_split_review = true
+enable_review_labels_effort = false
+enable_review_labels_security = false
+extra_instructions = """
+You review pull requests of Jidoka, a self-hosted job runner in Go
+(net/http, html/template, htmx): web/ → services/ → repos/, drivers/ →
+db/. It runs scripts from a private Git repo under their own Unix users,
+watches external jobs by ping and reports failures through Apprise and
+mail. The PRs are written by an AI agent; review them as a careful
+second reader, not as their author.
+
+Report only findings that matter:
+- Bugs: a concrete input or state and the wrong result or crash it gives.
+  Name file and line.
+- Security: secrets in logs, pages, API answers or job output; a job
+  reaching another job's secrets, state or the server's data (Z3); routes
+  without login or CSRF check.
+- Alerts: a failure that stays silent, a message sent twice, a wrong
+  "recovered".
+- Layer breaches: routes calling repos or drivers directly.
+- Missing tests for new behaviour; texts missing in one of the catalogs
+  (de, en); demo data written in code instead of the demo world.
+- Breaches of the repository rules (agent.md).
+
+Label each finding **Wichtig**, **Kleinigkeit** or **Bestand** as REVIEW.md
+defines them, at the start of its title.
+
+Skip style, naming and formatting (gofmt, go vet and staticcheck run
+separately), praise, and guesses you cannot back with the diff. When you
+find nothing that matters, say so in one line.
+"""

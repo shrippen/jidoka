@@ -58,7 +58,7 @@ main > section { display: flex; flex-direction: column; gap: .75rem; }
 .scroll-x { overflow-x: auto; }
 .plan-chart { min-width: 52rem; --chart-text: 11px; }
 .btn-row > .small { align-self: center; }
-.rule { display: grid; gap: .4rem; padding: .6rem 0; border-top: 1px solid var(--bg1); }
+.rule { display: grid; gap: .4rem; padding: .6rem 0; border-top: var(--line-border) solid var(--bg1); }
 .rule-events { display: flex; flex-wrap: wrap; gap: .4rem; }
 .rule p, .rule h3 { margin: 0; }
 .detail-side section { display: flex; flex-direction: column; gap: .6rem; }
@@ -83,7 +83,7 @@ main > section { display: flex; flex-direction: column; gap: .75rem; }
 @media (max-width: 36rem) { .board-tile.is-wide { grid-column: auto; } }
 .tile-say { color: var(--fg1); overflow-wrap: anywhere; }
 .board-tile.is-wide .tile-say { font-family: var(--font-heading); font-size: var(--title-s); line-height: 1.2; }
-.tile-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .25rem .75rem; border-top: 1px solid var(--bg1); padding-top: .5rem; }
+.tile-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .25rem .75rem; border-top: var(--line-border) solid var(--bg1); padding-top: .5rem; }
 .board-tile .chart-wrap { max-width: 24rem; }
 .board-tile .readout { width: max-content; max-width: 100%; white-space: normal; }
 .channel-grid { grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr)); }

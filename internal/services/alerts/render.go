@@ -225,7 +225,7 @@ func (e *Engine) render(set model.Set, p payload) rendered {
 	line(l.summary, last.Summary)
 	line(l.message, last.Message)
 	line(l.detail, last.Detail)
-	line(l.history, e.course(l, p.Items))
+	line(l.history, e.course(l, localeOf(set), p.Items))
 	line(l.link, link(set, last))
 
 	if last.Tail != "" {
@@ -241,7 +241,8 @@ func (e *Engine) render(set model.Set, p payload) rendered {
 }
 
 // course is the one-line history of merged items, "" for a single item.
-func (e *Engine) course(l locale, items []item) string {
+// A repaired file of a still failing job (Note) is no recovery here either.
+func (e *Engine) course(l locale, lang string, items []item) string {
 	var parts []string
 	for _, it := range items {
 		if it.Reminder {
@@ -249,6 +250,8 @@ func (e *Engine) course(l locale, items []item) string {
 		}
 		word := l.events[it.Event]
 		switch {
+		case it.Note != "":
+			word = i18n.T(noteFileFixedState, i18n.Locale(lang), nil)
 		case it.Event.Disturbing():
 			word = l.disturbed
 		case it.Event == model.EvRecover:

@@ -1128,6 +1128,34 @@ func TestFileFixedNoteIsNotDigested(t *testing.T) {
 	}
 }
 
+// In quiet hours the morning message lists the course; a repaired file of
+// a still failing job is no recovery there either.
+func TestQuietCourseShowsFileFixed(t *testing.T) {
+	h := newHarness(t)
+	h.set.Settings.Quiet = &model.Window{Start: 22 * time.Hour, End: 7 * time.Hour, Zone: berlin}
+	a := h.job("a", func(j *model.Job) {
+		j.Rules = []model.Rule{{
+			On: []model.Event{model.EvFail, model.EvInvalid, model.EvRecover}, Channels: []string{"apprise"}, Tail: -1,
+		}}
+	})
+
+	h.at(2, 0)
+	h.done(a, model.RunFail, day(11), AttemptFinal, nil)
+	h.at(2, 10)
+	_ = h.eng.Invalid(model.LoadError{Job: "a", File: "a/job.toml", Msg: "bad"})
+	h.at(2, 20)
+	_ = h.eng.Reloaded(Reload{Fixed: []string{"a"}})
+	h.tick()
+
+	h.at(7, 0)
+	h.tick()
+	h.wantApprise(1)
+	m := h.apprises[0].msg
+	if strings.Contains(m.Body, "erholt") || !strings.Contains(m.Body, "Datei wieder gültig 02:20") {
+		t.Errorf("body:\n%s", m.Body)
+	}
+}
+
 // A removed job takes its "until recovery" flags with it: when it comes
 // back, its next failure is reported.
 func TestRemovedJobResetsFlags(t *testing.T) {

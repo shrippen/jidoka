@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -52,6 +53,8 @@ const (
 	tickEvery   = time.Second
 	pruneEvery  = time.Hour
 	stopWait    = 30 * time.Second
+	// repoRetry is how often a failed fetch of the jobs repo is tried again (J1).
+	repoRetry = 5 * time.Minute
 )
 
 // app holds the wired services of one server process.
@@ -76,6 +79,10 @@ type app struct {
 	ops     *ops.Service
 	status  *status.Service
 	listen  string
+
+	// Retry of a failed repo fetch: when it was last tried; one at a time.
+	repoTry  time.Time
+	retrying atomic.Bool
 }
 
 // serve runs Jidoka until SIGTERM or SIGINT (J23).
@@ -357,6 +364,7 @@ func (a *app) loop(ctx context.Context) {
 
 			set := a.jobs.Current()
 			a.beat.Tick(ctx, now, set.Settings.Heartbeat)
+			go a.retryRepo(now)
 
 			if now.Sub(pruned) >= pruneEvery {
 				pruned = now
@@ -364,6 +372,35 @@ func (a *app) loop(ctx context.Context) {
 			}
 		}
 	}
+}
+
+// retryRepo reloads every repoRetry while the last fetch of the jobs repo
+// failed (J1). It goes the way of the button: Reload, then reloaded runs
+// the planner, the report and the closing of the disturbance. A fetch can
+// take long, so the loop calls it in its own goroutine; one at a time.
+func (a *app) retryRepo(now time.Time) {
+	if !a.retrying.CompareAndSwap(false, true) {
+		return
+	}
+	defer a.retrying.Store(false)
+
+	if a.jobs.Current().RepoErr == nil {
+		a.repoTry = time.Time{}
+		return
+	}
+
+	// The first failure starts the clock; it was tried just before.
+	if a.repoTry.IsZero() {
+		a.repoTry = now
+		return
+	}
+	if now.Sub(a.repoTry) < repoRetry {
+		return
+	}
+
+	a.repoTry = now
+	_, err := a.jobs.Reload()
+	logErr("repo retry", err)
 }
 
 // shutdown ends running jobs as aborted and waits for them (J23).

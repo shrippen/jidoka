@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"jidoka/internal/crypto"
 	"jidoka/internal/services/alerts"
@@ -76,5 +79,75 @@ func TestSettingsRepairCloses(t *testing.T) {
 
 	if d, _ := store.Disturbance(alerts.KeyGlobal); d != nil {
 		t.Fatalf("still disturbed after the repair: %+v", d)
+	}
+}
+
+// fakeRepo fails until ok is set.
+type fakeRepo struct {
+	calls int
+	ok    bool
+}
+
+func (f *fakeRepo) Sync(context.Context) error {
+	f.calls++
+	if f.ok {
+		return nil
+	}
+	return errors.New("gitea down")
+}
+
+// J1: a failed fetch is tried again every repoRetry and the success
+// closes the disturbance; a healthy repo is not fetched in between.
+func TestRepoRetryClosesDisturbance(t *testing.T) {
+	t.Setenv(envData, t.TempDir())
+	t.Setenv(envJobs, t.TempDir())
+	t.Setenv(envKey, "")
+
+	a, err := build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.db.Close()
+
+	repo := &fakeRepo{}
+	a.jobs.UseRepo(repo)
+	if err := a.start(); err != nil {
+		t.Fatal(err)
+	}
+
+	store := alerts.NewDBStore(a.db)
+	if d, _ := store.Disturbance(alerts.KeyRepo); d == nil {
+		t.Fatal("failed fetch opened no disturbance")
+	}
+	if repo.calls != 1 {
+		t.Fatalf("calls after start: %d", repo.calls)
+	}
+
+	t0 := time.Now()
+	a.retryRepo(t0)
+	a.retryRepo(t0.Add(repoRetry - time.Second))
+	if repo.calls != 1 {
+		t.Fatalf("retried too early: %d", repo.calls)
+	}
+
+	a.retryRepo(t0.Add(repoRetry))
+	if repo.calls != 2 || a.jobs.Current().RepoErr == nil {
+		t.Fatalf("calls %d, RepoErr %v", repo.calls, a.jobs.Current().RepoErr)
+	}
+
+	repo.ok = true
+	a.retryRepo(t0.Add(2 * repoRetry))
+	if repo.calls != 3 || a.jobs.Current().RepoErr != nil {
+		t.Fatalf("calls %d, RepoErr %v", repo.calls, a.jobs.Current().RepoErr)
+	}
+	if d, _ := store.Disturbance(alerts.KeyRepo); d != nil {
+		t.Errorf("still disturbed: %+v", d)
+	}
+
+	// Healthy: no more fetching.
+	a.retryRepo(t0.Add(10 * repoRetry))
+	a.retryRepo(t0.Add(20 * repoRetry))
+	if repo.calls != 3 {
+		t.Errorf("fetched while healthy: %d", repo.calls)
 	}
 }

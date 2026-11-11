@@ -295,6 +295,7 @@ channels:
   lead: Eingestellt in jidoka.toml; Passwörter und Schlüssel stehen unter Geheimnisse.
   off: nicht eingerichtet
   up: erreichbar
+  unchecked: nicht geprüft
   down: "gestört seit {since}"
   last: Zuletzt gesendet
   days30: 30 Tage

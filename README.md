@@ -327,7 +327,7 @@ Unterkanal oder ein Profil nennt, das es nicht mehr gibt, wird sofort
 | Adresse von Andon | Link „Andon“ im Kopf der Seiten. |
 | Apprise: Adresse der API | Basis der Apprise-API. Jidoka sendet `POST <Adresse>/<Apprise-Schlüssel>` (JSON mit `title`, `body`, `type`, `tag`, `format`). Der Typ folgt dem Auslöser: Störung `failure`, `missed` `warning`, `recover`/`success` `success`, sonst `info`. Alle Apprise-Felder leer: der Kanal fehlt. |
 | Apprise: Unterkanäle | Zeilen aus Name und Apprise-Tag: `apprise:<name>` in einer Regel sendet mit dem Tag. `apprise` ohne Zusatz sendet ohne Tag. |
-| Mail | SMTP mit STARTTLS (wenn der Server es anbietet): Server (`host:port`), Absender, Empfänger (eine Adresse je Zeile). Anmeldung (PLAIN) nur mit Benutzer und Passwort; unverschlüsselt zu einem entfernten Host verweigert Jidoka sie. Alle Mail-Felder leer: der Kanal fehlt. |
+| Mail | SMTP: Server (`host:port`), Verschlüsselung (`security`: leer = automatisch, Port 465 mit TLS von Beginn an (SMTPS), sonst STARTTLS, wenn der Server es anbietet; `starttls`; `tls`), Absender, Empfänger (eine Adresse je Zeile). Anmeldung (PLAIN) nur mit Benutzer und Passwort; unverschlüsselt zu einem entfernten Host verweigert Jidoka sie. Alle Mail-Felder leer: der Kanal fehlt. |
 
 Dauern sind Go-Dauern (`90s`, `5m`, `26h`) oder ganze Tage (`365d`).
 Negative Werte sind ungültig.

@@ -1,6 +1,6 @@
 // Package smtp sends one mail (M1, M8).
 //
-//	Send ──► dial ──► STARTTLS (if offered) ──► AUTH PLAIN (if user set) ──► DATA
+//	Send ──► dial (TLS first for SMTPS) ──► STARTTLS (if offered, not SMTPS) ──► AUTH PLAIN (if user set) ──► DATA
 //
 // The message is multipart/mixed when it has an attachment (attach_output).
 package smtp
@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"mime"
@@ -25,6 +26,52 @@ import (
 )
 
 const sendTimeout = 30 * time.Second
+
+// rootCAs is the trust store for the server certificate; nil = system roots.
+// Tests set it.
+var rootCAs *x509.CertPool
+
+// smtpsPort is the registered port of implicit TLS (RFC 8314).
+const smtpsPort = "465"
+
+// pickSecurity resolves MailAuto: port 465 is SMTPS, anything else STARTTLS.
+func pickSecurity(sec model.MailSecurity, addr string) model.MailSecurity {
+	if sec != model.MailAuto {
+		return sec
+	}
+
+	if _, port, err := net.SplitHostPort(addr); err == nil && port == smtpsPort {
+		return model.MailTLS
+	}
+
+	return model.MailSTARTTLS
+}
+
+func tlsConfig(host string) *tls.Config {
+	return &tls.Config{ServerName: host, MinVersion: tls.VersionTLS12, RootCAs: rootCAs}
+}
+
+// dial opens the link: TCP for STARTTLS, TLS from the first byte for SMTPS.
+func dial(ctx context.Context, sec model.MailSecurity, addr, host string) (net.Conn, error) {
+	if sec == model.MailTLS {
+		d := tls.Dialer{Config: tlsConfig(host)}
+		return d.DialContext(ctx, "tcp", addr)
+	}
+
+	var d net.Dialer
+	return d.DialContext(ctx, "tcp", addr)
+}
+
+// greetErr adds the likely cure when the greeting never arrives: an SMTPS
+// server waits for a TLS hello and a plain client waits for the greeting.
+func greetErr(err error, sec model.MailSecurity) error {
+	var ne net.Error
+	if sec == model.MailSTARTTLS && errors.As(err, &ne) && ne.Timeout() {
+		return fmt.Errorf("smtp: %w (no greeting; if the server uses implicit TLS, set security to tls)", err)
+	}
+
+	return fmt.Errorf("smtp: %w", err)
+}
 
 // Attachment is a text file, e.g. the whole output of a run.
 type Attachment struct {
@@ -56,8 +103,10 @@ func Send(ctx context.Context, cfg model.Mail, password string, m Mail) error {
 		return err
 	}
 
-	var d net.Dialer
-	conn, err := d.DialContext(ctx, "tcp", cfg.SMTP)
+	sec := pickSecurity(cfg.Security, cfg.SMTP)
+	host, _, _ := net.SplitHostPort(cfg.SMTP)
+
+	conn, err := dial(ctx, sec, cfg.SMTP, host)
 	if err != nil {
 		return fmt.Errorf("smtp: %w", err)
 	}
@@ -67,19 +116,19 @@ func Send(ctx context.Context, cfg model.Mail, password string, m Mail) error {
 		_ = conn.SetDeadline(dl)
 	}
 
-	host, _, _ := net.SplitHostPort(cfg.SMTP)
 	c, err := smtp.NewClient(conn, host)
 	if err != nil {
-		return fmt.Errorf("smtp: %w", err)
+		return greetErr(err, sec)
 	}
 	defer c.Close()
 
-	return deliver(c, host, cfg, password, m.To, msg)
+	return deliver(c, host, sec, cfg, password, m.To, msg)
 }
 
-func deliver(c *smtp.Client, host string, cfg model.Mail, password string, to []string, msg []byte) error {
-	if ok, _ := c.Extension("STARTTLS"); ok {
-		if err := c.StartTLS(&tls.Config{ServerName: host, MinVersion: tls.VersionTLS12}); err != nil {
+func deliver(c *smtp.Client, host string, sec model.MailSecurity, cfg model.Mail, password string, to []string, msg []byte) error {
+	// Over SMTPS the link is encrypted already; net/smtp knows from the tls.Conn.
+	if ok, _ := c.Extension("STARTTLS"); ok && sec == model.MailSTARTTLS {
+		if err := c.StartTLS(tlsConfig(host)); err != nil {
 			return fmt.Errorf("smtp: starttls: %w", err)
 		}
 	}

@@ -88,7 +88,7 @@ func appriseOf(errs Errors, f Form) *conf.DraftApprise {
 // mailOf is the channel when the form says anything about it.
 func mailOf(f Form) *conf.DraftMail {
 	m := conf.DraftMail{
-		SMTP: strings.TrimSpace(f.SMTP), User: strings.TrimSpace(f.User), From: strings.TrimSpace(f.From),
+		SMTP: strings.TrimSpace(f.SMTP), Security: strings.TrimSpace(f.Security), User: strings.TrimSpace(f.User), From: strings.TrimSpace(f.From),
 	}
 	for _, line := range strings.Split(f.ToList, "\n") {
 		if to := strings.TrimSpace(line); to != "" {

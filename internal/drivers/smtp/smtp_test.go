@@ -3,8 +3,15 @@ package smtp
 import (
 	"bufio"
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/base64"
 	"io"
+	"math/big"
 	"mime"
 	"mime/multipart"
 	"mime/quotedprintable"
@@ -32,6 +39,47 @@ type session struct {
 
 func startFake(t *testing.T) *fakeServer {
 	t.Helper()
+	return startFakeWith(t, nil)
+}
+
+// startFakeTLS speaks TLS from the first byte (SMTPS) with a self-signed
+// certificate for 127.0.0.1 that the driver trusts for the test.
+func startFakeTLS(t *testing.T) *fakeServer {
+	t.Helper()
+
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "fake"},
+		NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(time.Hour),
+		KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		IPAddresses: []net.IP{net.ParseIP("127.0.0.1")}, IsCA: true, BasicConstraintsValid: true,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	leaf, err := x509.ParseCertificate(der)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pool := x509.NewCertPool()
+	pool.AddCert(leaf)
+	old := rootCAs
+	rootCAs = pool
+	t.Cleanup(func() { rootCAs = old })
+
+	return startFakeWith(t, &tls.Config{
+		Certificates: []tls.Certificate{{Certificate: [][]byte{der}, PrivateKey: key}},
+		MinVersion:   tls.VersionTLS12,
+	})
+}
+
+func startFakeWith(t *testing.T, tc *tls.Config) *fakeServer {
+	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -45,6 +93,9 @@ func startFake(t *testing.T) *fakeServer {
 			return
 		}
 		defer conn.Close()
+		if tc != nil {
+			conn = tls.Server(conn, tc)
+		}
 		f.serve(conn)
 	}()
 	return f
@@ -188,5 +239,65 @@ func TestBuildPlain(t *testing.T) {
 	}
 	if strings.Contains(string(raw), "multipart") {
 		t.Fatal("plain mail is multipart")
+	}
+}
+
+func TestSendImplicitTLS(t *testing.T) {
+	f := startFakeTLS(t)
+	cfg := model.Mail{SMTP: f.addr, Security: model.MailTLS, User: "jidoka", From: "j@example.org"}
+
+	err := Send(context.Background(), cfg, "pw", Mail{To: []string{"a@example.org"}, Subject: "s", Body: "b"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s := <-f.got
+	raw, _ := base64.StdEncoding.DecodeString(s.auth)
+	if string(raw) != "\x00jidoka\x00pw" || s.from != "<j@example.org>" {
+		t.Errorf("auth=%q from=%q", raw, s.from)
+	}
+}
+
+// STARTTLS against an SMTPS port never sees a greeting; it must give up at
+// the deadline and say what to change.
+func TestSendSTARTTLSAgainstSMTPS(t *testing.T) {
+	f := startFakeTLS(t)
+	cfg := model.Mail{SMTP: f.addr, Security: model.MailSTARTTLS, From: "j@example.org"}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	start := time.Now()
+	err := Send(ctx, cfg, "", Mail{To: []string{"a@example.org"}, Subject: "s", Body: "b"})
+	if err == nil {
+		t.Fatal("want an error")
+	}
+	if time.Since(start) > 3*time.Second {
+		t.Errorf("took %v", time.Since(start))
+	}
+	if !strings.Contains(err.Error(), "security") {
+		t.Errorf("error gives no hint: %v", err)
+	}
+}
+
+func TestPickSecurity(t *testing.T) {
+	tests := []struct {
+		name string
+		sec  model.MailSecurity
+		addr string
+		want model.MailSecurity
+	}{
+		{"auto 465", model.MailAuto, "mail.example.org:465", model.MailTLS},
+		{"auto 587", model.MailAuto, "mail.example.org:587", model.MailSTARTTLS},
+		{"auto no port", model.MailAuto, "mail.example.org", model.MailSTARTTLS},
+		{"starttls on 465", model.MailSTARTTLS, "h:465", model.MailSTARTTLS},
+		{"tls on 587", model.MailTLS, "h:587", model.MailTLS},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := pickSecurity(tc.sec, tc.addr); got != tc.want {
+				t.Errorf("got %q, want %q", got, tc.want)
+			}
+		})
 	}
 }

@@ -359,6 +359,11 @@ settings:
   tag_row: Name und Tag angeben; jeder Name nur einmal.
   mail_hint: Leere Felder lassen den Kanal aus.
   smtp: SMTP-Server
+  mail_security: Verschlüsselung
+  mail_security_hint: Port 465 spricht TLS von Beginn an (SMTPS), Port 587 meist STARTTLS.
+  mail_security_auto: Automatisch (465 = TLS)
+  mail_security_starttls: STARTTLS
+  mail_security_tls: TLS (SMTPS)
   mail_user: Benutzer
   mail_from: Absender
   mail_to: Empfänger
@@ -486,6 +491,7 @@ conf:
   url: "{key} muss eine http(s)-Adresse sein"
   url_required: url fehlt
   smtp_required: smtp fehlt (Host:Port)
+  mail_security: 'security muss "starttls" oder "tls" sein'
   from_required: from fehlt
   unknown_profile: 'Unbekanntes Profil "{profile}"'
   positive: "{key} muss positiv sein"

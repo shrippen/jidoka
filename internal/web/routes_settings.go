@@ -35,7 +35,7 @@ var formFields = map[string]bool{
 	"zone": true, "locale": true, "quiet": true, "heartbeat": true, "max_parallel": true,
 	"keep": true, "keep_runs": true, "andon_url": true, "base_url": true,
 	"channels.apprise.url": true, "channels.apprise.tags": true,
-	"channels.mail.smtp": true, "channels.mail.from": true,
+	"channels.mail.smtp": true, "channels.mail.security": true, "channels.mail.from": true,
 }
 
 // settingsPage is the data of settings.html.
@@ -157,7 +157,7 @@ func formOf(r *http.Request) settings.Form {
 		Keep: v.Get("keep"), KeepRuns: v.Get("keep_runs"),
 		AndonURL: v.Get("andon_url"), BaseURL: v.Get("base_url"),
 		AppriseURL: v.Get("apprise_url"),
-		SMTP:       v.Get("smtp"), User: v.Get("mail_user"), From: v.Get("mail_from"),
+		SMTP:       v.Get("smtp"), Security: v.Get("mail_security"), User: v.Get("mail_user"), From: v.Get("mail_from"),
 		ToList:  v.Get("mail_to"),
 		Secrets: map[string]settings.SecretEdit{},
 	}

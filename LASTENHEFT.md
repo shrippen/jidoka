@@ -145,6 +145,7 @@ tags = { handy = "handy", desktop = "kde" }   # apprise:handy → Apprise-Tag "h
 
 [channels.mail]
 smtp = "smtp.eredin:587"
+security = "starttls"                          # "" = automatisch (465 → tls), "starttls", "tls" (SMTPS)
 from = "jidoka@arianw.de"
 to   = ["arian@…"]
 
@@ -175,7 +176,7 @@ channels = ["mail"]
 
 | Nr. | Prio | Anforderung |
 |---|---|---|
-| M1 | M | Kanäle Apprise (Apprise-API auf eredin) und E-Mail (SMTP auf eredin), eingestellt auf der Seite „Einstellungen“ (in der Datenbank, nicht im Jobs-Repo), Passwörter und Schlüssel dort als Geheimnisse eingegeben (Z5). Apprise-Tags als Unterkanäle (`apprise:handy`), Mail mit eigenen Empfängern je Regel (`to`). Sprache der Meldungen per Einstellung `locale` (`de`, `en`; Standard `de`). |
+| M1 | M | Kanäle Apprise (Apprise-API auf eredin) und E-Mail (SMTP auf eredin; Verschlüsselung `security`: automatisch, `starttls` oder `tls` = SMTPS, Port 465), eingestellt auf der Seite „Einstellungen“ (in der Datenbank, nicht im Jobs-Repo), Passwörter und Schlüssel dort als Geheimnisse eingegeben (Z5). Apprise-Tags als Unterkanäle (`apprise:handy`), Mail mit eigenen Empfängern je Regel (`to`). Sprache der Meldungen per Einstellung `locale` (`de`, `en`; Standard `de`). |
 | M2 | M | Auslöser: `fail`, `timeout`, `missed`, `recover` (erster Erfolg nach Störung), `success`, `invalid` (Job nicht geladen), `reload` (Jobs geändert), `change` (Skript hat in `$JIDOKA_NOTIFY` geschrieben). **S:** `start`, `slow` (Lauf länger als `slow`). |
 | M3 | M | Regeln je Job (`[[notify]]`): Auslöser, Kanäle, `after` (ab dem wievielten **Termin** in Folge mit Störung; Wiederholungen nach J13 zählen nicht extra), `remind` (oder `"never"`), `urgent` (durchbricht die Ruhezeit), `tail`. Der Apprise-Typ folgt aus dem Auslöser: Störung `failure`, `missed` `warning`, `recover`/`success` `success`, sonst `info`. Ohne Regeln gilt das Profil `standard`. |
 | M4 | M | Profile in den Einstellungen: benannte Regelsätze, die Jobs mit `notify_profile` übernehmen. Ein Formular je Regel bearbeitet sie (Seite „Profile“ unter den Einstellungen, jeder angemeldete Nutzer): Ereignisse und Kanäle als Ankreuzfelder, Zahlen, Abstände und Text als Felder; Prüfung wie B8, Fehler am Feld. `standard` bleibt, ein Profil, das ein gültiger Job nennt, wird nicht gelöscht oder umbenannt (die Meldung nennt die Jobs); ein gerade ungültiger Job zählt nicht mit und nennt nach der Reparatur das unbekannte Profil. Regeln im Job ersetzen das Profil ganz, mischen nicht. Ereignisse ohne lesbare Job-Regeln (`reload`, `invalid` eines Jobs, dessen `job.toml` nicht lädt) folgen immer dem Profil `standard`. |

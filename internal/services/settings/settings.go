@@ -114,6 +114,7 @@ type Form struct {
 	AppriseURL               string
 	Tags                     []TagRow
 	SMTP, User, From, ToList string // ToList: one address per line
+	Security                 string // "", "starttls" or "tls"
 	Secrets                  map[string]SecretEdit
 }
 
@@ -304,7 +305,7 @@ func formOf(d conf.Draft) Form {
 		sortTags(f.Tags)
 	}
 	if m := d.Channels.Mail; m != nil {
-		f.SMTP, f.User, f.From = m.SMTP, m.User, m.From
+		f.SMTP, f.User, f.From, f.Security = m.SMTP, m.User, m.From, m.Security
 		f.ToList = strings.Join(m.To, "\n")
 	}
 

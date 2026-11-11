@@ -6,6 +6,10 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
+
+	"jidoka/internal/model"
+	"jidoka/internal/repos"
 )
 
 // rawKey matches a catalog key that leaked into a page: "board.reload".
@@ -171,5 +175,26 @@ func TestScheduleAndLoadErrorInWords(t *testing.T) {
 	w := do(b.srv, "GET", "/jobs/late", nil, s.cookies, nil)
 	if !strings.Contains(w.Body.String(), "Ungültiger Zeitplan: Stunde") {
 		t.Errorf("job page lacks the German load error: %s", w.Body)
+	}
+}
+
+// A recover with a Note (file repaired, job still failing) is no green
+// "recovery" in the delivery list.
+func TestDeliveryNoteShownNotRecovery(t *testing.T) {
+	b, s := seeded(t)
+	_, err := repos.AddDelivery(b.db, model.Delivery{Job: "bad", Event: model.EvRecover,
+		Channel: "mail", At: time.Now(), OK: true, Note: "alert.file_fixed"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for accept, word := range map[string]string{"de": "Datei wieder gültig", "en": "file valid again"} {
+		body := do(b.srv, "GET", "/channels", nil, s.cookies, map[string]string{"Accept-Language": accept}).Body.String()
+		if !strings.Contains(body, `data-state="warn">`+word+`</span>`) {
+			t.Errorf("%s: note word %q not in a warn pill", accept, word)
+		}
+		if strings.Contains(body, `data-state="ok">Erholung`) || strings.Contains(body, `data-state="ok">recovery`) {
+			t.Errorf("%s: green recovery pill", accept)
+		}
 	}
 }

@@ -48,7 +48,7 @@
         <h2 class="h-label">{{t "run.deliveries"}}</h2>
         {{range .Deliveries}}
         <p class="small">
-          {{template "eventpill" .Event}}
+          {{template "deliverypill" .}}
           <span class="pill" data-state="{{if .OK}}ok{{else}}bad{{end}}">{{if .OK}}{{t "channels.sent"}}{{else}}{{t "channels.failed"}}{{end}}</span>
           <span class="mono">{{.Channel}} · {{clock .At}}{{tzMark}}</span>
           {{if .Error}}<br><span class="error">{{.Error}}</span>{{end}}

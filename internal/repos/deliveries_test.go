@@ -38,3 +38,16 @@ func TestDeliveries(t *testing.T) {
 		t.Fatalf("last: %+v", last)
 	}
 }
+
+func TestDeliveryKeepsNote(t *testing.T) {
+	d := testDB(t)
+	_, err := AddDelivery(d, model.Delivery{Job: "a", Event: model.EvRecover, Channel: "mail",
+		At: t0, OK: true, Note: "alert.file_fixed"})
+	must(t, err)
+
+	recent, err := RecentDeliveries(d, 1)
+	must(t, err)
+	if len(recent) != 1 || recent[0].Note != "alert.file_fixed" {
+		t.Fatalf("note lost: %+v", recent)
+	}
+}

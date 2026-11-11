@@ -17,6 +17,7 @@ package alerts
 
 import (
 	"context"
+	"maps"
 	"strconv"
 	"strings"
 	"sync"
@@ -351,14 +352,21 @@ func (e *Engine) recoverable(id string) (open, announced bool, err error) {
 	return true, len(d.Sent) > 0, nil
 }
 
-// prevKind is what a repair of an "invalid" disturbance gives back: the
-// kind it had before, when ev turns it into invalid. Any other kind ends
-// the memory.
-func prevKind(d *Disturbance, ev model.Event) model.Event {
-	if d == nil || ev != model.EvInvalid || d.Event == model.EvInvalid {
-		return ""
+// prevOf is what a repair of an "invalid" disturbance gives back: a copy
+// of d as it is now, when ev turns it into invalid; the copy already held
+// while it stays invalid; nothing for any other kind.
+func prevOf(d *Disturbance, ev model.Event) *Disturbance {
+	if d == nil || ev != model.EvInvalid {
+		return nil
 	}
-	return d.Event
+	if d.Event == model.EvInvalid {
+		return d.Prev
+	}
+
+	snap := *d
+	snap.Prev = nil
+	snap.Sent = maps.Clone(d.Sent)
+	return &snap
 }
 
 // recoverOf closes an invalid-file disturbance and sends recover. Any
@@ -369,10 +377,10 @@ func (e *Engine) recoverOf(set model.Set, sub subject, now time.Time, run *model
 		return err
 	}
 
-	// The job never ran well: give the earlier trouble back, say nothing.
-	if d.Prev != "" {
-		d.Event, d.Prev, d.Detail = d.Prev, "", ""
-		return e.cfg.Store.SaveDisturbance(*d)
+	// The job never ran well: give the earlier trouble back as it was,
+	// say nothing.
+	if d.Prev != nil {
+		return e.cfg.Store.SaveDisturbance(*d.Prev)
 	}
 
 	if len(d.Sent) > 0 {
@@ -460,6 +468,7 @@ func (e *Engine) disturb(set model.Set, sub subject, ev model.Event, run *model.
 	// Missed and invalid are one slot long; a repeat of the same kind adds
 	// nothing. A different kind is new trouble: the rules that listen to it
 	// speak again, the others keep their reminder clock.
+	prev := prevOf(d, ev)
 	oneShot := ev == model.EvMissed || ev == model.EvInvalid
 	if d != nil && oneShot && d.Event == ev {
 		return nil
@@ -475,7 +484,7 @@ func (e *Engine) disturb(set model.Set, sub subject, ev model.Event, run *model.
 	if d == nil {
 		d = &Disturbance{Job: sub.id, Since: endOf(*run, now), Sent: map[int]time.Time{}}
 	}
-	d.Prev = prevKind(d, ev)
+	d.Prev = prev
 	d.Event, d.Name, d.Detail = ev, sub.name, detail
 	if run.ID != 0 {
 		d.RunID = run.ID

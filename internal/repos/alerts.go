@@ -21,11 +21,13 @@ type Alert struct {
 	RunID    int64     // 0 = none
 	Name     string
 	Detail   string
-	Prev     model.Event       // kind before "invalid" took over; "" = none
-	Sent     map[int]time.Time // rule index -> last message
+	// Prev is the alert as it was before "invalid" took over; nil = none.
+	// It is stored as JSON in one column and holds no Prev itself.
+	Prev *Alert
+	Sent map[int]time.Time // rule index -> last message
 }
 
-const alertCols = "job, event, since, streak, last_slot, run_id, name, detail, sent, prev_event"
+const alertCols = "job, event, since, streak, last_slot, run_id, name, detail, sent, prev"
 
 func scanAlert(s scanner) (Alert, error) {
 	var (
@@ -39,7 +41,7 @@ func scanAlert(s scanner) (Alert, error) {
 	if err != nil {
 		return a, err
 	}
-	a.Event, a.RunID, a.Prev = model.Event(event), runID.Int64, model.Event(prev)
+	a.Event, a.RunID = model.Event(event), runID.Int64
 
 	if a.Since, err = parseTime(since); err != nil {
 		return a, err
@@ -51,7 +53,10 @@ func scanAlert(s scanner) (Alert, error) {
 	if last != nil {
 		a.LastSlot = *last
 	}
-	a.Sent, err = decodeSent(sent)
+	if a.Sent, err = decodeSent(sent); err != nil {
+		return a, err
+	}
+	a.Prev, err = decodePrev(prev)
 	return a, err
 }
 
@@ -85,9 +90,38 @@ func decodeSent(s string) (map[int]time.Time, error) {
 	return out, nil
 }
 
+// encodePrev turns the earlier alert into the JSON column; "" for none.
+func encodePrev(p *Alert) (string, error) {
+	if p == nil {
+		return "", nil
+	}
+	b, err := json.Marshal(p)
+	return string(b), err
+}
+
+// decodePrev reads the JSON column.
+func decodePrev(s string) (*Alert, error) {
+	if s == "" {
+		return nil, nil
+	}
+	var p Alert
+	if err := json.Unmarshal([]byte(s), &p); err != nil {
+		return nil, err
+	}
+	if p.Sent == nil {
+		p.Sent = map[int]time.Time{}
+	}
+	return &p, nil
+}
+
 // alertArgs lists the column values of a in alertCols order.
 func alertArgs(a Alert) ([]any, error) {
 	sent, err := encodeSent(a.Sent)
+	if err != nil {
+		return nil, err
+	}
+
+	prev, err := encodePrev(a.Prev)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +134,7 @@ func alertArgs(a Alert) ([]any, error) {
 		runID = a.RunID
 	}
 	return []any{a.Job, string(a.Event), db.TimeStr(a.Since), a.Streak, slot, runID,
-		a.Name, a.Detail, sent, string(a.Prev)}, nil
+		a.Name, a.Detail, sent, prev}, nil
 }
 
 // GetAlert returns the open alert of job; ErrNotFound when there is none.

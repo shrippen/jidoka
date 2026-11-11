@@ -929,6 +929,51 @@ func TestRepairedFileRestoresFailure(t *testing.T) {
 	}
 }
 
+// (a) The repair gives back the failure as it was: a rule that spoke only
+// in the invalid phase has not spoken about the failure.
+func TestRepairRestoresSentOfFailure(t *testing.T) {
+	h := newHarness(t)
+	h.set.Settings.Profiles["standard"] = []model.Rule{
+		{On: []model.Event{model.EvFail, model.EvInvalid}, Channels: []string{"apprise"}, After: 2, Tail: -1},
+	}
+	a := h.job("a", nil)
+
+	h.done(a, model.RunFail, day(1), AttemptFinal, nil)
+	_ = h.eng.Invalid(model.LoadError{Job: "a", File: "a/job.toml", Msg: "bad"})
+	h.tick()
+	h.wantApprise(1)
+
+	_ = h.eng.Reloaded(Reload{Fixed: []string{"a"}})
+	for d := 2; d <= 6; d++ {
+		h.done(a, model.RunFail, day(d), AttemptFinal, nil)
+	}
+	h.tick()
+	h.wantApprise(2)
+}
+
+// (b) The invalid phase counts no slot of the failure: after = 3 waits for
+// the third failed slot.
+func TestRepairRestoresStreak(t *testing.T) {
+	h := newHarness(t)
+	a := h.job("a", func(j *model.Job) {
+		j.Rules = []model.Rule{
+			{On: []model.Event{model.EvFail}, Channels: []string{"apprise"}, After: 3, Tail: -1},
+			{On: []model.Event{model.EvInvalid}, Channels: []string{"apprise"}, Tail: -1},
+		}
+	})
+
+	h.done(a, model.RunFail, day(1), AttemptFinal, nil)
+	_ = h.eng.Invalid(model.LoadError{Job: "a", File: "a/job.toml", Msg: "bad"})
+	_ = h.eng.Reloaded(Reload{Fixed: []string{"a"}})
+	h.done(a, model.RunFail, day(2), AttemptFinal, nil)
+	h.tick()
+	h.wantApprise(1)
+
+	h.done(a, model.RunFail, day(3), AttemptFinal, nil)
+	h.tick()
+	h.wantApprise(2)
+}
+
 func TestTailAndAttach(t *testing.T) {
 	h := newHarness(t)
 	out := ""

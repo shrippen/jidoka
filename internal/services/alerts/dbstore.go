@@ -20,17 +20,27 @@ func NewDBStore(d *sql.DB) Store {
 }
 
 func fromAlert(a repos.Alert) Disturbance {
-	return Disturbance{
+	d := Disturbance{
 		Job: a.Job, Event: a.Event, Since: a.Since, Streak: a.Streak, LastSlot: a.LastSlot,
-		RunID: a.RunID, Name: a.Name, Detail: a.Detail, Prev: a.Prev, Sent: a.Sent,
+		RunID: a.RunID, Name: a.Name, Detail: a.Detail, Sent: a.Sent,
 	}
+	if a.Prev != nil {
+		p := fromAlert(*a.Prev)
+		d.Prev = &p
+	}
+	return d
 }
 
 func toAlert(d Disturbance) repos.Alert {
-	return repos.Alert{
+	a := repos.Alert{
 		Job: d.Job, Event: d.Event, Since: d.Since, Streak: d.Streak, LastSlot: d.LastSlot,
-		RunID: d.RunID, Name: d.Name, Detail: d.Detail, Prev: d.Prev, Sent: d.Sent,
+		RunID: d.RunID, Name: d.Name, Detail: d.Detail, Sent: d.Sent,
 	}
+	if d.Prev != nil {
+		p := toAlert(*d.Prev)
+		a.Prev = &p
+	}
+	return a
 }
 
 func fromItem(o repos.OutboxItem) Queued {

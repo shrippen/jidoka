@@ -255,6 +255,10 @@ func TestAPIShapes(t *testing.T) {
 	if hello["next"] == nil || hello["reason"] != nil {
 		t.Errorf("next/reason: %v", hello)
 	}
+	hist := hello["history"].([]any)
+	if len(hist) == 0 || hist[len(hist)-1].(map[string]any)["id"] != last["id"] {
+		t.Errorf("history must end with the last run: %v", hist)
+	}
 	if beat := byID["beat"]; beat["kind"] != "watch" || beat["state"] != "never" {
 		t.Errorf("beat: %v", beat)
 	}

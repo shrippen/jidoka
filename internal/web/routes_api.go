@@ -164,7 +164,14 @@ type apiJob struct {
 	// Tail is the last 20 lines of the newest run's output.
 	Tail string `json:"tail"`
 	URL  string `json:"url"`
+	// History holds the last runs, oldest first, for Andon's popup (I5).
+	History  []apiRunRef `json:"history"`
+	Tags     []string    `json:"tags"`
+	Schedule string      `json:"schedule"`
 }
+
+// historyMax is how many runs a job's history in /api/v1/jobs holds.
+const historyMax = 16
 
 func (s *Server) jobURL(id string) string {
 	return strings.TrimRight(s.settings().BaseURL, "/") + jobPageBase + id
@@ -198,6 +205,7 @@ func (s *Server) apiJobs(w http.ResponseWriter, r *http.Request) {
 			ID: t.Job.ID, Name: t.Job.Name, Kind: t.Job.Kind, State: t.State,
 			Reason: apiText(string(t.Reason)), Summary: t.Summary, Since: apiTime(t.Since),
 			Streak: t.Streak, Next: apiTime(t.Next), Tail: t.Tail, URL: s.jobURL(t.Job.ID),
+			Tags: t.Job.Tags, Schedule: t.Job.Schedule, History: historyOf(t.Ticks),
 		}
 		if t.Last != nil {
 			j.Last = &apiRunRef{ID: t.Last.ID, State: t.Last.State, Start: apiTime(t.Last.Start), End: apiTime(t.Last.End)}
@@ -205,6 +213,19 @@ func (s *Server) apiJobs(w http.ResponseWriter, r *http.Request) {
 		out = append(out, j)
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"jobs": out, "total": len(b.Tiles)})
+}
+
+// historyOf keeps the newest historyMax ticks, oldest first.
+func historyOf(ticks []status.Tick) []apiRunRef {
+	if len(ticks) > historyMax {
+		ticks = ticks[len(ticks)-historyMax:]
+	}
+
+	out := make([]apiRunRef, 0, len(ticks))
+	for _, t := range ticks {
+		out = append(out, apiRunRef{ID: t.ID, State: t.State, Start: apiTime(t.Start), End: apiTime(t.End)})
+	}
+	return out
 }
 
 // apiLimit applies the default and the maximum of a list (I1).

@@ -76,10 +76,12 @@ if ! docker exec "$name" test -d "$cache"; then
 	fail=1
 fi
 docker stop "$name" >/dev/null
-# Known gap, unrelated to J11: the server cannot delete the TMPDIRs of
-# finished runs (job-owned, 0700), and Recover then refuses to start.
-# Clear them as root so the second server can come up.
-docker run --rm --volumes-from "$name" alpine:3.24 rm -rf /data/tmp
+# A crash leaves a TMPDIR of the job uid, with a read-only folder in it.
+uid=$(printf '%s\n' "$out" | sed -n 's/^uid=//p')
+docker run --rm --volumes-from "$name" alpine:3.24 sh -c "
+	mkdir -p /data/tmp/run-999/ro && touch /data/tmp/run-999/ro/f &&
+	chown -R $uid:$uid /data/tmp/run-999 && chmod 500 /data/tmp/run-999/ro &&
+	chmod 700 /data/tmp/run-999"
 mkdir "$db/nojobs"
 cp testdata/image/jidoka.toml "$db/nojobs/"
 chmod 755 "$db/nojobs"
@@ -90,6 +92,15 @@ for _ in $(seq 1 30); do
 	sleep 1
 	docker logs "$name-cache" 2>&1 | grep -q 'uv cache removed.*job=probe' && break
 done
+# J23: the restart removes the job-owned TMPDIRs the runs left (0700,
+# the server has no DAC_OVERRIDE) and starts.
+if docker exec "$name-cache" sh -c '[ -z "$(ls -A /data/tmp)" ]' 2>/dev/null; then
+	echo "restart=ok"
+else
+	echo "FAIL: restart left /data/tmp or did not start"
+	docker logs "$name-cache" 2>&1 | tail -5
+	fail=1
+fi
 if docker logs "$name-cache" 2>&1 | grep -q 'uv cache removed.*job=probe' &&
 	! docker exec "$name-cache" test -e "$cache"; then
 	echo "cache=pruned"

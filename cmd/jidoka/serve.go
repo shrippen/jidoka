@@ -212,7 +212,8 @@ func jobUIDBase() (uint32, error) {
 	return uint32(n), nil
 }
 
-// cacheLimitBytes is the cap of all uv caches (J11); 0 = the default (2 GiB).
+// cacheLimitBytes is the cap of all uv caches (J11); unset = the default
+// (2 GiB, returned as 0).
 func cacheLimitBytes() (int64, error) {
 	text := os.Getenv(envCacheLm)
 	if text == "" {
@@ -220,7 +221,7 @@ func cacheLimitBytes() (int64, error) {
 	}
 
 	n, err := strconv.ParseInt(text, 10, 64)
-	if err != nil || n < 0 {
+	if err != nil || n <= 0 {
 		return 0, fmt.Errorf("%s: not a byte count: %q", envCacheLm, text)
 	}
 	return n, nil

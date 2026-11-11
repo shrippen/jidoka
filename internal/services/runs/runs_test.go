@@ -329,6 +329,37 @@ func TestRecover(t *testing.T) {
 	}
 }
 
+// Recover removes the TMPDIRs a crash left, also read-only folders in
+// them, and a finished run leaves none (J23).
+func TestTmpRemoved(t *testing.T) {
+	e := setup(t)
+	left := filepath.Join(e.data, "tmp", "run-99", "ro")
+	if err := os.MkdirAll(left, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(left, "f"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(left, 0o500); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := e.svc.Recover(); err != nil {
+		t.Fatal(err)
+	}
+	if r := e.exec(job(t, "touch \"$TMPDIR/x\"\n"), model.TrigManual); r.State != model.RunOK {
+		t.Fatalf("run: %s %s", r.State, r.Error)
+	}
+
+	entries, err := os.ReadDir(filepath.Join(e.data, "tmp"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("tmp holds %v", entries)
+	}
+}
+
 // The jobs user must pass through state/ and tmp/ to its own folders,
 // also after Recover cleared tmp/ and under the image's umask 077 (Z3).
 func TestParentsTraversable(t *testing.T) {

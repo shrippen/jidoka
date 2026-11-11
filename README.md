@@ -180,6 +180,7 @@ Geheimnis.
 | `OIDC_ALLOW_GROUP` | – | Optional: nur Mitglieder dieser Gruppe (Claim `groups`). |
 | `TRUSTED_PROXY` | – | Proxys, deren `X-Forwarded-For` gilt (Adressen oder CIDRs, mit Komma). |
 | `JIDOKA_UID_BASE` | Image: `20000`; ohne Angabe: `0` | Erste UID für Jobs. `0` heißt: kein Benutzerwechsel, Jobs laufen als der Server (nur Entwicklung). |
+| `JIDOKA_CACHE_LIMIT` | `2147483648` (2 GiB) | Grenze aller `uv`-Caches zusammen, in Bytes. |
 | `JIDOKA_SHIM` | Image: `/usr/local/bin/jidoka-shim` | Pfad des Shims, der jeden Job umschließt (ohne Angabe: das eigene Binary). Nicht ändern. |
 | `TZ` | – | Zeitzone des Containers. Die Zonen der Jobs stehen in `jidoka.toml` und `job.toml`; Jidoka selbst liest `TZ` nicht. |
 
@@ -510,7 +511,10 @@ print("Lauf", os.environ["JIDOKA_RUN"])
 
 Das Image enthält Python 3 aus Alpine 3.24; `requires-python` muss zur
 installierten Version passen. Der `uv`-Cache liegt je Job unter
-`$HOME/.cache/uv`. Für Skripte ohne Abhängigkeiten genügt
+`$HOME/.cache/uv`. Alle Caches zusammen sind auf 2 GiB begrenzt: stündlich
+löscht Jidoka, solange die Summe darüber liegt, ganze Caches, den des am
+längsten nicht gelaufenen Jobs zuerst (nie den eines laufenden). Der
+nächste Lauf füllt ihn neu. Für Skripte ohne Abhängigkeiten genügt
 `#!/usr/bin/env python3`.
 
 ### Umgebung des Jobs

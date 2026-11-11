@@ -29,3 +29,28 @@ func JobUID(q db.Queryer, job string, base uint32) (uint32, error) {
 
 	return uid, err
 }
+
+// JobUIDs returns the uid of every job that has one; unlike JobUID it
+// assigns none.
+func JobUIDs(q db.Queryer) (map[string]uint32, error) {
+	type row struct {
+		job string
+		uid uint32
+	}
+
+	list, err := queryAll(q, func(s scanner) (row, error) {
+		var r row
+		err := s.Scan(&r.job, &r.uid)
+		return r, err
+	}, "SELECT job, uid FROM job_uids")
+	if err != nil {
+		return nil, err
+	}
+
+	out := make(map[string]uint32, len(list))
+	for _, r := range list {
+		out[r.job] = r.uid
+	}
+
+	return out, nil
+}

@@ -45,6 +45,9 @@ const (
 // ends itself by the same signal, so Run sees "killed by signal"
 // (ExitCode -1) and an exit code 130 stays a real exit code 130.
 func Shim(args []string) int {
+	if len(args) == 2 && (args[0] == modeSize || args[0] == modeRemove) {
+		return dirMain(args[0], args[1])
+	}
 	if len(args) < 4 || args[0] != "--grace" || args[2] != "--" {
 		fmt.Fprintln(os.Stderr, "jidoka-shim: bad arguments")
 		return 2

@@ -65,6 +65,8 @@ type Config struct {
 	// user switch (development, tests).
 	UIDBase uint32
 	BaseURL string
+	// CacheLimit caps all uv caches together (J11); 0 = 2 GiB.
+	CacheLimit int64
 }
 
 // Service runs jobs.
@@ -73,15 +75,18 @@ type Service struct {
 	sec *secrets.Service
 	cfg Config
 
-	mu      sync.Mutex
-	active  map[int64]context.CancelFunc
-	onStart []func(*model.Job, model.Run)
-	onDone  []func(*model.Job, model.Run)
+	mu       sync.Mutex
+	active   map[int64]context.CancelFunc
+	busy     map[string]int           // job -> runs in progress
+	clearing map[string]chan struct{} // job -> cache deletion in progress
+	onStart  []func(*model.Job, model.Run)
+	onDone   []func(*model.Job, model.Run)
 }
 
 // New returns a Service.
 func New(d *sql.DB, sec *secrets.Service, cfg Config) *Service {
-	return &Service{db: d, sec: sec, cfg: cfg, active: map[int64]context.CancelFunc{}}
+	return &Service{db: d, sec: sec, cfg: cfg, active: map[int64]context.CancelFunc{},
+		busy: map[string]int{}, clearing: map[string]chan struct{}{}}
 }
 
 // OnStart registers fn, called when a run has been stored as running.
@@ -217,6 +222,8 @@ func (s *Service) execute(ctx context.Context, job *model.Job, run *model.Run) {
 		run.State, run.Error = model.RunFail, err.Error()
 		return
 	}
+
+	defer s.hold(ctx, job.ID)()
 
 	tmp, err := s.prepare(job, run, uid)
 	if err != nil {

@@ -68,3 +68,24 @@ func TestDeliveryCounts(t *testing.T) {
 		t.Errorf("counts: %+v %v", got, err)
 	}
 }
+
+func TestLastStarts(t *testing.T) {
+	d := testDB(t)
+	at := time.Date(2026, 11, 11, 10, 0, 0, 0, time.UTC)
+
+	for i, run := range []model.Run{{Job: "a", Dry: true}, {Job: "a"}, {Job: "b"}} {
+		run.Trigger, run.State, run.Slot, run.Attempt = model.TrigManual, model.RunOK, at, 1
+		run.Started = at.Add(time.Duration(i) * time.Hour)
+		if _, err := InsertRun(d, run); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	got, err := LastStarts(d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got["a"].Equal(at.Add(time.Hour)) || !got["b"].Equal(at.Add(2*time.Hour)) || len(got) != 2 {
+		t.Errorf("got %v", got)
+	}
+}

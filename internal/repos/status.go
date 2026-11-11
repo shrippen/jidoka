@@ -116,3 +116,32 @@ func DeliveryCounts(q db.Queryer, since time.Time) (map[string]DeliveryCount, er
 	}
 	return out, rows.Err()
 }
+
+// LastStarts returns when every job's newest run (dry ones too) started.
+func LastStarts(q db.Queryer) (map[string]time.Time, error) {
+	type row struct {
+		job     string
+		started time.Time
+	}
+
+	list, err := queryAll(q, func(s scanner) (row, error) {
+		var r row
+		var started string
+		if err := s.Scan(&r.job, &started); err != nil {
+			return r, err
+		}
+		var err error
+		r.started, err = parseTime(started)
+		return r, err
+	}, "SELECT job, MAX(started_at) FROM runs GROUP BY job")
+	if err != nil {
+		return nil, err
+	}
+
+	out := make(map[string]time.Time, len(list))
+	for _, r := range list {
+		out[r.job] = r.started
+	}
+
+	return out, nil
+}

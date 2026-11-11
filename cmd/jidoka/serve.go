@@ -43,6 +43,7 @@ const (
 	envKey     = "MASTER_KEY"
 	envShim    = "JIDOKA_SHIM"
 	envUIDBase = "JIDOKA_UID_BASE"
+	envCacheLm = "JIDOKA_CACHE_LIMIT"
 	envListen  = "LISTEN"
 	defData    = "/data"
 	defJobs    = "/jobs"
@@ -51,7 +52,7 @@ const (
 	// checkoutDir is the jobs checkout inside DATA_DIR (J1).
 	checkoutDir = "jobs"
 	tickEvery   = time.Second
-	pruneEvery  = time.Hour
+	pruneEvery  = time.Hour // runs (J12) and uv caches (J11)
 	stopWait    = 30 * time.Second
 	// repoRetry is how often a failed fetch of the jobs repo is tried again (J1).
 	repoRetry = 5 * time.Minute
@@ -138,10 +139,18 @@ func build() (*app, error) {
 		return nil, err
 	}
 
+	cacheLimit, err := cacheLimitBytes()
+	if err != nil {
+		d.Close()
+		return nil, err
+	}
+
 	a := &app{db: d, listen: envOr(envListen, defListen), states: map[string]model.JobState{}}
 	a.secrets = secrets.New(d)
 	a.jobs = newJobs(d, dataDir)
-	a.runs = runs.New(d, a.secrets, runs.Config{DataDir: dataDir, Shim: os.Getenv(envShim), UIDBase: uidBase})
+	a.runs = runs.New(d, a.secrets, runs.Config{
+		DataDir: dataDir, Shim: os.Getenv(envShim), UIDBase: uidBase, CacheLimit: cacheLimit,
+	})
 	a.watch = watch.New(watch.Config{DB: d, Mask: a.mask})
 	a.alerts = alerts.New(alerts.Config{
 		Store:   alerts.NewDBStore(d),
@@ -201,6 +210,20 @@ func jobUIDBase() (uint32, error) {
 		return 0, fmt.Errorf("%s: %w", envUIDBase, err)
 	}
 	return uint32(n), nil
+}
+
+// cacheLimitBytes is the cap of all uv caches (J11); 0 = the default (2 GiB).
+func cacheLimitBytes() (int64, error) {
+	text := os.Getenv(envCacheLm)
+	if text == "" {
+		return 0, nil
+	}
+
+	n, err := strconv.ParseInt(text, 10, 64)
+	if err != nil || n < 0 {
+		return 0, fmt.Errorf("%s: not a byte count: %q", envCacheLm, text)
+	}
+	return n, nil
 }
 
 // newJobs is the jobs service: with JOBS_REPO it fetches the private repo
@@ -404,6 +427,7 @@ func (a *app) loop(ctx context.Context) {
 			if now.Sub(pruned) >= pruneEvery {
 				pruned = now
 				logErr("prune", a.runs.Prune(set, now))
+				logErr("prune uv cache", a.runs.PruneCache())
 			}
 		}
 	}

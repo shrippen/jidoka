@@ -45,12 +45,40 @@ on = ["fail"]
 channels = ["mail"]
 `
 
-func TestLoadFull(t *testing.T) {
-	set := Load(testdataFull, nil)
+// settingsOf parses a settings document.
+func settingsOf(t *testing.T, doc string) model.Settings {
+	t.Helper()
 
-	if set.SettingsErr != nil {
-		t.Fatalf("SettingsErr: %+v", set.SettingsErr)
+	s, lerr := ParseSettings([]byte(doc))
+	if lerr != nil {
+		t.Fatalf("settings: %+v", lerr)
 	}
+
+	return s
+}
+
+// fullSettings are the settings of testdata/settings.toml.
+func fullSettings(t *testing.T) model.Settings {
+	t.Helper()
+
+	doc, err := os.ReadFile("testdata/settings.toml")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return settingsOf(t, string(doc))
+}
+
+// load is Load against okSettings.
+func load(t *testing.T, dir string) model.Set {
+	t.Helper()
+
+	return Load(dir, settingsOf(t, okSettings), CheckFull)
+}
+
+func TestLoadFull(t *testing.T) {
+	set := Load(testdataFull, fullSettings(t), CheckFull)
+
 	if len(set.Invalid) != 0 {
 		t.Fatalf("Invalid: %+v", set.Invalid)
 	}
@@ -120,7 +148,7 @@ func TestWatchScheduleExpect(t *testing.T) {
 		"w/watch.toml": "schedule = \"0 4 * * *\"\ngrace = \"1h\"\n",
 	})
 
-	set := Load(dir, nil)
+	set := load(t, dir)
 	w := set.Jobs["w"]
 	if w == nil {
 		t.Fatalf("invalid: %+v", set.Invalid)
@@ -137,7 +165,7 @@ func TestDefaults(t *testing.T) {
 		"a/x.sh":     "#!/bin/sh\n",
 	})
 
-	set := Load(dir, nil)
+	set := load(t, dir)
 	j := set.Jobs["a"]
 	if j == nil {
 		t.Fatalf("invalid: %+v", set.Invalid)
@@ -225,15 +253,11 @@ func TestJobErrors(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := write(t, map[string]string{
-				"jidoka.toml": okSettings,
-				"j/job.toml":  tc.toml,
-				"j/x.sh":      "#!/bin/sh\n",
+				"j/job.toml": tc.toml,
+				"j/x.sh":     "#!/bin/sh\n",
 			})
 
-			set := Load(dir, nil)
-			if set.SettingsErr != nil {
-				t.Fatalf("SettingsErr: %+v", set.SettingsErr)
-			}
+			set := load(t, dir)
 			if len(set.Jobs) != 0 || len(set.Invalid) == 0 {
 				t.Fatalf("want invalid job, got jobs=%d invalid=%+v", len(set.Jobs), set.Invalid)
 			}
@@ -264,7 +288,7 @@ func TestWatchErrors(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			set := Load(write(t, map[string]string{"w/watch.toml": tc.toml}), nil)
+			set := load(t, write(t, map[string]string{"w/watch.toml": tc.toml}))
 			if len(set.Invalid) == 0 {
 				t.Fatalf("want invalid, got %+v", set.Jobs)
 			}
@@ -285,7 +309,7 @@ func TestBrokenJobKeepsOthers(t *testing.T) {
 		"bad/job.toml":  "run = \n",
 	})
 
-	set := Load(dir, nil)
+	set := load(t, dir)
 	if set.Jobs["good"] == nil || len(set.Jobs) != 1 {
 		t.Errorf("jobs: %+v", set.Jobs)
 	}
@@ -301,7 +325,7 @@ func TestInvalidID(t *testing.T) {
 		".hidden/job.toml": "garbage",
 	})
 
-	set := Load(dir, nil)
+	set := load(t, dir)
 	if len(set.Jobs) != 0 || len(set.Invalid) != 1 {
 		t.Fatalf("jobs=%v invalid=%+v", set.Jobs, set.Invalid)
 	}
@@ -317,71 +341,127 @@ func TestBothFiles(t *testing.T) {
 		"a/watch.toml": "period = \"1h\"\ngrace = \"1h\"\n",
 	})
 
-	set := Load(dir, nil)
+	set := load(t, dir)
 	if len(set.Invalid) != 1 || !strings.Contains(set.Invalid[0].Msg, "one folder") {
 		t.Errorf("invalid: %+v", set.Invalid)
 	}
 	checkKey(t, set.Invalid[0])
 }
 
+// settingsErr is a settings document and the first error it must give: the
+// line for syntax errors and unknown keys, else the field.
+type settingsErr struct {
+	name, toml, field string
+	line              int
+	msg               string
+}
+
 func TestSettingsErrors(t *testing.T) {
-	tests := []jobErr{
-		{"syntax", "zone = \n", 1, ""},
-		{"unknown key", "zone = \"UTC\"\ncolour = 1\n", 2, `unknown key "colour"`},
-		{"unknown nested key", "[channels.mail]\nsmtp = \"h:25\"\nfrom = \"a@b\"\nbogus = 1\n", 4, "unknown key"},
-		{"bad zone", "zone = \"Mars/Base\"\n", 1, "unknown zone"},
-		{"bad locale", "locale = \"fr\"\n", 1, "locale must be"},
-		{"bad keep", "keep = \"0s\"\n", 1, "positive duration"},
-		{"bad quiet", "quiet = \"x\"\n", 1, "invalid window"},
-		{"bad parallel", "max_parallel = 0\n", 1, "at least 1"},
-		{"bad url", "andon_url = \"nope\"\n", 1, "http(s) URL"},
-		{"apprise no url", "[channels.apprise]\ntags = {a = \"b\"}\n", 1, "url required"},
-		{"mail no smtp", "[channels.mail]\nfrom = \"a@b\"\n", 1, "smtp required"},
-		{"mail no from", "[channels.mail]\nsmtp = \"h:25\"\n", 1, "from required"},
-		{"wrong type", "zone = 5\n", 1, "Wrong type"},
-		{"profile bad event", "[[profiles.p]]\non = [\"x\"]\nchannels = [\"mail\"]\n", 2, "unknown event"},
-		{"profile bad tag", "[[profiles.p]]\non = [\"fail\"]\nchannels = [\"apprise:x\"]\n", 3, "not defined"},
+	tests := []settingsErr{
+		{"syntax", "zone = \n", "", 1, ""},
+		{"unknown key", "zone = \"UTC\"\ncolour = 1\n", "colour", 2, `unknown key "colour"`},
+		{"unknown nested key", "[channels.mail]\nsmtp = \"h:25\"\nfrom = \"a@b\"\nbogus = 1\n", "channels.mail.bogus", 4, "unknown key"},
+		{"bad zone", "zone = \"Mars/Base\"\n", "zone", 0, "unknown zone"},
+		{"bad locale", "locale = \"fr\"\n", "locale", 0, "locale must be"},
+		{"bad keep", "keep = \"0s\"\n", "keep", 0, "positive duration"},
+		{"bad quiet", "quiet = \"x\"\n", "quiet", 0, "invalid window"},
+		{"bad parallel", "max_parallel = 0\n", "max_parallel", 0, "at least 1"},
+		{"bad url", "andon_url = \"nope\"\n", "andon_url", 0, "http(s) URL"},
+		{"apprise no url", "[channels.apprise]\ntags = {a = \"b\"}\n", "channels.apprise.url", 0, "url required"},
+		{"mail no smtp", "[channels.mail]\nfrom = \"a@b\"\n", "channels.mail.smtp", 0, "smtp required"},
+		{"mail no from", "[channels.mail]\nsmtp = \"h:25\"\n", "channels.mail.from", 0, "from required"},
+		{"wrong type", "zone = 5\n", "", 1, "Wrong type"},
+		{"profile bad event", "[[profiles.p]]\non = [\"x\"]\nchannels = [\"mail\"]\n", "profiles.p.on", 0, "unknown event"},
+		{"profile bad tag", "[[profiles.p]]\non = [\"fail\"]\nchannels = [\"apprise:x\"]\n", "profiles.p.channels", 0, "not defined"},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			set := Load(write(t, map[string]string{"jidoka.toml": tc.toml}), nil)
-			e := set.SettingsErr
+			_, e := ParseSettings([]byte(tc.toml))
 			if e == nil {
-				t.Fatal("want SettingsErr")
+				t.Fatal("want an error")
 			}
-			if e.File != "jidoka.toml" || e.Job != "" || e.Line != tc.line || !strings.Contains(e.Msg, tc.msg) {
-				t.Errorf("got %+v, want line %d %q", e, tc.line, tc.msg)
+			if e.Job != "" || e.Line != tc.line || e.Field != tc.field || !strings.Contains(e.Msg, tc.msg) {
+				t.Errorf("got %+v, want %s line %d %q", e, tc.field, tc.line, tc.msg)
 			}
+			checkKey(t, *e)
 		})
 	}
 }
 
-func TestBrokenSettingsKeepPrev(t *testing.T) {
-	prev := Load(testdataFull, nil).Settings
-
+// A jidoka.toml in the jobs folder is not read: the settings live in the
+// database. Whatever it holds, the settings given to Load apply.
+func TestJobsDirSettingsFileIgnored(t *testing.T) {
 	dir := write(t, map[string]string{
 		"jidoka.toml": "zone = \n",
-		"a/job.toml":  "run = \"x.sh\"\nschedule = \"0 6 * * *\"\nnotify_profile = \"leise\"\n",
+		"a/job.toml":  "run = \"x.sh\"\nschedule = \"0 6 * * *\"\n",
 		"a/x.sh":      "",
 	})
 
-	set := Load(dir, &prev)
-	if set.SettingsErr == nil {
-		t.Fatal("want SettingsErr")
+	s := settingsOf(t, okSettings)
+	s.MaxParallel = 7
+	set := Load(dir, s, CheckFull)
+	if len(set.Invalid) != 0 || set.Jobs["a"] == nil || set.Settings.MaxParallel != 7 {
+		t.Errorf("invalid %+v, settings %+v", set.Invalid, set.Settings)
 	}
-	if set.Settings.Heartbeat != 5*time.Minute || set.Settings.Mail == nil {
-		t.Errorf("prev not kept: %+v", set.Settings)
-	}
-	// The kept settings still define the profile the job names.
-	if set.Jobs["a"] == nil {
-		t.Errorf("job lost: %+v", set.Invalid)
+}
+
+// The CLI knows no stored settings: a job may name a profile or an Apprise
+// sub channel that the server's settings define.
+func TestOfflineSkipsProfileAndTag(t *testing.T) {
+	dir := write(t, map[string]string{
+		"a/job.toml": "run = \"x.sh\"\nschedule = \"0 6 * * *\"\nnotify_profile = \"unknown\"\n",
+		"a/x.sh":     "",
+		"b/job.toml": "run = \"x.sh\"\nschedule = \"0 6 * * *\"\n[[notify]]\non = [\"fail\"]\nchannels = [\"apprise:zzz\"]\n",
+		"b/x.sh":     "",
+	})
+
+	full := Load(dir, DefaultSettings(), CheckFull)
+	if len(full.Jobs) != 0 || len(full.Invalid) != 2 {
+		t.Errorf("full: jobs %d invalid %+v", len(full.Jobs), full.Invalid)
 	}
 
-	// Without prev: defaults.
-	set = Load(dir, nil)
-	if set.SettingsErr == nil || set.Settings.MaxParallel != 2 || set.Settings.Zone.String() != "Europe/Berlin" {
-		t.Errorf("defaults not used: %+v", set.Settings)
+	offline := Load(dir, DefaultSettings(), CheckOffline)
+	if len(offline.Jobs) != 2 || len(offline.Invalid) != 0 {
+		t.Errorf("offline: jobs %d invalid %+v", len(offline.Jobs), offline.Invalid)
+	}
+}
+
+// The editable document survives encode and decode, and the defaults of a
+// fresh install pass the check with the standard profile.
+func TestDraftRoundTrip(t *testing.T) {
+	want := settingsOf(t, okSettings)
+	d, lerr := ParseDraft([]byte(okSettings))
+	if lerr != nil {
+		t.Fatal(lerr)
+	}
+
+	doc, err := EncodeDraft(d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, lerr := ParseSettings(doc)
+	if lerr != nil {
+		t.Fatalf("%v\n%s", lerr, doc)
+	}
+	if got.Apprise.Tags["handy"] != "handy" || len(got.Profiles) != len(want.Profiles) {
+		t.Errorf("round trip: %+v\n%s", got, doc)
+	}
+
+	def := DefaultSettings()
+	if len(def.Profiles["standard"]) != 1 || def.MaxParallel != 2 {
+		t.Errorf("defaults: %+v", def)
+	}
+}
+
+// The page shows every error at once, not only the first.
+func TestCheckDraftReportsAll(t *testing.T) {
+	d := DefaultDraft()
+	d.Zone, d.Keep = "Mars/Base", "0s"
+
+	_, errs := CheckDraft(d)
+	if len(errs) != 2 || errs[0].Field != "zone" || errs[1].Field != "keep" {
+		t.Errorf("errors: %+v", errs)
 	}
 }
 
@@ -391,9 +471,9 @@ func TestHash(t *testing.T) {
 		"a/x.sh":     "one",
 	}
 	dir := write(t, files)
-	h1 := Load(dir, nil).Jobs["a"].Hash
+	h1 := load(t, dir).Jobs["a"].Hash
 
-	if h2 := Load(dir, nil).Jobs["a"].Hash; h1 != h2 {
+	if h2 := load(t, dir).Jobs["a"].Hash; h1 != h2 {
 		t.Error("hash not stable")
 	}
 
@@ -401,7 +481,7 @@ func TestHash(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "a", ".cache"), []byte("x"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if h := Load(dir, nil).Jobs["a"].Hash; h != h1 {
+	if h := load(t, dir).Jobs["a"].Hash; h != h1 {
 		t.Error("dotfile changed the hash")
 	}
 
@@ -409,7 +489,7 @@ func TestHash(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "a", "x.sh"), []byte("two"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if h := Load(dir, nil).Jobs["a"].Hash; h == h1 {
+	if h := load(t, dir).Jobs["a"].Hash; h == h1 {
 		t.Error("content change not noticed")
 	}
 }
@@ -437,7 +517,7 @@ func TestCommit(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := Load(write(t, tc.files), nil).Commit; got != tc.want {
+			if got := load(t, write(t, tc.files)).Commit; got != tc.want {
 				t.Errorf("Commit = %q, want %q", got, tc.want)
 			}
 		})
@@ -466,7 +546,7 @@ func TestRemindNever(t *testing.T) {
 		"a/x":        "",
 	})
 
-	j := Load(dir, nil).Jobs["a"]
+	j := load(t, dir).Jobs["a"]
 	if j == nil || j.Rules[0].Remind != 0 {
 		t.Errorf("job: %+v", j)
 	}
@@ -480,7 +560,7 @@ func TestScheduleErrorIsGerman(t *testing.T) {
 		"j/x.sh":     "",
 	})
 
-	e := Load(dir, nil).Invalid[0]
+	e := load(t, dir).Invalid[0]
 	got := i18n.T(e.Key, i18n.LocaleDE, e.Params)
 	if want := "Ungültiger Zeitplan: Stunde: Wert 25 außerhalb von 0-23"; got != want {
 		t.Errorf("German = %q, want %q", got, want)
@@ -501,47 +581,25 @@ func TestLocaleSetting(t *testing.T) {
 	}
 }
 
-// B8: every fallback goes through the standard profile, so a jidoka.toml
-// without it is invalid and the last valid copy stays.
+// B8: every fallback goes through the standard profile, so settings
+// without it are invalid.
 func TestSettingsNeedStandardProfile(t *testing.T) {
 	const noStandard = "[[profiles.leise]]\non = [\"fail\"]\nchannels = [\"mail\"]\n"
 
 	for name, toml := range map[string]string{"none": "zone = \"UTC\"\n", "other only": noStandard} {
-		dir := write(t, map[string]string{"jidoka.toml": toml})
-		set := Load(dir, nil)
-		if set.SettingsErr == nil || set.SettingsErr.Key != "conf.no_standard" {
-			t.Errorf("%s: SettingsErr %+v", name, set.SettingsErr)
+		_, e := ParseSettings([]byte(toml))
+		if e == nil || e.Key != "conf.no_standard" || e.Field != "profiles.standard" {
+			t.Errorf("%s: error %+v", name, e)
 			continue
 		}
-		checkKey(t, *set.SettingsErr)
+		checkKey(t, *e)
 	}
 }
 
-// B8: a missing jidoka.toml is an error like one without a standard
-// profile; the last valid copy stays. Local runs may do without it.
-func TestMissingSettingsIsError(t *testing.T) {
-	dir := write(t, map[string]string{"a/job.toml": "run = \"x.sh\"\nschedule = \"0 6 * * *\"\n", "a/x.sh": ""})
-
-	prev := defaults()
-	prev.MaxParallel = 7
-	set := Load(dir, &prev)
-	if set.SettingsErr == nil || set.SettingsErr.Key != "conf.no_settings" {
-		t.Fatalf("SettingsErr %+v", set.SettingsErr)
-	}
-	checkKey(t, *set.SettingsErr)
-	if set.Settings.MaxParallel != 7 || len(set.Jobs) != 1 {
-		t.Errorf("settings %+v, jobs %d", set.Settings, len(set.Jobs))
-	}
-
-	if local := LoadWith(dir, nil, SettingsOptional); local.SettingsErr != nil {
-		t.Errorf("optional: %+v", local.SettingsErr)
-	}
-}
-
-// An unreadable folder is one error, not also a missing file.
+// An unreadable folder is one error.
 func TestMissingDirIsOneError(t *testing.T) {
-	set := Load(filepath.Join(t.TempDir(), "gone"), nil)
-	if set.SettingsErr != nil || len(set.Invalid) != 1 {
-		t.Errorf("SettingsErr %+v, Invalid %+v", set.SettingsErr, set.Invalid)
+	set := load(t, filepath.Join(t.TempDir(), "gone"))
+	if len(set.Invalid) != 1 {
+		t.Errorf("Invalid %+v", set.Invalid)
 	}
 }

@@ -4,11 +4,11 @@
 // world, for screenshots and QA (O10). It exists only in builds without
 // the release tag; scripts/release-check.sh makes sure it stays out.
 //
-//	world.json ──► jobs folder (jidoka.toml, <id>/job.toml, run.sh)
-//	           └─► jidoka.db: 30 days of runs, deliveries, secrets,
+//	world.json ──► jobs folder (<id>/job.toml, run.sh)
+//	           └─► jidoka.db: settings, 30 days of runs, deliveries, secrets,
 //	                          audit, flags, open alerts
 //
-// Nothing here sends anything: the channels in jidoka.toml point to
+// Nothing here sends anything: the channels in the settings point to
 // hosts under .invalid, which never resolve.
 package demo
 
@@ -67,10 +67,16 @@ func Prepare(dataDir, lang string, now time.Time) (string, error) {
 		return "", err
 	}
 
-	set := conf.Load(dir, nil)
-	if set.SettingsErr != nil {
-		return "", fmt.Errorf("demo: jidoka.toml: %s", set.SettingsErr.Msg)
+	doc, err := tomlDoc(d.Settings)
+	if err != nil {
+		return "", err
 	}
+
+	st, lerr := conf.ParseSettings(doc)
+	if lerr != nil {
+		return "", fmt.Errorf("demo: settings: %s", lerr.Msg)
+	}
+	set := conf.Load(dir, st, conf.CheckFull)
 
 	if err := initKey(dataDir, key); err != nil {
 		return "", err
@@ -83,6 +89,9 @@ func Prepare(dataDir, lang string, now time.Time) (string, error) {
 	defer conn.Close()
 
 	err = db.WithTx(conn, func(tx *sql.Tx) error {
+		if err := repos.PutSettings(tx, string(doc)); err != nil {
+			return err
+		}
 		return seed(tx, d, set, now.UTC())
 	})
 	if err != nil {

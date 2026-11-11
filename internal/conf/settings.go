@@ -1,8 +1,11 @@
 package conf
 
 import (
+	"bytes"
 	"net/url"
 	"time"
+
+	"github.com/BurntSushi/toml"
 
 	_ "time/tzdata" // zone data in the binary (J3)
 
@@ -10,44 +13,53 @@ import (
 	"jidoka/internal/model"
 )
 
+// settingsFile names the settings document in syntax errors.
+const settingsFile = "settings"
+
 const (
 	defaultZone     = "Europe/Berlin"
 	defaultKeepDays = 180
 	defaultKeepRuns = 500
 	defaultParallel = 2
 	defaultProfile  = "standard"
+	defaultRemind   = "24h"
 )
 
-type rawApprise struct {
+// DraftApprise is the Apprise channel as written in the settings document.
+type DraftApprise struct {
 	URL  string            `toml:"url"`
-	Tags map[string]string `toml:"tags"`
+	Tags map[string]string `toml:"tags,omitempty"`
 }
 
-type rawMail struct {
+// DraftMail is the mail channel as written in the settings document.
+type DraftMail struct {
 	SMTP string   `toml:"smtp"`
-	User string   `toml:"user"`
+	User string   `toml:"user,omitempty"`
 	From string   `toml:"from"`
-	To   []string `toml:"to"`
+	To   []string `toml:"to,omitempty"`
 }
 
-type rawSettings struct {
-	Zone        string `toml:"zone"`
-	Locale      string `toml:"locale"`
-	Quiet       string `toml:"quiet"`
-	Heartbeat   string `toml:"heartbeat"`
-	MaxParallel *int   `toml:"max_parallel"`
-	Keep        string `toml:"keep"`
-	KeepRuns    *int   `toml:"keep_runs"`
-	AndonURL    string `toml:"andon_url"`
-	BaseURL     string `toml:"base_url"`
+// Draft is the settings document (TOML) in editable form: what the
+// settings page changes before CheckDraft turns it into model.Settings.
+// Profiles pass through untouched until their own editor exists.
+type Draft struct {
+	Zone        string `toml:"zone,omitempty"`
+	Locale      string `toml:"locale,omitempty"`
+	Quiet       string `toml:"quiet,omitempty"`
+	Heartbeat   string `toml:"heartbeat,omitempty"`
+	MaxParallel *int   `toml:"max_parallel,omitempty"`
+	Keep        string `toml:"keep,omitempty"`
+	KeepRuns    *int   `toml:"keep_runs,omitempty"`
+	AndonURL    string `toml:"andon_url,omitempty"`
+	BaseURL     string `toml:"base_url,omitempty"`
 	Channels    struct {
-		Apprise *rawApprise `toml:"apprise"`
-		Mail    *rawMail    `toml:"mail"`
+		Apprise *DraftApprise `toml:"apprise,omitempty"`
+		Mail    *DraftMail    `toml:"mail,omitempty"`
 	} `toml:"channels"`
-	Profiles map[string][]rawRule `toml:"profiles"`
+	Profiles map[string][]rawRule `toml:"profiles,omitempty"`
 }
 
-// defaults is what a missing or broken jidoka.toml leaves.
+// defaults is what no stored settings leave.
 func defaults() model.Settings {
 	loc, err := time.LoadLocation(defaultZone)
 	if err != nil {
@@ -63,8 +75,80 @@ func defaults() model.Settings {
 	}
 }
 
-// buildSettings turns the decoded file into Settings, reporting every error.
-func buildSettings(is *issues, raw rawSettings) model.Settings {
+// ParseDraft decodes a settings document strictly (syntax, types, unknown
+// keys); the values are not checked yet.
+func ParseDraft(src []byte) (Draft, *model.LoadError) {
+	var d Draft
+	is := decode(newIssues("", settingsFile, string(src)), string(src), &d)
+	if len(is.list) > 0 {
+		return Draft{}, &is.list[0]
+	}
+
+	return d, nil
+}
+
+// EncodeDraft is the document of d.
+func EncodeDraft(d Draft) ([]byte, error) {
+	var buf bytes.Buffer
+	if err := toml.NewEncoder(&buf).Encode(d); err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
+}
+
+// CheckDraft is the one validation of the settings: every value is
+// checked and every error returned. The Settings are only good without
+// errors.
+func CheckDraft(d Draft) (model.Settings, []model.LoadError) {
+	is := newIssues("", settingsFile, "")
+	s := buildSettings(is, d)
+	if len(is.list) > 0 {
+		return defaults(), is.list
+	}
+
+	return s, nil
+}
+
+// ParseSettings parses and checks a settings document; the first error
+// is returned.
+func ParseSettings(src []byte) (model.Settings, *model.LoadError) {
+	d, lerr := ParseDraft(src)
+	if lerr != nil {
+		return defaults(), lerr
+	}
+
+	s, errs := CheckDraft(d)
+	if len(errs) > 0 {
+		return defaults(), &errs[0]
+	}
+
+	return s, nil
+}
+
+// DefaultDraft is the document of a fresh install: the defaults and the
+// standard profile every fallback goes through (B8).
+func DefaultDraft() Draft {
+	d := Draft{Profiles: map[string][]rawRule{
+		defaultProfile: {{
+			On:       []string{"fail", "timeout", "missed", "invalid"},
+			Channels: []string{chApprise, chMail},
+			Remind:   defaultRemind,
+		}},
+	}}
+
+	return d
+}
+
+// DefaultSettings are the settings of a fresh install.
+func DefaultSettings() model.Settings {
+	s, _ := CheckDraft(DefaultDraft())
+
+	return s
+}
+
+// buildSettings turns the decoded document into Settings, reporting every error.
+func buildSettings(is *issues, raw Draft) model.Settings {
 	s := defaults()
 
 	if raw.Zone != "" {
@@ -120,7 +204,7 @@ func buildSettings(is *issues, raw rawSettings) model.Settings {
 	}
 	s.Profiles = map[string][]model.Rule{}
 	for name, rules := range raw.Profiles {
-		s.Profiles[name] = buildRules(is, "profiles."+name, rules, tags)
+		s.Profiles[name] = buildRules(is, "profiles."+name, rules, tags, CheckFull)
 	}
 
 	// Every fallback (a job without [[notify]], reload, invalid, a failed
@@ -169,7 +253,7 @@ func checkURL(is *issues, sect string, idx int, key, text string) string {
 	return text
 }
 
-func buildApprise(is *issues, raw *rawApprise) *model.Apprise {
+func buildApprise(is *issues, raw *DraftApprise) *model.Apprise {
 	if raw == nil {
 		return nil
 	}
@@ -183,7 +267,7 @@ func buildApprise(is *issues, raw *rawApprise) *model.Apprise {
 	return &model.Apprise{URL: raw.URL, Tags: raw.Tags}
 }
 
-func buildMail(is *issues, raw *rawMail) *model.Mail {
+func buildMail(is *issues, raw *DraftMail) *model.Mail {
 	if raw == nil {
 		return nil
 	}

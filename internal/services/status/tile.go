@@ -116,12 +116,9 @@ type Board struct {
 	// running, ok, never, and paused and disabled last; by name inside.
 	Tiles  []Tile
 	Counts Counts
-	// Invalid lists every file that did not load, jidoka.toml first (O9).
+	// Invalid lists every file that did not load (O9).
 	Invalid []model.LoadError
-	// SettingsText is the catalog key of the jidoka.toml banner; "" when
-	// the file loaded.
-	SettingsText string
-	Reload       Reload
+	Reload  Reload
 	// Channels holds the channels that are down (M9).
 	Channels []alerts.ChannelHealth
 	// Tags are all tags of all jobs, sorted, for the filter (J17).
@@ -155,7 +152,7 @@ func (s *Service) board(dt detail) (Board, error) {
 	}
 
 	b := Board{
-		At: now, Tiles: tiles, Invalid: loadErrors(set), SettingsText: settingsText(set), Tags: tagsOf(tiles),
+		At: now, Tiles: tiles, Invalid: loadErrors(set), Tags: tagsOf(tiles),
 		Reload:   Reload{Diff: s.d.Jobs.LastDiff(), Commit: set.Commit, At: set.LoadedAt},
 		Channels: []alerts.ChannelHealth{},
 		Counts:   count(tiles),

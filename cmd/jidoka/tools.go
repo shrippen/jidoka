@@ -101,7 +101,7 @@ func runLocal(args []string) int {
 		return exitUsage
 	}
 
-	set := conf.LoadWith(fs.Arg(0), nil, conf.SettingsOptional)
+	set := conf.Load(fs.Arg(0), conf.DefaultSettings(), conf.CheckOffline)
 	job, ok := set.Jobs[fs.Arg(1)]
 	if !ok || job.Kind != model.KindJob {
 		fmt.Fprintf(os.Stderr, "no valid job %q\n", fs.Arg(1))

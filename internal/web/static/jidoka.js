@@ -17,7 +17,7 @@
     light.addEventListener("change", theme);
   }
 
-  // Times Jidoka formats itself are in its zone (jidoka.toml). Where the
+  // Times Jidoka formats itself are in its zone (settings). Where the
   // browser's zone differs, their .tz-mark names it: "12:26 UTC".
   // Adapted from andon internal/web/static/andon.js showZones (468474a).
   function showZones(root) {
@@ -104,6 +104,22 @@
 
   d.addEventListener("DOMContentLoaded", showBoard);
   d.addEventListener("htmx:afterSwap", showBoard);
+
+  // Settings page: a row of sub channels is added from a <template> or
+  // removed. Without script the form still holds one blank row to fill.
+  d.addEventListener("click", function (e) {
+    var el = e.target.closest ? e.target : e.target.parentElement;
+    var add = el && el.closest("[data-add-row]");
+    var drop = el && el.closest("[data-remove-row]");
+
+    if (add) {
+      var tpl = d.getElementById(add.getAttribute("data-add-row"));
+      add.parentNode.parentNode.insertBefore(tpl.content.cloneNode(true), tpl);
+    }
+    if (drop) {
+      drop.closest("[data-row]").remove();
+    }
+  });
 
   // Every htmx request carries the page's CSRF token (Z4).
   d.addEventListener("htmx:configRequest", function (e) {

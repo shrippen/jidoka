@@ -200,14 +200,13 @@ func TestDeliveryNoteShownNotRecovery(t *testing.T) {
 	}
 }
 
-// The board shows an invalid settings file and an unreadable jobs folder
-// (B8); both read the settings source from the page data.
-func TestBoardShowsInvalidSettings(t *testing.T) {
+// The board shows an invalid job file and an unreadable jobs folder.
+func TestBoardShowsInvalidJobs(t *testing.T) {
 	tests := []struct {
 		name  string
 		spoil func(b *backend)
 	}{
-		{"settings", func(b *backend) { b.put("jidoka.toml", "[[profiles.standard]\n") }},
+		{"job", func(b *backend) { b.put("bad/job.toml", "run = [\n") }},
 		{"dir", func(b *backend) {
 			if err := os.Chmod(b.dir, 0); err != nil {
 				t.Fatal(err)

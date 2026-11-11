@@ -77,6 +77,7 @@ var tabs = []tab{
 	{Key: "plan", Path: "/plan"},
 	{Key: "channels", Path: "/channels"},
 	{Key: "secrets", Path: "/secrets"},
+	{Key: "settings", Path: "/settings"},
 	{Key: "access", Path: "/access"},
 }
 

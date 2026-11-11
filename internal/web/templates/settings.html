@@ -1,0 +1,172 @@
+{{/* Settings (Z5, M1): the global settings, kept in the database. Secrets
+     are written here and never shown again: the page knows only whether
+     one is set. */}}
+{{define "title"}}{{t "nav.settings"}}{{end}}
+{{define "fielderr"}}{{if .Msg}}<span class="field-hint is-error" role="alert">{{loadMsg .}}</span>{{end}}{{end}}
+{{define "secretfield"}}
+      <div class="field">
+        <label for="secret-{{.Name}}">{{t (print "settings.secret_" .Key)}}</label>
+        <input class="input" id="secret-{{.Name}}" name="secret_{{.Name}}" type="password" autocomplete="new-password" placeholder="{{if .Set}}{{t "settings.secret_keep"}}{{end}}">
+        <span class="field-hint">{{if .Set}}<span class="pill" data-state="ok">{{t "settings.secret_set"}}</span>{{else}}<span class="pill" data-state="off">{{t "settings.secret_unset"}}</span>{{end}} {{t (print "settings.secret_hint_" .Key)}} <code>{{.Name}}</code></span>
+        {{if .Set}}<label class="check"><input type="checkbox" name="clear_{{.Name}}" value="1"{{if .Clear}} checked{{end}}><span class="check-box"><svg viewBox="0 0 14 14" aria-hidden="true"><path d="M2.5 7.5l3 3 6-6.5"/></svg></span> {{t "settings.secret_clear"}}</label>{{end}}
+      </div>
+{{end}}
+{{define "tagrow"}}
+      <div class="btn-row" data-row>
+        <input class="input" name="tag_name" value="{{.Name}}" aria-label="{{t "settings.tag_name"}}" placeholder="{{t "settings.tag_name"}}" autocomplete="off">
+        <input class="input" name="tag_tag" value="{{.Tag}}" aria-label="{{t "settings.tag_tag"}}" placeholder="{{t "settings.tag_tag"}}" autocomplete="off">
+        <button class="btn btn-outline btn-sm" type="button" data-remove-row>{{t "settings.tag_remove"}}</button>
+      </div>
+{{end}}
+{{define "main"}}
+{{with .Data}}
+<main>
+  <div class="page-head"><h1>{{t "nav.settings"}}</h1></div>
+  <p class="muted">{{t "settings.lead"}}</p>
+
+  {{if .Saved}}
+  <section class="callout callout-ok" role="status"><p><strong>{{t "settings.saved"}}</strong></p></section>
+  {{end}}
+  {{with .Broken}}
+  <section class="callout callout-danger" role="alert">
+    <p><strong>✕ {{t "settings.broken"}}</strong></p>
+    <p>{{loadMsg .}}</p>
+  </section>
+  {{end}}
+  {{if .Errors}}
+  <section class="callout callout-danger" role="alert">
+    <p><strong>✕ {{t "settings.not_saved"}}</strong></p>
+    {{range .Rest}}<p>{{.Field}}: {{loadMsg .}}</p>{{end}}
+  </section>
+  {{end}}
+
+  <form class="form" method="post" action="/settings" autocomplete="off">
+    {{template "csrf" $.CSRF}}
+
+    <h2>{{t "settings.general"}}</h2>
+    <div class="field">
+      <label for="s-zone">{{t "settings.zone"}}</label>
+      <input class="input" id="s-zone" name="zone" value="{{.Form.Zone}}" placeholder="Europe/Berlin" {{.Bad "zone"}}>
+      <span class="field-hint">{{t "settings.zone_hint"}}</span>
+      {{template "fielderr" (.Err "zone")}}
+    </div>
+    <div class="field">
+      <label for="s-locale">{{t "settings.locale"}}</label>
+      <select class="select" id="s-locale" name="locale" {{.Bad "locale"}}>
+        <option value="de"{{if or (eq .Form.Locale "de") (eq .Form.Locale "")}} selected{{end}}>Deutsch</option>
+        <option value="en"{{if eq .Form.Locale "en"}} selected{{end}}>English</option>
+      </select>
+      <span class="field-hint">{{t "settings.locale_hint"}}</span>
+      {{template "fielderr" (.Err "locale")}}
+    </div>
+    <div class="field">
+      <label for="s-quiet-from">{{t "settings.quiet_from"}}</label>
+      <input class="input" id="s-quiet-from" name="quiet_from" value="{{.Form.QuietFrom}}" placeholder="22:00" {{.Bad "quiet"}}>
+    </div>
+    <div class="field">
+      <label for="s-quiet-to">{{t "settings.quiet_to"}}</label>
+      <input class="input" id="s-quiet-to" name="quiet_to" value="{{.Form.QuietTo}}" placeholder="07:00" {{.Bad "quiet"}}>
+      <span class="field-hint">{{t "settings.quiet_hint"}}</span>
+      {{template "fielderr" (.Err "quiet")}}
+    </div>
+    <div class="field">
+      <label for="s-heartbeat">{{t "settings.heartbeat"}}</label>
+      <input class="input" id="s-heartbeat" name="heartbeat" value="{{.Form.Heartbeat}}" placeholder="5m" {{.Bad "heartbeat"}}>
+      <span class="field-hint">{{t "settings.heartbeat_hint"}}</span>
+      {{template "fielderr" (.Err "heartbeat")}}
+    </div>
+    {{template "secretfield" (.Secret "HEARTBEAT_URL")}}
+    <div class="field">
+      <label for="s-parallel">{{t "settings.max_parallel"}}</label>
+      <input class="input" id="s-parallel" name="max_parallel" inputmode="numeric" value="{{.Form.MaxParallel}}" placeholder="2" {{.Bad "max_parallel"}}>
+      <span class="field-hint">{{t "settings.max_parallel_hint"}}</span>
+      {{template "fielderr" (.Err "max_parallel")}}
+    </div>
+    <div class="field">
+      <label for="s-keep">{{t "settings.keep"}}</label>
+      <input class="input" id="s-keep" name="keep" value="{{.Form.Keep}}" placeholder="180d" {{.Bad "keep"}}>
+      <span class="field-hint">{{t "settings.keep_hint"}}</span>
+      {{template "fielderr" (.Err "keep")}}
+    </div>
+    <div class="field">
+      <label for="s-keep-runs">{{t "settings.keep_runs"}}</label>
+      <input class="input" id="s-keep-runs" name="keep_runs" inputmode="numeric" value="{{.Form.KeepRuns}}" placeholder="500" {{.Bad "keep_runs"}}>
+      <span class="field-hint">{{t "settings.keep_runs_hint"}}</span>
+      {{template "fielderr" (.Err "keep_runs")}}
+    </div>
+    <div class="field">
+      <label for="s-base-url">{{t "settings.base_url"}}</label>
+      <input class="input" id="s-base-url" name="base_url" value="{{if .BaseURLEnv}}{{.BaseURLEnv}}{{else}}{{.Form.BaseURL}}{{end}}" placeholder="https://jidoka.example.org"{{if .BaseURLEnv}} disabled{{end}} {{.Bad "base_url"}}>
+      <span class="field-hint">{{if .BaseURLEnv}}{{t "settings.base_url_env"}}{{else}}{{t "settings.base_url_hint"}}{{end}}</span>
+      {{template "fielderr" (.Err "base_url")}}
+    </div>
+    <div class="field">
+      <label for="s-andon-url">{{t "settings.andon_url"}}</label>
+      <input class="input" id="s-andon-url" name="andon_url" value="{{.Form.AndonURL}}" placeholder="https://andon.example.org" {{.Bad "andon_url"}}>
+      <span class="field-hint">{{t "settings.andon_url_hint"}}</span>
+      {{template "fielderr" (.Err "andon_url")}}
+    </div>
+
+    <h2>{{t "channel.apprise"}}</h2>
+    <p class="muted">{{t "settings.apprise_hint"}}</p>
+    <div class="field">
+      <label for="s-apprise-url">{{t "settings.apprise_url"}}</label>
+      <input class="input" id="s-apprise-url" name="apprise_url" value="{{.Form.AppriseURL}}" placeholder="http://apprise:8000/notify/jidoka" {{.Bad "channels.apprise.url"}}>
+      {{template "fielderr" (.Err "channels.apprise.url")}}
+    </div>
+    {{template "secretfield" (.Secret "APPRISE_KEY")}}
+    <div class="field" id="tags">
+      <span class="field-label">{{t "settings.tags"}}</span>
+      <span class="field-hint">{{t "settings.tags_hint"}}</span>
+      {{range .Form.Tags}}{{template "tagrow" .}}{{end}}
+      {{template "tagrow" .Blank}}
+      <template id="tag-template">{{template "tagrow" .Blank}}</template>
+      <div class="btn-row"><button class="btn btn-outline btn-sm" type="button" data-add-row="tag-template">{{t "settings.tag_add"}}</button></div>
+      {{template "fielderr" (.Err "channels.apprise.tags")}}
+    </div>
+
+    <h2>{{t "channel.mail"}}</h2>
+    <p class="muted">{{t "settings.mail_hint"}}</p>
+    <div class="field">
+      <label for="s-smtp">{{t "settings.smtp"}}</label>
+      <input class="input" id="s-smtp" name="smtp" value="{{.Form.SMTP}}" placeholder="smtp.example.org:587" {{.Bad "channels.mail.smtp"}}>
+      {{template "fielderr" (.Err "channels.mail.smtp")}}
+    </div>
+    <div class="field">
+      <label for="s-mail-user">{{t "settings.mail_user"}}</label>
+      <input class="input" id="s-mail-user" name="mail_user" value="{{.Form.User}}" autocomplete="off">
+    </div>
+    {{template "secretfield" (.Secret "SMTP_PASSWORD")}}
+    <div class="field">
+      <label for="s-mail-from">{{t "settings.mail_from"}}</label>
+      <input class="input" id="s-mail-from" name="mail_from" value="{{.Form.From}}" placeholder="jidoka@example.org" {{.Bad "channels.mail.from"}}>
+      {{template "fielderr" (.Err "channels.mail.from")}}
+    </div>
+    <div class="field">
+      <label for="s-mail-to">{{t "settings.mail_to"}}</label>
+      <textarea class="input" id="s-mail-to" name="mail_to" rows="3" placeholder="me@example.org">{{.Form.ToList}}</textarea>
+      <span class="field-hint">{{t "settings.mail_to_hint"}}</span>
+    </div>
+
+    <button class="btn btn-accent" type="submit">{{t "settings.save"}}</button>
+  </form>
+
+  <section>
+    <h2>{{t "channels.profiles"}}</h2>
+    <p class="muted">{{t "settings.profiles_hint"}}</p>
+    {{range $name, $rules := .Profiles}}
+    <div class="rule">
+      <h3>{{$name}}</h3>
+      {{range $rules}}
+      <div class="rule-events">{{range .On}}{{template "eventpill" .}}{{end}}</div>
+      <p class="mono small">→ {{join .Channels ", "}}</p>
+      <p class="small muted">{{ruleText .}}</p>
+      {{end}}
+    </div>
+    {{else}}
+    <p class="muted">{{t "channels.no_profiles"}}</p>
+    {{end}}
+  </section>
+</main>
+{{end}}
+{{end}}

@@ -14,7 +14,7 @@ import (
 // time per rule (JSON column), plus LastSlot, RunID, Name and Detail.
 type Disturbance struct {
 	// Job is the key: the job id for run trouble, FileKey(id) for a broken
-	// job file, KeyGlobal for jidoka.toml, KeyRepo for the repo fetch.
+	// job file, KeyGlobal for the jobs folder, KeyRepo for the repo fetch.
 	Job      string
 	Event    model.Event
 	Since    time.Time

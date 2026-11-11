@@ -1,9 +1,10 @@
-// Package jobs holds the current model.Set, loaded from /jobs (J20).
+// Package jobs holds the current model.Set: the stored settings and the
+// jobs loaded from /jobs (J20).
 //
-//	Reload ──► conf.Load (whole tree, off to the side)
-//	              │ commit changed meanwhile? read once more
-//	              ▼
-//	        swap under lock ──► Diff ──► OnReload hooks
+//	Reload ──► fetch ──► settings from the database ──► conf.Load (whole tree, off to the side)
+//	Revalidate ───────────────────┘                        │ commit changed meanwhile? read once more
+//	                                                       ▼
+//	                                      swap under lock ──► Diff ──► OnReload hooks
 //
 // Readers get a complete old or a complete new Set, never a mix.
 package jobs
@@ -12,8 +13,6 @@ import (
 	"context"
 	"database/sql"
 	"log/slog"
-	"os"
-	"path/filepath"
 	"sort"
 	"sync"
 	"time"
@@ -23,15 +22,6 @@ import (
 	"jidoka/internal/i18n"
 	"jidoka/internal/model"
 	"jidoka/internal/repos"
-)
-
-const (
-	// kvSettings holds the raw bytes of the last valid jidoka.toml (B8).
-	kvSettings   = "jobs.settings_valid"
-	settingsFile = "jidoka.toml"
-
-	// settingsID names a broken jidoka.toml in Diff.Invalid.
-	settingsID = "jidoka.toml"
 )
 
 // Diff says what a reload changed, by job id.
@@ -58,7 +48,6 @@ type Service struct {
 
 	mu    sync.RWMutex
 	set   *model.Set
-	valid *model.Settings // last valid jidoka.toml
 	diff  Diff
 	hooks []func(Diff, model.Set)
 
@@ -77,7 +66,7 @@ func New(d *sql.DB, dir string) *Service {
 // the checkout as it is and shows in Set.RepoErr.
 func (s *Service) UseRepo(f Fetcher) { s.fetch = f }
 
-// SetBaseURL overrides settings.base_url (BASE_URL); "" keeps the file's.
+// SetBaseURL overrides settings.base_url (BASE_URL); "" keeps the stored one.
 func (s *Service) SetBaseURL(u string) { s.baseURL = u }
 
 // OnReload registers fn, called after every Reload with the new set.
@@ -87,41 +76,50 @@ func (s *Service) OnReload(fn func(Diff, model.Set)) {
 	s.mu.Unlock()
 }
 
-// Load reads /jobs at start. The last valid settings come from the
-// database, so a broken jidoka.toml does not reset them (B8).
+// Load reads the settings and /jobs at start.
 func (s *Service) Load() error {
-	raw, ok, err := s.storedSettings()
-	if err != nil {
-		return err
-	}
-
-	if ok {
-		st, lerr := conf.ParseSettings([]byte(raw))
-		if lerr == nil {
-			s.valid = &st
-		}
-	}
-
-	_, err = s.load()
+	_, err := s.load(withFetch)
 	return err
 }
 
-// storedSettings returns the saved bytes of the last valid jidoka.toml.
-func (s *Service) storedSettings() (string, bool, error) {
-	var raw string
+// storedSettings returns the stored settings; the defaults of a fresh
+// install when none are stored. A stored document that does not pass the
+// check (it did when saved) is logged and replaced by the defaults, so
+// the page can still open and fix it.
+func (s *Service) storedSettings() (model.Settings, error) {
+	var doc string
 	var ok bool
 	err := db.WithRead(s.db, func(tx *sql.Tx) error {
 		var err error
-		raw, ok, err = repos.GetKV(tx, kvSettings)
+		doc, ok, err = repos.GetSettings(tx)
 		return err
 	})
+	if err != nil || !ok {
+		return conf.DefaultSettings(), err
+	}
 
-	return raw, ok, err
+	st, lerr := conf.ParseSettings([]byte(doc))
+	if lerr != nil {
+		slog.Error("stored settings invalid", "err", lerr.Msg)
+		return conf.DefaultSettings(), nil
+	}
+
+	return st, nil
 }
 
-// Reload reads /jobs again and swaps the set in (J20).
+// Reload fetches the jobs repo, reads /jobs again and swaps the set in (J20).
 func (s *Service) Reload() (Diff, error) {
-	diff, err := s.load()
+	return s.reload(withFetch)
+}
+
+// Revalidate reads the settings and /jobs again without a fetch: after
+// the settings changed, every job is checked against them anew.
+func (s *Service) Revalidate() (Diff, error) {
+	return s.reload(noFetch)
+}
+
+func (s *Service) reload(f fetchMode) (Diff, error) {
+	diff, err := s.load(f)
 	if err != nil {
 		return diff, err
 	}
@@ -138,31 +136,44 @@ func (s *Service) Reload() (Diff, error) {
 	return diff, nil
 }
 
+// fetchMode says whether a load first brings the checkout up to date.
+type fetchMode int
+
+const (
+	withFetch fetchMode = iota
+	noFetch
+)
+
 // load reads the whole tree before it takes the lock. If a git pull moved
 // HEAD while reading, the files may mix two commits: read once more.
-func (s *Service) load() (Diff, error) {
+func (s *Service) load(f fetchMode) (Diff, error) {
 	s.loadMu.Lock()
 	defer s.loadMu.Unlock()
 
-	s.mu.RLock()
-	prev := s.valid
-	s.mu.RUnlock()
-
-	repoErr := s.fetchRepo()
-
-	set := conf.Load(s.dir, prev)
-	if conf.Commit(s.dir) != set.Commit {
-		set = conf.Load(s.dir, prev)
-	}
-	set.RepoErr = repoErr
-	if s.baseURL != "" {
-		set.Settings.BaseURL = s.baseURL
+	// A revalidation keeps the error of the last fetch; the checkout did
+	// not change.
+	var repoErr *model.LoadError
+	if f == withFetch {
+		repoErr = s.fetchRepo()
+	} else {
+		s.mu.RLock()
+		repoErr = s.set.RepoErr
+		s.mu.RUnlock()
 	}
 
-	valid, err := s.keepSettings(&set)
+	st, err := s.storedSettings()
 	if err != nil {
 		return Diff{}, err
 	}
+	if s.baseURL != "" {
+		st.BaseURL = s.baseURL
+	}
+
+	set := conf.Load(s.dir, st, conf.CheckFull)
+	if conf.Commit(s.dir) != set.Commit {
+		set = conf.Load(s.dir, st, conf.CheckFull)
+	}
+	set.RepoErr = repoErr
 
 	if err := s.ensureSeen(set); err != nil {
 		return Diff{}, err
@@ -171,9 +182,6 @@ func (s *Service) load() (Diff, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if valid != nil {
-		s.valid = valid
-	}
 	s.diff = makeDiff(s.set, &set)
 	s.set = &set
 
@@ -196,36 +204,6 @@ func (s *Service) fetchRepo() *model.LoadError {
 
 	m := i18n.M("conf.repo", "detail", err.Error())
 	return &model.LoadError{File: model.RepoFile, Key: m.Key, Params: m.Params, Msg: m.Error()}
-}
-
-// keepSettings stores the jidoka.toml bytes when the file is valid, so a
-// later broken file falls back to them after a restart (B8). It returns the
-// settings to remember, nil when the file is missing or broken.
-func (s *Service) keepSettings(set *model.Set) (*model.Settings, error) {
-	if set.SettingsErr != nil {
-		return nil, nil
-	}
-
-	src, err := os.ReadFile(filepath.Join(s.dir, settingsFile))
-	if err != nil {
-		return nil, nil
-	}
-
-	// Parse the bytes stored, not those Load saw: a write in between
-	// must not store something that was never validated.
-	st, lerr := conf.ParseSettings(src)
-	if lerr != nil {
-		return nil, nil
-	}
-
-	err = db.WithTx(s.db, func(tx *sql.Tx) error {
-		return repos.SetKV(tx, kvSettings, string(src))
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return &st, nil
 }
 
 // ensureSeen records when each job was first seen (W1 window start).
@@ -269,9 +247,6 @@ func makeDiff(old, cur *model.Set) Diff {
 			seen[id] = true
 			d.Invalid = append(d.Invalid, id)
 		}
-	}
-	if cur.SettingsErr != nil {
-		d.Invalid = append(d.Invalid, settingsID)
 	}
 	if cur.RepoErr != nil {
 		d.Invalid = append(d.Invalid, model.RepoFile)

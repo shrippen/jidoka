@@ -111,3 +111,36 @@ func TestSalt(t *testing.T) {
 		t.Fatalf("got %q, %v", got, err)
 	}
 }
+
+// Migration 0005: the last valid jidoka.toml (B8) becomes the stored
+// settings, so an existing install keeps them.
+func TestMigrationKeepsSettings(t *testing.T) {
+	d, _ := open(t)
+
+	// Back to the state before 0005: the old key, no new one.
+	const doc = "max_parallel = 7\n"
+	for _, q := range []string{
+		"DELETE FROM kv",
+		"DELETE FROM schema_migrations WHERE name = '0005_settings.sql'",
+	} {
+		if _, err := d.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := d.Exec("INSERT INTO kv (key, value) VALUES ('jobs.settings_valid', ?)", doc); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := migrate(d); err != nil {
+		t.Fatal(err)
+	}
+
+	var got string
+	if err := d.QueryRow("SELECT value FROM kv WHERE key = 'settings'").Scan(&got); err != nil || got != doc {
+		t.Fatalf("settings: %q %v", got, err)
+	}
+	var n int
+	if err := d.QueryRow("SELECT COUNT(*) FROM kv WHERE key = 'jobs.settings_valid'").Scan(&n); err != nil || n != 0 {
+		t.Errorf("old key left: %d %v", n, err)
+	}
+}

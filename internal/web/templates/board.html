@@ -22,7 +22,7 @@
 
   {{range .Board.Invalid}}
   <section class="callout callout-danger" role="alert">
-    <p><strong>✕ {{if .Job}}{{t "board.invalid_job" "job" .Job}}{{else if isRepo .}}{{t "board.invalid_repo"}}{{else if isDir .}}{{t "board.invalid_dir"}}{{with $.Data.Board.SettingsText}} · {{t .}}{{end}}{{else}}{{t $.Data.Board.SettingsText}}{{end}}</strong></p>
+    <p><strong>✕ {{if .Job}}{{t "board.invalid_job" "job" .Job}}{{else if isRepo .}}{{t "board.invalid_repo"}}{{else}}{{t "board.invalid_dir"}}{{end}}</strong></p>
     <p class="mono small">{{.File}}{{if .Line}}:{{.Line}}{{end}}</p>
     <p>{{loadMsg .}}</p>
     <p class="small muted">{{if isRepo .}}{{t "board.invalid_repo_hint"}}{{else}}{{t "board.invalid_hint"}}{{end}}</p>

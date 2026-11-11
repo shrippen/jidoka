@@ -44,18 +44,13 @@ func TestInitKeyWritesSalt(t *testing.T) {
 	}
 }
 
-// Repairing only jidoka.toml changes no job, so the reload diff is
-// empty; the disturbance of the broken file must still close (B8, O9).
-func TestSettingsRepairCloses(t *testing.T) {
-	data, jobsDir := t.TempDir(), t.TempDir()
+// Repairing the jobs folder changes no job, so the reload diff is empty;
+// the disturbance of the unreadable folder must still close (O9).
+func TestFolderRepairCloses(t *testing.T) {
+	data, jobsDir := t.TempDir(), filepath.Join(t.TempDir(), "later")
 	t.Setenv(envData, data)
 	t.Setenv(envJobs, jobsDir)
 	t.Setenv(envKey, "")
-
-	settings := filepath.Join(jobsDir, "jidoka.toml")
-	if err := os.WriteFile(settings, []byte("zone = \n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
 
 	a, err := build()
 	if err != nil {
@@ -68,10 +63,10 @@ func TestSettingsRepairCloses(t *testing.T) {
 
 	store := alerts.NewDBStore(a.db)
 	if d, _ := store.Disturbance(alerts.KeyGlobal); d == nil {
-		t.Fatal("broken jidoka.toml opened no disturbance")
+		t.Fatal("unreadable folder opened no disturbance")
 	}
 
-	if err := os.WriteFile(settings, []byte("zone = \"Europe/Berlin\"\n"+"[[profiles.standard]]\non = [\"fail\"]\nchannels = [\"mail\"]\n"), 0o644); err != nil {
+	if err := os.MkdirAll(jobsDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := a.jobs.Reload(); err != nil {
@@ -185,8 +180,7 @@ func TestStartClosesRepoDisturbance(t *testing.T) {
 	}
 }
 
-// A jobs folder that cannot be read is no jidoka.toml problem, yet it is
-// trouble: neither start nor reload may close it as fixed.
+// An unreadable jobs folder is trouble: neither start nor reload may close it as fixed.
 func TestMissingJobsDirStaysOpen(t *testing.T) {
 	t.Setenv(envData, t.TempDir())
 	t.Setenv(envJobs, filepath.Join(t.TempDir(), "gone"))
@@ -267,9 +261,9 @@ func TestUnreadableDirKeepsRunTrouble(t *testing.T) {
 	}
 }
 
-// B8: a jobs folder without jidoka.toml starts, shows the error and
-// reports it over KeyGlobal.
-func TestStartWithoutSettingsReports(t *testing.T) {
+// B8: without stored settings the server starts with the defaults, which
+// carry the standard profile every fallback goes through.
+func TestStartWithoutSettings(t *testing.T) {
 	t.Setenv(envData, t.TempDir())
 	t.Setenv(envJobs, t.TempDir())
 	t.Setenv(envKey, "")
@@ -283,15 +277,12 @@ func TestStartWithoutSettingsReports(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if a.jobs.Current().SettingsErr == nil {
-		t.Error("no settings error")
-	}
-	if d, _ := alerts.NewDBStore(a.db).Disturbance(alerts.KeyGlobal); d == nil {
-		t.Error("no disturbance under KeyGlobal")
+	if len(a.jobs.Current().Settings.Profiles["standard"]) == 0 {
+		t.Error("no standard profile in the defaults")
 	}
 }
 
-// jidoka run tries single jobs; it needs no jidoka.toml.
+// jidoka run tries single jobs; it needs no settings.
 func TestRunLocalWithoutSettings(t *testing.T) {
 	dir := write(t, map[string]string{
 		"a/job.toml": "run = \"x.sh\"\nschedule = \"0 6 * * *\"\n",

@@ -26,7 +26,7 @@ type ChannelRow struct {
 	OK30, Failed30 int
 }
 
-// Profile is a named rule set of jidoka.toml (M4). The index in Rules is
+// Profile is a named rule set of the settings (M4). The index in Rules is
 // the one the test-message action takes for the profile "standard".
 type Profile struct {
 	Name  string
@@ -58,10 +58,6 @@ type ChannelsPage struct {
 	// Recent are the newest 50 deliveries, newest first.
 	Recent []model.Delivery
 	Outbox []OutboxRow
-	// SettingsErr: jidoka.toml did not load; the saved copy or the defaults are in use (B8).
-	SettingsErr *model.LoadError
-	// SettingsText is the catalog key of its banner.
-	SettingsText string
 }
 
 // Channels returns the channels page.
@@ -74,8 +70,7 @@ func (s *Service) Channels() (ChannelsPage, error) {
 		counts map[string]repos.DeliveryCount
 		outbox []repos.OutboxItem
 		p      = ChannelsPage{Rows: []ChannelRow{}, Profiles: []Profile{}, Outbox: []OutboxRow{},
-			Quiet: set.Settings.Quiet, Zone: set.Settings.Zone, SettingsErr: set.SettingsErr,
-			SettingsText: settingsText(set)}
+			Quiet: set.Settings.Quiet, Zone: set.Settings.Zone}
 	)
 	err := db.WithRead(s.d.DB, func(tx *sql.Tx) error {
 		var err error

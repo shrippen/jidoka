@@ -104,9 +104,7 @@ docker run --rm --volumes-from "$name" alpine:3.24 sh -c "
 	chown -R $uid:$uid /data/tmp/run-999 && chmod 500 /data/tmp/run-999/ro &&
 	chmod 700 /data/tmp/run-999"
 mkdir "$db/nojobs"
-cp testdata/image/jidoka.toml "$db/nojobs/"
 chmod 755 "$db/nojobs"
-chmod 644 "$db/nojobs/jidoka.toml"
 docker run -d --name "$name-cache" --volumes-from "$name" -e MASTER_KEY=image-test-only \
 	-e JIDOKA_CACHE_LIMIT=1 -v "$db/nojobs:/jobs:ro" "$image" >/dev/null
 for _ in $(seq 1 30); do

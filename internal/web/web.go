@@ -19,6 +19,7 @@ import (
 	"jidoka/internal/services/ops"
 	"jidoka/internal/services/plan"
 	"jidoka/internal/services/secrets"
+	"jidoka/internal/services/settings"
 	"jidoka/internal/services/status"
 	"jidoka/internal/services/watch"
 )
@@ -33,13 +34,14 @@ type Deps struct {
 	Watch   *watch.Watch
 	Alerts  *alerts.Engine
 	Secrets *secrets.Service
+	Config  *settings.Service
 
 	// TrustedProxy is a comma-separated list of CIDRs or addresses
 	// (env TRUSTED_PROXY). Only a request from one of them may name the
 	// client in X-Forwarded-For; the ping rate limit uses that address.
 	TrustedProxy string
 
-	// Settings returns the current jidoka.toml (zone, Andon link, base URL).
+	// Settings returns the settings in force (zone, Andon link, base URL).
 	Settings func() model.Settings
 
 	// Health is nil when the process is healthy (B5): the planner ticked
@@ -83,12 +85,13 @@ func (s *Server) routes() {
 	s.registerPages()
 	s.registerHome()
 	s.registerAccess()
+	s.registerSettings()
 	s.registerAPI()
 	s.registerPing()
 	s.registerActions()
 }
 
-// settings is the current jidoka.toml; zero values when none is wired.
+// settings are the settings in force; zero values when none is wired.
 func (s *Server) settings() model.Settings {
 	var set model.Settings
 	if s.deps.Settings != nil {

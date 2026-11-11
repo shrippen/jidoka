@@ -74,7 +74,7 @@ func lastLines(s string, n int) string {
 	return strings.Join(lines, "\n")
 }
 
-// localeOf is the language of messages: locale in jidoka.toml (D1).
+// localeOf is the language of messages: locale in the settings (D1).
 func localeOf(set model.Set) string {
 	if _, ok := texts[set.Settings.Locale]; !ok {
 		return DefaultLocale

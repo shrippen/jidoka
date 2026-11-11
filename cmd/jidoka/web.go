@@ -43,6 +43,7 @@ func (a *app) startWeb(ctx context.Context) <-chan error {
 		Watch:        a.watch,
 		Alerts:       a.alerts,
 		Secrets:      a.secrets,
+		Config:       a.conf,
 		TrustedProxy: os.Getenv(envTrustedProxy),
 		Settings:     func() model.Settings { return a.jobs.Current().Settings },
 		Health:       a.health,

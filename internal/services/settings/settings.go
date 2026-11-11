@@ -125,6 +125,9 @@ type View struct {
 	// Broken is why the stored document did not load; the form then shows
 	// the defaults and a save replaces the document.
 	Broken *model.LoadError
+	// NoChannel is set when neither Apprise nor mail is stored: alerts
+	// would be lost.
+	NoChannel bool
 }
 
 // Get returns the page for the stored settings.
@@ -135,6 +138,7 @@ func (s *Service) Get() (View, error) {
 	}
 
 	v := View{Form: formOf(d), Broken: broken, BaseURLEnv: s.cfg.BaseURLEnv}
+	v.NoChannel = v.Form.AppriseURL == "" && v.Form.SMTP == ""
 	v.SecretSet, err = s.secretSet()
 	if err != nil {
 		return View{}, err

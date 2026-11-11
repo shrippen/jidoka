@@ -756,6 +756,7 @@ Zum selben Ergebnis wie im Betrieb: im Image laufen lassen, z. B.
 | Kanäle (`/channels`) | Zustand je Kanal, letzte Sendungen, Testknopf |
 | Geheimnisse (`/secrets`) | Setzen, Ersetzen, Löschen; Name, zuletzt geändert |
 | Zugang (`/access`) | API-Token anlegen und löschen |
+| Einstellungen (`/settings`) | Zone, Sprache, Kanäle, Profile, Ruhezeit und mehr setzen; Fehler am Feld, nichts gespeichert |
 
 Uhrzeiten tragen die Zone, wo der Browser abweicht. Die Oberfläche gibt
 es auf Deutsch und Englisch.

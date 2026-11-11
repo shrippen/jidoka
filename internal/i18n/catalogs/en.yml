@@ -88,6 +88,7 @@ board:
   invalid_repo: Jobs repo not fetched, the last fetched state applies
   invalid_repo_hint: Check JOBS_REPO, JOBS_REPO_TOKEN and whether Gitea is reachable; the next reload tries again.
   invalid_hint: Fix the file in the jobs repo; Komodo reloads the jobs after the push, or use "Reload jobs" here.
+  no_channel: "No channel configured: alerts are lost."
   channel_down: "Channel {channel} is down"
   channel_since: "Since {since}; messages wait until it is back"
   watch: Watch

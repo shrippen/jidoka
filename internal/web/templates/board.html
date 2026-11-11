@@ -29,6 +29,12 @@
   </section>
   {{end}}
 
+  {{if .Board.NoChannel}}
+  <section class="callout callout-warn" role="alert">
+    <p><strong>! {{t "board.no_channel"}}</strong> <a href="/settings">{{t "nav.settings"}}</a></p>
+  </section>
+  {{end}}
+
   {{range .Board.Channels}}
   <section class="callout callout-warn" role="alert">
     <p><strong>! {{t "board.channel_down" "channel" (t (print "channel." .Channel))}}</strong></p>

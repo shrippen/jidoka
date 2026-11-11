@@ -27,6 +27,9 @@
   {{if .Saved}}
   <section class="callout callout-ok" role="status"><p><strong>{{t "settings.saved"}}</strong></p></section>
   {{end}}
+  {{if .NoChannel}}
+  <section class="callout callout-warn" role="alert"><p><strong>! {{t "board.no_channel"}}</strong></p></section>
+  {{end}}
   {{with .Broken}}
   <section class="callout callout-danger" role="alert">
     <p><strong>✕ {{t "settings.broken"}}</strong></p>

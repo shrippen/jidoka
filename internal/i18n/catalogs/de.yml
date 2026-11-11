@@ -88,6 +88,7 @@ board:
   invalid_repo: Jobs-Repo nicht geholt, der zuletzt geholte Stand gilt
   invalid_repo_hint: JOBS_REPO, JOBS_REPO_TOKEN und die Erreichbarkeit von Gitea prüfen; das nächste Neuladen versucht es erneut.
   invalid_hint: Datei im Jobs-Repo korrigieren; nach dem Push lädt Komodo die Jobs neu, oder hier „Jobs neu laden“.
+  no_channel: "Kein Kanal eingerichtet: Meldungen gehen verloren."
   channel_down: "Kanal {channel} ist gestört"
   channel_since: "Seit {since}; Meldungen warten, bis er wieder geht"
   watch: Wächter

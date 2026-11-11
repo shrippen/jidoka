@@ -149,3 +149,42 @@ func TestSettingsSaveInvalidatesJob(t *testing.T) {
 		t.Error("job still valid without the tag")
 	}
 }
+
+// A rejected save must not grow the sub channel rows: one empty row
+// stays, however often the form is sent back.
+func TestSettingsEmptyRowsStay(t *testing.T) {
+	b := newBackend(t, "")
+	s := b.signedIn()
+
+	form := settingsForm("zone", "Mars/Base", "tag_name", "", "tag_tag", "")
+	var body string
+	for range 2 {
+		body = s.post("/settings", form, nil).Body.String()
+		form = settingsForm("zone", "Mars/Base", "tag_name", "", "tag_tag", "")
+	}
+
+	if got := strings.Count(body, `name="tag_name"`); got != 2 {
+		t.Errorf("tag_name inputs: %d, want 2 (one row plus the blank template)", got)
+	}
+}
+
+// Without a channel the first alert would be lost: board and settings
+// page say so; a configured channel silences it.
+func TestNoChannelHint(t *testing.T) {
+	const hint = "Kein Kanal eingerichtet"
+	b := newBackend(t, "")
+	s := b.signedIn()
+
+	for _, path := range []string{"/", "/settings"} {
+		if body := s.get(path).Body.String(); !strings.Contains(body, hint) {
+			t.Errorf("%s lacks the hint", path)
+		}
+	}
+
+	s.post("/settings", settingsForm("smtp", "h:25", "mail_from", "j@x.org"), nil)
+	for _, path := range []string{"/", "/settings"} {
+		if body := s.get(path).Body.String(); strings.Contains(body, hint) {
+			t.Errorf("%s shows the hint with a channel", path)
+		}
+	}
+}

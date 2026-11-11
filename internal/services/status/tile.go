@@ -121,6 +121,9 @@ type Board struct {
 	Reload  Reload
 	// Channels holds the channels that are down (M9).
 	Channels []alerts.ChannelHealth
+	// NoChannel is set when neither Apprise nor mail is configured: alerts
+	// would be lost.
+	NoChannel bool
 	// Tags are all tags of all jobs, sorted, for the filter (J17).
 	Tags []string
 }
@@ -153,9 +156,10 @@ func (s *Service) board(dt detail) (Board, error) {
 
 	b := Board{
 		At: now, Tiles: tiles, Invalid: loadErrors(set), Tags: tagsOf(tiles),
-		Reload:   Reload{Diff: s.d.Jobs.LastDiff(), Commit: set.Commit, At: set.LoadedAt},
-		Channels: []alerts.ChannelHealth{},
-		Counts:   count(tiles),
+		Reload:    Reload{Diff: s.d.Jobs.LastDiff(), Commit: set.Commit, At: set.LoadedAt},
+		Channels:  []alerts.ChannelHealth{},
+		NoChannel: set.Settings.Apprise == nil && set.Settings.Mail == nil,
+		Counts:    count(tiles),
 	}
 
 	if s.d.Alerts == nil {

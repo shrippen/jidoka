@@ -168,6 +168,12 @@ func formOf(r *http.Request) settings.Form {
 		if i < len(tags) {
 			row.Tag = tags[i]
 		}
+
+		// The page adds a blank row itself; keeping posted ones
+		// would grow the form with every rejected save.
+		if row.Name == "" && row.Tag == "" {
+			continue
+		}
 		f.Tags = append(f.Tags, row)
 	}
 

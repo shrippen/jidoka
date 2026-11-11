@@ -101,6 +101,9 @@ type Window struct {
 	Zone       *time.Location
 }
 
+// RemindNever is Rule.Remind for remind = "never"; 0 means not set.
+const RemindNever = -time.Nanosecond
+
 // Rule is one [[notify]] entry (M3).
 type Rule struct {
 	On       []Event
@@ -202,21 +205,21 @@ type Set struct {
 
 // Run is one execution of a job, or one ping of a watch.
 type Run struct {
-	ID       int64
-	Job      string
-	Trigger  Trigger
-	State    RunState
-	Slot     time.Time // the scheduled time this run belongs to; retries share it (J13)
-	Attempt  int       // 1 = first try
-	Started  time.Time
-	Ended    time.Time // zero while running
-	Exit     *int
-	Summary  string // JIDOKA_SUMMARY
-	Message  string // JIDOKA_NOTIFY
-	Output   string // redacted, capped (J6)
-	Error    string // Jidoka's own reason, e.g. missing secret
-	Commit   string // jobs commit the run used
-	Dry      bool
+	ID      int64
+	Job     string
+	Trigger Trigger
+	State   RunState
+	Slot    time.Time // the scheduled time this run belongs to; retries share it (J13)
+	Attempt int       // 1 = first try
+	Started time.Time
+	Ended   time.Time // zero while running
+	Exit    *int
+	Summary string // JIDOKA_SUMMARY
+	Message string // JIDOKA_NOTIFY
+	Output  string // redacted, capped (J6)
+	Error   string // Jidoka's own reason, e.g. missing secret
+	Commit  string // jobs commit the run used
+	Dry     bool
 }
 
 // Duration is the run's length; for a running run up to now.

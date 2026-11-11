@@ -1,3 +1,5 @@
+// Adapted from andon internal/crypto/crypto_test.go (468474a).
+
 package crypto
 
 import (
@@ -8,11 +10,11 @@ import (
 
 func TestEncryptDecryptRoundtrip(t *testing.T) {
 	Init(Derive("test-master-key", nil))
-	blob, err := Encrypt("hunter2", PurposeCredential, nil)
+	blob, err := Encrypt("hunter2", PurposeSecret, nil)
 	if err != nil {
 		t.Fatalf("encrypt: %v", err)
 	}
-	got, err := Decrypt(blob, PurposeCredential)
+	got, err := Decrypt(blob, PurposeSecret)
 	if err != nil {
 		t.Fatalf("decrypt: %v", err)
 	}
@@ -23,28 +25,9 @@ func TestEncryptDecryptRoundtrip(t *testing.T) {
 
 func TestDecryptWrongPurposeFails(t *testing.T) {
 	Init(Derive("test-master-key", nil))
-	blob, _ := Encrypt("secret", PurposeCredential, nil)
-	if _, err := Decrypt(blob, PurposeTOTP); err == nil {
+	blob, _ := Encrypt("secret", PurposeSecret, nil)
+	if _, err := Decrypt(blob, PurposePing); err == nil {
 		t.Fatal("expected decrypt under wrong purpose to fail")
-	}
-}
-
-func TestPasswordHashRoundtrip(t *testing.T) {
-	hash, err := HashPassword("s3cret!")
-	if err != nil {
-		t.Fatalf("hash: %v", err)
-	}
-	if !CheckPassword(hash, "s3cret!") {
-		t.Fatal("correct password rejected")
-	}
-	if CheckPassword(hash, "wrong") {
-		t.Fatal("wrong password accepted")
-	}
-}
-
-func TestCheckPasswordEmptyStored(t *testing.T) {
-	if CheckPassword("", "anything") {
-		t.Fatal("empty stored hash must never verify")
 	}
 }
 
@@ -97,7 +80,7 @@ func TestWeakKey(t *testing.T) {
 }
 
 // Derive is stable for a key and salt, differs per salt (one stolen
-// install says nothing about another) and is not the old SHA-256.
+// install says nothing about another).
 func TestDerive(t *testing.T) {
 	a, b := []byte("salt-one-16bytes"), []byte("salt-two-16bytes")
 	first := Derive("k3Jx9QpLm2VbN7wRt5YzA1sDf8GhUe4C", a)
@@ -107,10 +90,21 @@ func TestDerive(t *testing.T) {
 	if bytes.Equal(first, Derive("k3Jx9QpLm2VbN7wRt5YzA1sDf8GhUe4C", b)) {
 		t.Fatal("salt ignored")
 	}
-	if bytes.Equal(first, Legacy("k3Jx9QpLm2VbN7wRt5YzA1sDf8GhUe4C")) {
-		t.Fatal("same as the unsalted key")
-	}
 	if s1, s2 := NewSalt(), NewSalt(); len(s1) != saltLen || bytes.Equal(s1, s2) {
 		t.Fatal("salts not random")
+	}
+}
+
+func TestReady(t *testing.T) {
+	Init(nil)
+	if Ready() {
+		t.Fatal("ready without a key")
+	}
+	if _, err := Encrypt("x", PurposeSecret, nil); err != ErrMissingKey {
+		t.Fatalf("err = %v", err)
+	}
+	Init(Derive("test-master-key", nil))
+	if !Ready() {
+		t.Fatal("not ready with a key")
 	}
 }

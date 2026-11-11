@@ -1,11 +1,11 @@
-// Package crypto handles secrets at rest, password hashing and random tokens.
+// Adapted from andon internal/crypto/crypto.go (468474a).
+
+// Package crypto handles secrets at rest and random tokens.
 //
 //	MASTER_KEY (Docker secret) + salt (per install, next to the database)
 //	    │ Argon2id (64 MiB, 4 passes): each guess of a stolen copy costs that
 //	    ▼
-//	master ──HKDF(purpose)──► database file key (Adiantum)
-//	                     ├──► AES-256-GCM key ──► nonce(12) ‖ ciphertext‖tag  in *_enc
-//	                     └──► HMAC key (webhook URLs)
+//	master ──HKDF(purpose)──► AES-256-GCM key ──► nonce(12) ‖ ciphertext‖tag  in *_enc
 package crypto
 
 import (
@@ -14,12 +14,9 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
-	"crypto/subtle"
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"strconv"
-	"strings"
 	"sync"
 
 	"golang.org/x/crypto/argon2"
@@ -31,11 +28,8 @@ const (
 	keyLen     = 32
 	tokenBytes = 32
 
-	argonTime    = 3
 	argonMemory  = 64 * 1024 // KiB
 	argonThreads = 4
-	argonSaltLen = 16
-	argonKeyLen  = 32
 
 	// The master key is derived once per start, so it may cost more
 	// than a login.
@@ -47,12 +41,10 @@ const (
 type Purpose string
 
 const (
-	PurposeCredential Purpose = "credential"
-	PurposeTOTP       Purpose = "totp"
-	PurposeNotify     Purpose = "notify"
-	PurposeSetting    Purpose = "setting"
-	PurposeHook       Purpose = "hook"
-	PurposeDatabase   Purpose = "database"
+	// PurposeSecret seals job and Jidoka secrets (secrets.value_enc).
+	PurposeSecret Purpose = "secret"
+	// PurposePing seals ping tokens (pings.token_enc).
+	PurposePing Purpose = "ping"
 )
 
 // ErrMissingKey means crypto was used before Init or without a master key.
@@ -63,6 +55,12 @@ var master []byte
 // Init sets the process-wide master key (see Derive).
 func Init(m []byte) {
 	master = m
+}
+
+// Ready reports whether a master key is set. Without one the app still
+// runs, but nothing can be sealed or opened (Z7).
+func Ready() bool {
+	return master != nil
 }
 
 var (
@@ -83,13 +81,6 @@ func Derive(secret string, salt []byte) []byte {
 	m := argon2.IDKey([]byte(secret), salt, masterTime, argonMemory, argonThreads, keyLen)
 	derived[id] = m
 	return m
-}
-
-// Legacy is the master key of databases from before salts: SHA-256 of
-// MASTER_KEY. Only to open them once and re-encrypt under Derive.
-func Legacy(secret string) []byte {
-	sum := sha256.Sum256([]byte(secret))
-	return sum[:]
 }
 
 // NewSalt returns a fresh random salt for Derive.
@@ -127,12 +118,6 @@ func key(purpose Purpose, m []byte) ([]byte, error) {
 		return nil, err
 	}
 	return out, nil
-}
-
-// DatabaseKey is the database file key, under the process master key or
-// an explicit one (key rotation).
-func DatabaseKey(m []byte) ([]byte, error) {
-	return key(PurposeDatabase, m)
 }
 
 // Encrypt seals text under purpose, optionally with an explicit master key
@@ -193,54 +178,14 @@ func Decrypt(blob []byte, purpose Purpose) (string, error) {
 	return string(pt), nil
 }
 
-// HashPassword returns a self-describing argon2id hash (PHC-like string).
-func HashPassword(password string) (string, error) {
-	salt := make([]byte, argonSaltLen)
-	if _, err := rand.Read(salt); err != nil {
-		return "", err
-	}
-	sum := argon2.IDKey([]byte(password), salt, argonTime, argonMemory, argonThreads, argonKeyLen)
-	return fmt.Sprintf("argon2id$%d$%d$%d$%s$%s",
-		argonTime, argonMemory, argonThreads,
-		base64.RawStdEncoding.EncodeToString(salt),
-		base64.RawStdEncoding.EncodeToString(sum)), nil
-}
-
-// CheckPassword verifies a password against a hash from HashPassword. A
-// missing stored hash still spends comparable time, so missing accounts are
-// not detectable by timing.
-func CheckPassword(stored, password string) bool {
-	if stored == "" {
-		_, _ = HashPassword(password)
-		return false
-	}
-
-	parts := strings.Split(stored, "$")
-	if len(parts) != 6 || parts[0] != "argon2id" {
-		_, _ = HashPassword(password)
-		return false
-	}
-	t, err1 := strconv.Atoi(parts[1])
-	mem, err2 := strconv.Atoi(parts[2])
-	threads, err3 := strconv.Atoi(parts[3])
-	salt, err4 := base64.RawStdEncoding.DecodeString(parts[4])
-	want, err5 := base64.RawStdEncoding.DecodeString(parts[5])
-	if err1 != nil || err2 != nil || err3 != nil || err4 != nil || err5 != nil {
-		return false
-	}
-
-	got := argon2.IDKey([]byte(password), salt, uint32(t), uint32(mem), uint8(threads), uint32(len(want)))
-	return subtle.ConstantTimeCompare(got, want) == 1
-}
-
-// NewToken returns a random URL-safe token for sessions, invites and resets.
+// NewToken returns a random URL-safe token .
 func NewToken() string {
 	b := make([]byte, tokenBytes)
 	_, _ = rand.Read(b)
 	return base64.RawURLEncoding.EncodeToString(b)
 }
 
-// TokenHash stores tokens hashed: a database leak does not leak sessions.
+// TokenHash stores tokens hashed: a database leak does not leak tokens.
 func TokenHash(token string) string {
 	sum := sha256.Sum256([]byte(token))
 	return fmt.Sprintf("%x", sum)
@@ -249,18 +194,6 @@ func TokenHash(token string) string {
 // Same does a constant-time string comparison (CSRF tokens, etc.).
 func Same(a, b string) bool {
 	return hmac.Equal([]byte(a), []byte(b))
-}
-
-// Sign returns a URL-safe HMAC of message under purpose, e.g. the secret
-// part of an inbound webhook URL.
-func Sign(message string, purpose Purpose) (string, error) {
-	k, err := key(purpose, nil)
-	if err != nil {
-		return "", err
-	}
-	mac := hmac.New(sha256.New, k)
-	mac.Write([]byte(message))
-	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil)), nil
 }
 
 // MaskToken hides a token behind a fresh random pad, so it never repeats

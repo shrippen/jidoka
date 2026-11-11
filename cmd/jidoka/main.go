@@ -41,9 +41,12 @@ func run(args []string) int {
 		return validate(args[1], os.Stdout, os.Stderr)
 	case serveName:
 		return serve()
-	case "run", "rotate-key", "healthcheck":
-		fmt.Fprintf(os.Stderr, "jidoka %s: not implemented\n", args[0])
-		return exitUsage
+	case "run":
+		return runLocal(args[1:])
+	case "rotate-key":
+		return rotateKey()
+	case "healthcheck":
+		return healthcheck()
 	}
 
 	fmt.Fprintf(os.Stderr, "jidoka: unknown command %q\n", args[0])

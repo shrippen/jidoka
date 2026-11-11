@@ -67,7 +67,7 @@ Priorität: **M** muss, **S** soll, **K** kann.
 | J8 | S | Ein Skript kann eine Zeile Zusammenfassung in `$JIDOKA_SUMMARY` schreiben, z. B. „11 Lehrgänge, 2 neu, 0 entfernt“. Sie steht in Übersicht und Meldung. |
 | J9 | S | Jobs von Hand starten, pausieren und einen laufenden Lauf abbrechen, über die Seite. Pause überlebt den Neustart. |
 | J10 | S | `catchup = true`: Ein Termin, der verpasst wurde, weil der Container aus war, wird nach dem Start einmal nachgeholt. |
-| J11 | S | Laufzeit im Image: `sh`, `bash`, `curl`, `jq`, Python 3 mit `uv`. Abhängigkeiten im Skriptkopf (PEP 723) mit Lockdatei je Skript (`uv lock --script`); `uv` lädt kein Python nach. Paket-Cache je Job (Z3: kein Job schreibt in den Cache eines anderen), zusammen auf 2 GB begrenzt. |
+| J11 | S | Laufzeit im Image: `sh`, `bash`, `curl`, `jq`, Python 3 mit `uv`. Abhängigkeiten im Skriptkopf (PEP 723) mit Lockdatei je Skript (`uv lock --script`); `uv` lädt kein Python nach. Paket-Cache je Job (Z3: kein Job schreibt in den Cache eines anderen), zusammen auf 2 GB begrenzt: stündlich werden ganze Caches gelöscht, der des am längsten nicht gelaufenen Jobs zuerst, nie der eines laufenden. |
 | J12 | S | Aufbewahrung: Läufe 180 Tage, höchstens 500 je Job; danach gelöscht. |
 | J13 | S | Wiederholung nach Fehler (`retries`, `retry_delay`). Ein Termin mit allen Wiederholungen zählt als **ein** Ergebnis; gemeldet wird nach dem letzten Versuch. |
 | J14 | S | `jitter`: zufällige Verzögerung bis zur angegebenen Dauer, damit Jobs fremde Server nicht immer zur selben Sekunde treffen. |

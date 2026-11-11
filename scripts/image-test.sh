@@ -12,7 +12,7 @@ fi
 
 name=jidoka-image-test-$$
 db=$(mktemp -d)
-trap 'docker rm -f "$name" >/dev/null 2>&1; rm -rf "$db"' EXIT
+trap 'docker rm -f "$name" "$name-cache" >/dev/null 2>&1; rm -rf "$db"' EXIT
 
 docker run -d --name "$name" -e MASTER_KEY=image-test-only \
 	-v "$PWD/testdata/image:/jobs:ro" "$image" >/dev/null
@@ -66,5 +66,37 @@ expect groups=own
 expect python=ok
 expect uv=ok
 expect pep723=ok
+
+# J11: over the limit, the server deletes the uv cache of a job although
+# it belongs to the job's uid. A second server on the same data (jobs
+# removed, limit 1 byte) does it on its first tick.
+cache=/data/home/probe/.cache/uv
+if ! docker exec "$name" test -d "$cache"; then
+	echo "FAIL: probe has no uv cache to prune"
+	fail=1
+fi
+docker stop "$name" >/dev/null
+# Known gap, unrelated to J11: the server cannot delete the TMPDIRs of
+# finished runs (job-owned, 0700), and Recover then refuses to start.
+# Clear them as root so the second server can come up.
+docker run --rm --volumes-from "$name" alpine:3.24 rm -rf /data/tmp
+mkdir "$db/nojobs"
+cp testdata/image/jidoka.toml "$db/nojobs/"
+chmod 755 "$db/nojobs"
+chmod 644 "$db/nojobs/jidoka.toml"
+docker run -d --name "$name-cache" --volumes-from "$name" -e MASTER_KEY=image-test-only \
+	-e JIDOKA_CACHE_LIMIT=1 -v "$db/nojobs:/jobs:ro" "$image" >/dev/null
+for _ in $(seq 1 30); do
+	sleep 1
+	docker logs "$name-cache" 2>&1 | grep -q 'uv cache removed.*job=probe' && break
+done
+if docker logs "$name-cache" 2>&1 | grep -q 'uv cache removed.*job=probe' &&
+	! docker exec "$name-cache" test -e "$cache"; then
+	echo "cache=pruned"
+else
+	echo "FAIL: uv cache of probe not pruned"
+	docker logs "$name-cache" 2>&1 | tail -5
+	fail=1
+fi
 
 exit $fail

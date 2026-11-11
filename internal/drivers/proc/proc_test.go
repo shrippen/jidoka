@@ -324,3 +324,55 @@ func TestUID(t *testing.T) {
 		t.Fatalf("%+v", r)
 	}
 }
+
+func TestDirSizeAndRemove(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "uv")
+	sub := filepath.Join(dir, "a", "b")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sub, "f"), make([]byte, 100<<10), 0o444); err != nil {
+		t.Fatal(err)
+	}
+
+	// A link out of the tree is not followed; a hard link counts once.
+	outside := t.TempDir()
+	if err := os.WriteFile(filepath.Join(outside, "big"), make([]byte, 1<<20), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(dir, "link")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Link(filepath.Join(sub, "f"), filepath.Join(dir, "hard")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(sub, 0o555); err != nil { // read-only folder
+		t.Fatal(err)
+	}
+
+	n, err := DirSize("", 0, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n < 100<<10 || n > 200<<10 {
+		t.Errorf("size %d, want about 100 KiB plus folders", n)
+	}
+
+	if err := RemoveDir("", 0, dir); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(dir); !os.IsNotExist(err) {
+		t.Errorf("dir remains: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(outside, "big")); err != nil {
+		t.Errorf("link target touched: %v", err)
+	}
+
+	// Gone is fine.
+	if n, err := DirSize("", 0, dir); err != nil || n != 0 {
+		t.Errorf("missing dir: %d, %v", n, err)
+	}
+	if err := RemoveDir("", 0, dir); err != nil {
+		t.Errorf("missing dir: %v", err)
+	}
+}

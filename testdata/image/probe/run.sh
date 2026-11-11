@@ -10,6 +10,7 @@ if echo x > "$JIDOKA_STATE/probe"; then echo "state=writable"; else echo "state=
 if echo x > "$TMPDIR/probe"; then echo "tmp=writable"; else echo "tmp=denied"; fi
 python3 -c 'print("python=ok")'
 uv --version >/dev/null && echo "uv=ok"
+./pep723.py 2>/dev/null || echo "pep723=failed"
 
 # The holder job (see testdata/image/holder) runs at the same time as
 # another user: its environment, state and home stay closed (Z3).

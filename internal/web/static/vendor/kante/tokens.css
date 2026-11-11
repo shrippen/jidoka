@@ -1,0 +1,180 @@
+/*
+ * Kante — CSS custom properties (web). Apps: qml/Kante, same values via tokens/palette.json
+ * https://github.com/shrippen/shrippen.github.io
+ *
+ * Gruvbox-inspired, warm, dark-first palette.
+ * Copy this block into your landing page <style> or import as a stylesheet.
+ */
+
+:root {
+  /* ── Backgrounds ── */
+  --bg-void:  #141312;   /* landing-page ground, darker than bg-hard */
+  --bg-hard:  #1d2021;   /* deepest: hero gradient, code blocks */
+  --bg0:      #282828;   /* page / widget background */
+  --bg-panel: #2a2826;   /* landing-page cards and panels */
+  --bg1:      #3c3836;   /* cards, elevated surfaces */
+  --bg2:      #504945;   /* borders, dividers */
+
+  /* ── Foregrounds ── */
+  --fg0:      #fbf1c7;   /* primary heading (sparingly) */
+  --fg1:      #ebdbb2;   /* body text */
+  --fg2:      #d5c4a1;   /* secondary text */
+  --fg3:      #a89984;   /* placeholder, disabled, footer */
+
+  /* ── Brand accent ── */
+  --accent:   #e8dcc4;   /* warm cream — icon fills, version badges */
+
+  /* ── Semantic colors (Gruvbox bright) ── */
+  --blue:     #83a598;   /* links, primary action */
+  --blue-hover: #6d9181; /* primary button hover (~10% darker) */
+  --aqua:     #8ec07c;   /* success, confirm */
+  --green:    #b8bb26;   /* positive diff, badges */
+  --yellow:   #fabd2f;   /* warning, attention */
+  --orange:   #fe8019;   /* active, highlight */
+  --red:      #fb4934;   /* error, destructive */
+  --purple:   #d3869b;   /* tags, categories */
+  --cyan:     #5ccfc4;   /* technical layer: focus, links, data, brackets. Lines and text, never large fills */
+  --cyan-tint: #1e2b2a;  /* ground of a selected row or a focused field */
+  --yellow-hi: #fdc94a;  /* primary hover (one step lighter) */
+  --red-text: #ff7d6b;   /* red as small text: 4.5:1 on every dark ground, bg1 included */
+  --yellow-lo: #e5a823;  /* primary pressed */
+
+  /* ── Semantic colors (Gruvbox neutral — for quieter contexts) ── */
+  --blue-n:   #458588;
+  --aqua-n:   #689d6a;
+  --green-n:  #98971a;
+  --yellow-n: #d79921;
+  --orange-n: #d65d0e;
+  --red-n:    #cc241d;
+  --purple-n: #b16286;
+  --cyan-n:   #3f9a94;   /* quiet lines only (4.4:1 on cards) */
+
+  /* ── Roles (follow the theme; see Light theme below) ── */
+  --field:    var(--bg-hard); /* input fields, nested surfaces */
+  --score:    var(--yellow);  /* scores, points, "how good is it" */
+  --hl:       var(--cyan);    /* current selection (selected tile, active row) */
+  --focus:    var(--cyan);    /* focus ring, everywhere */
+  --link:     var(--cyan);    /* links in running text */
+  --info:     var(--cyan);    /* info callouts and toasts, third feature tier */
+  --warn:     var(--orange);  /* warnings: callout, banner, middle tier of states */
+  --danger:   var(--red);     /* errors, destructive actions */
+  --danger-text: var(--red-text); /* error text, critical labels and counts (not fills) */
+  --on-state: var(--bg-void); /* text on a filled state colour (danger button, counters) */
+  --scrim:    rgba(20,19,18,.62); /* dimmed area behind dialogs and outside a crop */
+  --primary:  var(--yellow);  /* primary action, pressed segment, switch on, focus ring */
+  --on-primary: var(--bg-void); /* text on --primary */
+  --map-marker: var(--focus);   /* pins on a map (QML mapMarkerColor) */
+  --map-route:  var(--primary); /* a route or track on a map (QML mapRouteColor) */
+  --entity-fallback: var(--fg3); /* an entity without a colour of its own (QML entityFallbackColor) */
+
+  /* ── Tints: translucent steps of the theme colours for hover, drop targets, selection, outlines ── */
+  --tint-1:    color-mix(in srgb, var(--fg1) 8%, transparent);
+  --tint-2:    color-mix(in srgb, var(--fg1) 16%, transparent);
+  --tint-hl:   color-mix(in srgb, var(--cyan) 12%, transparent);
+  --tint-hl-2: color-mix(in srgb, var(--cyan) 25%, transparent);
+  --tint-warn: color-mix(in srgb, var(--orange) 14%, transparent);
+
+  /* ── Data palette: series colours of charts, in this order (red stays danger) ── */
+  --d1: var(--cyan);
+  --d2: var(--yellow);
+  --d3: var(--purple);
+  --d4: var(--aqua);
+  --d5: var(--orange);
+  --d6: var(--fg3);
+
+  /* ── Paper: stickers and brand chips (cream label, dark ink) ── */
+  --paper:    var(--accent);
+  --on-paper: var(--bg-void);
+
+  /* ── Layout ── */
+  --radius:   12px;
+  --max-w:    860px;
+  --max-w-wide: 1280px;  /* landing hero and feature rows */
+  --gutter:   clamp(1rem, 5.6vw, 4.5rem);
+  --chamfer:  16px;      /* top-right corner cut on boxes (surfaces) */
+  --cut-m:    10px;      /* buttons, tiles, tabs, menus */
+  --cut-s:    6px;       /* small buttons, stickers */
+  --h-s:      32px;      /* control heights: small, medium, large */
+  --h-m:      40px;
+  --h-l:      48px;
+  --h-xs:     24px;      /* dense parts below the control heights: chips, pills, stickers, inline buttons (touch: --h-s) */
+  --h-mark:   20px;      /* counters and markers: .count, hint counts, the help "?" */
+  --line-border: 1px;    /* borders and grid lines */
+  --line-mark:   2px;    /* lines that mark: today, the picked day, the now line, underlines */
+  --line-edge:   3px;    /* the colour edge of an entry (a calendar's or project's colour) */
+  --level-wash:   6%;    /* tint levels of a data colour, for color-mix(): a tray */
+  --level-fill:   12%;   /* free time, a draft */
+  --level-strong: 22%;   /* a planned block */
+  --level-edge:   40%;   /* the border of such an area */
+  --level-done:   .6;    /* opacity of something done */
+  --level-dim:    .5;    /* opacity of something out of range or minor */
+  --title-s:  1.1rem;    /* titles of cards, rows, tiles and bars (Rajdhani, uppercase) */
+  --title-m:  1.4rem;    /* titles of blocks, sheets, dialogs and the login card */
+  --title-l:  clamp(1.8rem, 4.2vw, 2.5rem); /* the title of an app page */
+  --title-track: .04em;  /* letter spacing of --title-s and --title-m */
+
+  /* ── Motion (only under prefers-reduced-motion: no-preference) ── */
+  --dur-fast: 120ms;     /* colour and border changes */
+  --dur:      200ms;     /* cut grows, lift, slide */
+  --dur-slow: 450ms;     /* entrances: bar, scan, cascade */
+  --ease-out: cubic-bezier(.2,.8,.2,1);
+  --ease-snap: cubic-bezier(.3,1.5,.5,1); /* mechanical snap with a small overshoot */
+
+  /* ── Typography ── */
+  --font-heading: 'Rajdhani', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+                  Oxygen, Ubuntu, Cantarell, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+               Ubuntu, Cantarell, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+  --font-control: var(--font-heading); /* buttons; Kante Gold keeps Rajdhani here while titles turn serif */
+}
+
+/*
+ * Light theme ("Leinen") — opt-in via <html data-theme="light">.
+ * Token names describe ROLES, not lightness: --bg-void is still the page
+ * ground, --bg-panel the cards, --bg2 the borders, --fg1 the body text.
+ * Landing pages stay dark-first; apps that need a light mode use this.
+ * Semantic colors are the darkened counterparts so every text pair reaches
+ * WCAG AA on the ground and on cards.
+ */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  /* ── Backgrounds ── */
+  --bg-void:  #f0e9d6;   /* page ground: linen, between too-yellow #fbf1c7 and too-bright #f5f1e8 */
+  --bg-hard:  #e6dec6;   /* sunk areas: code, progress tracks */
+  --bg0:      #f0e9d6;
+  --bg-panel: #f7f2e4;   /* cards and panels */
+  --bg1:      #fbf8ee;   /* fields, elevated surfaces */
+  --bg2:      #d3c8ac;   /* borders, dividers */
+
+  /* ── Foregrounds ── */
+  --fg0:      #282828;
+  --fg1:      #3c3836;
+  --fg2:      #665c54;
+  --fg3:      #6a5f52;
+
+  /* ── Brand accent ── */
+  --accent:   #3c3836;   /* icon fill on light: dark square, yellow marks */
+
+  /* ── Semantic colors (darkened for light grounds) ── */
+  --blue:     #076678;
+  --blue-hover: #05505f;
+  --aqua:     #3a6e4e;
+  --green:    #4f5d0a;
+  --yellow:   #8a5a00;
+  --orange:   #af3a03;
+  --red:      #9d0006;
+  --purple:   #8f3f71;
+  --cyan:     #0f6b66;   /* 5.2:1 on the ground */
+  --cyan-tint: #d9ebe4;
+  --red-text: #9d0006;
+
+  --field:    var(--bg1);
+  --scrim:    rgba(40,40,40,.5);
+  --primary:  #fabd2f;   /* yellow fill with ink, as in the dark theme (not ochre with brown text) */
+  --on-primary: #141312;
+  --yellow-hi: #fcc845;
+  --yellow-lo: #e5a823;
+  --on-state: #fbf8ee;
+}

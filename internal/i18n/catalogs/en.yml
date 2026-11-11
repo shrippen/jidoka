@@ -1,0 +1,70 @@
+nav:
+  main: Main navigation
+  board: Board
+  plan: Schedule
+  channels: Channels
+  secrets: Secrets
+  access: Access
+  andon: Andon
+  logout: Sign out
+
+action:
+  copy: Copy
+  delete: Delete
+
+login:
+  title: Sign in
+  with_authentik: Sign in with authentik
+  dev: Dev sign-in
+  dev_off: The dev sign-in is off.
+
+oidc:
+  disabled: Sign-in is not set up.
+  unreachable: authentik is not reachable.
+  denied: Sign-in was cancelled.
+  state: The sign-in expired or belongs to another browser. Please sign in again.
+  failed: Signing in with authentik failed.
+  refused: This account is not allowed.
+
+session:
+  none: Not signed in.
+
+token:
+  unknown: Unknown token.
+  forbidden: The token lacks the right.
+
+error:
+  home: Back to the board
+  not_found: There is no such page.
+  forbidden: No access.
+  csrf: The request does not belong to this session. Reload the page and try again.
+  bad_request: The request is incomplete.
+  internal: That did not work. The log has the details.
+
+board:
+  placeholder: The board with all jobs appears here.
+
+access:
+  lead: The API knows tokens only. Each token has rights; its value is shown exactly once.
+  tokens: Tokens
+  count: "{count} tokens"
+  count_singular: "{count} token"
+  none: No token yet.
+  name: Name
+  name_hint: What the token is for, such as "Andon" or "Komodo".
+  name_needed: The name is missing or too long.
+  rights: Rights
+  rights_needed: Choose at least one right.
+  right_read: Read
+  right_run: Run
+  right_reload: Reload
+  right_hint_read: query jobs and runs
+  right_hint_run: start jobs
+  right_hint_reload: reload jobs from the folder
+  created: Created
+  last_used: Last used
+  never: never
+  create: New token
+  create_submit: Create token
+  new_title: 'Token "{name}" created'
+  new_once: Copy the value now. It is not shown again.

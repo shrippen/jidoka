@@ -1,0 +1,17 @@
+{{define "title"}}{{t "login.title"}}{{end}}
+{{define "main"}}
+<div class="login-wrap">
+  <div class="login">
+    <div class="brand">{{template "mark"}}<b>Jidoka</b></div>
+    {{if .Data.Error}}<p class="error" role="alert">{{t .Data.Error}}</p>{{end}}
+    {{if .Data.OIDC}}<a class="btn btn-accent" href="{{.Data.StartURL}}">{{t "login.with_authentik"}}</a>
+    {{else if not .Data.Dev}}<p class="muted">{{t "oidc.disabled"}}</p>{{end}}
+    {{if .Data.Dev}}
+    <form method="post" action="/auth/dev">
+      <input type="hidden" name="next" value="{{.Data.Next}}">
+      <button class="btn btn-outline" type="submit">{{t "login.dev"}}</button>
+    </form>
+    {{end}}
+  </div>
+</div>
+{{end}}

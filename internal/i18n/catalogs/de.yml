@@ -1,0 +1,70 @@
+nav:
+  main: Hauptnavigation
+  board: Tafel
+  plan: Fahrplan
+  channels: Kanäle
+  secrets: Geheimnisse
+  access: Zugang
+  andon: Andon
+  logout: Abmelden
+
+action:
+  copy: Kopieren
+  delete: Löschen
+
+login:
+  title: Anmelden
+  with_authentik: Mit authentik anmelden
+  dev: Dev-Anmeldung
+  dev_off: Die Dev-Anmeldung ist aus.
+
+oidc:
+  disabled: Die Anmeldung ist nicht eingerichtet.
+  unreachable: authentik ist nicht erreichbar.
+  denied: Die Anmeldung wurde abgebrochen.
+  state: Die Anmeldung ist abgelaufen oder gehört zu einem anderen Browser. Bitte noch einmal anmelden.
+  failed: Die Anmeldung bei authentik ist fehlgeschlagen.
+  refused: Dieses Konto ist nicht zugelassen.
+
+session:
+  none: Nicht angemeldet.
+
+token:
+  unknown: Unbekanntes Token.
+  forbidden: Dem Token fehlt das Recht.
+
+error:
+  home: Zur Tafel
+  not_found: Diese Seite gibt es nicht.
+  forbidden: Kein Zugriff.
+  csrf: Die Anfrage gehört nicht zu dieser Sitzung. Seite neu laden und noch einmal versuchen.
+  bad_request: Die Anfrage ist unvollständig.
+  internal: Das hat nicht geklappt. Details stehen im Log.
+
+board:
+  placeholder: Hier erscheint die Tafel mit allen Jobs.
+
+access:
+  lead: Die Programmierschnittstelle kennt nur Token. Jedes Token hat Rechte; sein Wert erscheint genau einmal.
+  tokens: Token
+  count: "{count} Tokens"
+  count_singular: "{count} Token"
+  none: Noch kein Token.
+  name: Name
+  name_hint: Wofür das Token ist, etwa „Andon“ oder „Komodo“.
+  name_needed: Der Name fehlt oder ist zu lang.
+  rights: Rechte
+  rights_needed: Mindestens ein Recht wählen.
+  right_read: Lesen
+  right_run: Starten
+  right_reload: Neu laden
+  right_hint_read: Jobs und Läufe abfragen
+  right_hint_run: Jobs starten
+  right_hint_reload: Jobs aus dem Ordner neu laden
+  created: Angelegt
+  last_used: Zuletzt benutzt
+  never: nie
+  create: Neues Token
+  create_submit: Token anlegen
+  new_title: "Token „{name}“ angelegt"
+  new_once: Kopiere den Wert jetzt. Er wird nicht noch einmal angezeigt.

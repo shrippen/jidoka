@@ -1,0 +1,13 @@
+/* ── Base ── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg-void);color:var(--fg1);font-family:var(--font-sans);line-height:1.6;
+  -webkit-font-smoothing:antialiased}
+body{overflow-x:clip}
+a{color:var(--link);text-decoration:none}
+a:hover{text-decoration:underline}
+code{font-family:var(--font-mono);font-size:.85em;color:var(--fg2)}
+/* The hidden attribute wins over every Kante display rule (.tile-tools, .bulk-bar, .editbar, …) */
+
+/* ── Language: paired elements, e.g. <p lang="en">…</p><p lang="de">…</p>.
+   <html lang> is "en" by default; shrippen.js switches it. ── */
+html[lang="en"] [lang="de"],html[lang="de"] [lang="en"]{display:none!important}

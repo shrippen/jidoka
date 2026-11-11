@@ -12,7 +12,7 @@ ARG TARGETARCH
 ARG VERSION=
 # -tags release leaves out the demo mode (O10).
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -tags release -trimpath \
-    -ldflags="-s -w -X jidoka/internal/services/status.version=${VERSION}" -o /out/jidoka ./cmd/jidoka \
+    -ldflags="-s -w -X main.version=${VERSION}" -o /out/jidoka ./cmd/jidoka \
  && CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /out/jidoka-shim ./cmd/jidoka-shim
 
 # ── Runtime: the tools jobs may use (J11) ──

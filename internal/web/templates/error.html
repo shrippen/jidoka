@@ -1,0 +1,8 @@
+{{define "title"}}{{.Data.Status}}{{end}}
+{{define "main"}}
+<main>
+  <div class="page-head"><h1>{{.Data.Status}}</h1></div>
+  <p class="muted">{{t .Data.Key}}</p>
+  <p><a href="/">{{t "error.home"}}</a></p>
+</main>
+{{end}}

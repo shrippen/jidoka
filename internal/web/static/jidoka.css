@@ -1,0 +1,52 @@
+/* Local fonts (CSP: font-src 'self'; no third-party requests). */
+@font-face { font-family: "Rajdhani"; font-weight: 500; font-display: swap; src: url(/static/vendor/kante/fonts/Rajdhani-500.woff2) format("woff2"); }
+@font-face { font-family: "Rajdhani"; font-weight: 600; font-display: swap; src: url(/static/vendor/kante/fonts/Rajdhani-600.woff2) format("woff2"); }
+@font-face { font-family: "Rajdhani"; font-weight: 700; font-display: swap; src: url(/static/vendor/kante/fonts/Rajdhani-700.woff2) format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 400; font-display: swap; src: url(/static/vendor/kante/fonts/JetBrainsMono-400.woff2) format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 500; font-display: swap; src: url(/static/vendor/kante/fonts/JetBrainsMono-500.woff2) format("woff2"); }
+
+/*
+ * jidoka.css: page layout on Kante tokens only (var(--...)).
+ * No colours, fonts, sizes of controls or shadows of its own: those come
+ * from vendor/kante (tokens.css, components.css).
+ */
+
+main {
+  max-width: var(--max-w-wide);
+  margin: 0 auto;
+  padding: 1.5rem var(--gutter) 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  letter-spacing: var(--title-track);
+  text-transform: uppercase;
+  color: var(--fg0);
+}
+h1 { font-size: var(--title-m); }
+
+.error { color: var(--danger-text); }
+.muted { color: var(--fg2); }
+.small { font-size: .82rem; }
+
+/* ── header: Kante's .nav, the brand always shown ── */
+.nav-brand .mark { width: 1.6rem; height: 1.6rem; color: var(--accent); }
+.mark .sig { fill: var(--yellow); }
+.nav-links a[aria-current="page"] { color: var(--fg0); }
+.nav-tools form { margin: 0; }
+.nav-user { color: var(--fg2); }
+.nav-ext { font-family: var(--font-mono); font-size: .75rem; letter-spacing: .14em; text-transform: uppercase; }
+
+/* ── forms and the token list ── */
+.form { display: flex; flex-direction: column; gap: 1rem; max-width: var(--max-w); }
+fieldset.field { border: 0; padding: 0; }
+.form .check { align-items: flex-start; }
+.table form { margin: 0; }
+.callout .cmd-row { margin-top: .5rem; }
+
+/* ── login ── */
+.login .brand .mark { color: var(--accent); }

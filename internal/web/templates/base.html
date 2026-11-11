@@ -1,0 +1,55 @@
+{{/* The frame of every page. A page's file defines "title" and "main"
+     (see render.go). Kante: tokens first, then its reset, its components,
+     last jidoka.css's layout. No inline script or style (CSP). */}}
+<!doctype html>
+<html lang="{{.Locale}}" data-own-lang>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>{{template "title" .}} · Jidoka</title>
+  <link rel="stylesheet" href="{{asset "vendor/kante/tokens.css"}}">
+  <link rel="stylesheet" href="{{asset "vendor/kante/base.css"}}">
+  <link rel="stylesheet" href="{{asset "vendor/kante/components.css"}}">
+  <link rel="stylesheet" href="{{asset "jidoka.css"}}">
+  <link rel="icon" href="{{asset "icon.svg"}}" type="image/svg+xml">
+  {{if .CSRF}}<meta name="csrf" content="{{.CSRF}}">{{end}}
+  <meta name="htmx-config" content='{"includeIndicatorStyles":false}'>
+  {{/* Synchronous: the theme and the html classes are set before the first paint. */}}
+  <script src="{{asset "jidoka.js"}}"></script>
+  <script src="{{asset "vendor/kante/shrippen.js"}}"></script>
+  <script src="{{asset "vendor/htmx/htmx.min.js"}}" defer></script>
+</head>
+<body>
+  {{template "header" .}}
+  {{template "main" .}}
+</body>
+</html>
+
+{{/* The brand mark (docs/icon.svg): ring and spokes follow the text
+     colour, the square is the signal. */}}
+{{define "mark"}}<svg class="mark" viewBox="0 0 48 48" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="24" r="11"/><line x1="24" y1="13" x2="24" y2="7"/><line x1="24" y1="35" x2="24" y2="41"/><line x1="13" y1="24" x2="7" y2="24"/><line x1="35" y1="24" x2="41" y2="24"/><line x1="31.8" y1="16.2" x2="36" y2="12"/><line x1="16.2" y1="16.2" x2="12" y2="12"/><line x1="31.8" y1="31.8" x2="36" y2="36"/><line x1="16.2" y1="31.8" x2="12" y2="36"/></g><rect class="sig" x="19" y="19" width="10" height="10" rx="1.5"/></svg>{{end}}
+
+{{/* Brand, the pages, the link to Andon (I7), the account. Logged out:
+     the brand alone. */}}
+{{define "header"}}
+<header class="nav">
+  <div class="nav-inner is-wrap">
+    <a class="nav-brand" href="/">{{template "mark"}}Jidoka</a>
+    {{if .Who}}
+    <nav class="nav-links" aria-label="{{t "nav.main"}}">
+      {{range .Tabs}}<a href="{{.Path}}"{{if .Active}} aria-current="page"{{end}}>{{t (print "nav." .Key)}}</a>
+      {{end}}
+    </nav>
+    <div class="nav-tools">
+      {{if .AndonURL}}<a class="nav-ext" href="{{.AndonURL}}" rel="noopener">{{t "nav.andon"}}</a>{{end}}
+      <span class="nav-user">{{.Who.Name}}</span>
+      <form method="post" action="/logout">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <button class="btn btn-outline btn-sm" type="submit">{{t "nav.logout"}}</button>
+      </form>
+    </div>
+    {{end}}
+  </div>
+</header>
+{{end}}

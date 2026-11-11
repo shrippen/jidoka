@@ -28,6 +28,9 @@ const (
 	dayAhead       = 1
 )
 
+// jobRunsShown is how many runs a job page lists; older ones page on.
+const jobRunsShown = 20
+
 func (s *Server) registerPages() {
 	get := func(path string, h func(http.ResponseWriter, *http.Request, *session)) {
 		s.mux.HandleFunc("GET "+path, s.authed(h))
@@ -192,7 +195,7 @@ func (s *Server) pageJob(w http.ResponseWriter, r *http.Request, sess *session) 
 		before = 0
 	}
 
-	p, err := st.Job(r.PathValue("id"), status.Page{Before: before})
+	p, err := st.Job(r.PathValue("id"), status.Page{Limit: jobRunsShown, Before: before})
 	if err != nil {
 		s.readFail(w, r, sess, err)
 		return

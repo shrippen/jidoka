@@ -2231,4 +2231,7 @@ details.help.is-right>.help-text{left:auto;right:-.5rem}
 .chart .lane-name{fill:var(--fg0);font-weight:700;letter-spacing:.02em}
 .chart a:hover .lane-name,.chart a:focus-visible .lane-name{text-decoration:underline}
 .chart a:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+/* A mark carries its own focus ring: an outline on <a> scales with a stretched viewBox (preserveAspectRatio="none"). */
+.chart a:focus-visible:has(.ev){outline:none}
+.chart a:focus-visible .ev{stroke:var(--focus);stroke-width:4;stroke-dasharray:none;vector-effect:non-scaling-stroke}
 .chart text.is-late{fill:var(--warn)}

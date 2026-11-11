@@ -36,6 +36,14 @@ var (
 	}
 )
 
+// RuleEvents are the events a rule may name, in the order a form lists them.
+func RuleEvents() []model.Event {
+	return []model.Event{
+		model.EvFail, model.EvTimeout, model.EvMissed, model.EvInvalid, model.EvRecover,
+		model.EvSuccess, model.EvChange, model.EvSlow, model.EvStart, model.EvReload,
+	}
+}
+
 // parseDur reads Go durations plus whole days: "5m", "26h", "365d".
 func parseDur(text string) (time.Duration, error) {
 	text = strings.TrimSpace(text)

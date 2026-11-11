@@ -86,6 +86,7 @@ func (s *Server) routes() {
 	s.registerHome()
 	s.registerAccess()
 	s.registerSettings()
+	s.registerProfiles()
 	s.registerAPI()
 	s.registerPing()
 	s.registerActions()

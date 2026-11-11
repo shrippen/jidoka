@@ -364,7 +364,7 @@ settings:
   mail_to: Recipients
   mail_to_hint: One address per line.
   save: Save
-  profiles_hint: Profiles cannot be edited here yet; their editor follows. Saving leaves them as they are.
+  profiles_hint: "Messages follow these profiles. They are edited on their own page."
   int: Give a whole number.
   secret_set: set
   secret_unset: not set
@@ -376,6 +376,49 @@ settings:
   secret_hint_apprise_key: "Never shown, a secret"
   secret_hint_smtp_password: "Never shown, a secret"
   secret_hint_heartbeat_url: "Never shown, a secret (e.g. push address of Uptime Kuma)"
+
+profiles:
+  title: Profiles
+  lead: "A profile is a named list of rules: who is told what, and where. A job takes one with notify_profile; without it, it takes standard."
+  crumb_settings: Settings
+  saved: Saved. Every job was checked again.
+  not_saved: Not saved. Please correct the marked fields.
+  unsaved: Not saved yet. Press Save to keep the change.
+  broken: The stored settings cannot be read. The editor shows the defaults; saving replaces them.
+  edit: Edit profiles
+  no_channel: No channel is set up. Set up Apprise or mail on the settings page first.
+  profile: Profile
+  name: Name
+  name_hint: "Letters, digits, - and _. Jobs name it in notify_profile."
+  name_bad: Name the profile with letters, digits, - and _; each name once.
+  standard_note: "standard is required: messages without own rules use it."
+  rule: "Rule {n}"
+  on: Events
+  on_hint: "When the rule applies."
+  channels: Channels
+  channels_hint: "Where the message goes. Sub channels come from the settings."
+  to: Mail recipients
+  to_hint: "One address per line. Empty: the recipients of the mail channel."
+  after: From failure no.
+  after_hint: "Only fail and timeout count. Empty or 1: at once."
+  remind: Reminder
+  remind_hint: "Interval while the failure lasts, e.g. 24h. Empty or never: none."
+  tail: Output lines
+  tail_hint: "Last lines in the message. Empty: 20. 0: none."
+  digest: Collect
+  digest_hint: "daily 08:00 or weekly Mon 08:00. Only for success and recover."
+  urgent: High priority
+  urgent_hint: Breaks quiet hours.
+  attach: Attach the whole output
+  attach_hint: To the mail.
+  add_profile: Add profile
+  del_profile: Delete profile
+  add_rule: Add rule
+  del_rule: Delete rule
+  save: Save
+  no_rule: A profile needs at least one rule.
+  no_standard: "The profile standard is required: messages without own rules use it."
+  used: 'Profile "{profile}" is used by {jobs}; give those jobs another profile first.'
 
 secrets:
   lead: Encrypted with a key from MASTER_KEY. Values can be set and replaced, never shown again. Jobs get only what they name under secrets in job.toml.

@@ -351,10 +351,22 @@ Ereignisse ohne lesbare Job-Regeln: `reload`, `invalid` eines Jobs, dessen
 `job.toml` nicht lädt, und ein gescheitertes Holen des Repos. Es muss
 immer vorhanden sein.
 
-Die Seite zeigt die Profile; ein Editor dafür folgt. Bis dahin bleiben
-gespeicherte Profile beim Speichern unverändert, und eine neue Installation
-beginnt mit dem Profil `standard` (Fehler, Timeout, Ausbleiben und
-ungültige Dateien an Apprise und Mail, Erinnerung nach 24 h).
+Profile werden auf der Seite Einstellungen unter „Profile bearbeiten“
+(`/settings/profiles`) bearbeitet, mit einem Formular je Regel:
+Ereignisse und Kanäle als Ankreuzfelder (die eingerichteten Kanäle und
+Unterkanäle), dazu Felder für `after`, `remind`, `tail`, `digest`, `to`
+und die Schalter `urgent` und `attach_output`. Profile lassen sich
+hinzufügen, umbenennen und löschen, Regeln hinzufügen und entfernen; die
+Knöpfe dafür ändern nur das Formular, erst „Speichern“ übernimmt es. Die
+Prüfung ist dieselbe wie bei den übrigen Einstellungen: Fehler stehen am
+Feld, solange einer offen ist, wird nichts gespeichert. Danach werden alle
+Jobs neu geprüft. `standard` lässt sich weder löschen noch umbenennen. Ein
+Profil, das ein gültiger Job in `notify_profile` nennt, wird nicht gelöscht
+oder umbenannt; die Meldung nennt die Jobs. Ein Job, der gerade ungültig
+ist, zählt nicht mit: Fehlt sein Profil später, bleibt er nach der
+Reparatur ungültig, und die Tafel nennt das unbekannte Profil. Eine neue Installation beginnt mit
+dem Profil `standard` (Fehler, Timeout, Ausbleiben und ungültige Dateien an
+Apprise und Mail, Erinnerung nach 24 h).
 
 ### Neustart und Updates
 
@@ -756,7 +768,8 @@ Zum selben Ergebnis wie im Betrieb: im Image laufen lassen, z. B.
 | Kanäle (`/channels`) | Zustand je Kanal, letzte Sendungen, Testknopf |
 | Geheimnisse (`/secrets`) | Setzen, Ersetzen, Löschen; Name, zuletzt geändert |
 | Zugang (`/access`) | API-Token anlegen und löschen |
-| Einstellungen (`/settings`) | Zone, Sprache, Kanäle, Profile, Ruhezeit und mehr setzen; Fehler am Feld, nichts gespeichert |
+| Einstellungen (`/settings`) | Zone, Sprache, Kanäle, Ruhezeit und mehr setzen; Fehler am Feld, nichts gespeichert |
+| Profile (`/settings/profiles`) | Profile und ihre Regeln als Formular bearbeiten; Prüfung wie die Einstellungen |
 
 Uhrzeiten tragen die Zone, wo der Browser abweicht. Die Oberfläche gibt
 es auf Deutsch und Englisch.

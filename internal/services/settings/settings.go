@@ -14,6 +14,7 @@ import (
 	"database/sql"
 	"errors"
 	"strings"
+	"sync"
 	"time"
 
 	"jidoka/internal/conf"
@@ -59,6 +60,7 @@ const (
 // Reloader checks every job against the settings in force.
 type Reloader interface {
 	Revalidate() (jobs.Diff, error)
+	Current() model.Set
 }
 
 // Config wires the service.
@@ -74,6 +76,11 @@ type Config struct {
 // Service is the settings service.
 type Service struct {
 	cfg Config
+
+	// saveMu serialises Save and SaveProfiles: both read the one
+	// document and write it back whole, so one would drop the other's
+	// change.
+	saveMu sync.Mutex
 }
 
 // New returns a service.
@@ -118,7 +125,7 @@ type Errors map[string]model.LoadError
 type View struct {
 	Form      Form
 	SecretSet map[string]bool
-	// Profiles are shown, not edited.
+	// Profiles are shown here; the profile editor changes them.
 	Profiles map[string][]model.Rule
 	// BaseURLEnv is BASE_URL when set; the field is then read-only.
 	BaseURLEnv string
@@ -202,6 +209,9 @@ func (s *Service) Save(f Form, actor string) (Errors, error) {
 	if !crypto.Ready() && wantsSeal(f.Secrets) {
 		return nil, crypto.ErrMissingKey
 	}
+
+	s.saveMu.Lock()
+	defer s.saveMu.Unlock()
 
 	base, _, err := s.stored()
 	if err != nil {

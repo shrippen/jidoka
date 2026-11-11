@@ -104,7 +104,10 @@ func mailOf(f Form) *conf.DraftMail {
 }
 
 func fieldErr(field, key string) model.LoadError {
-	m := i18n.M(key)
+	return fieldErrM(field, i18n.M(key))
+}
+
+func fieldErrM(field string, m i18n.Msg) model.LoadError {
 	return model.LoadError{File: "settings", Field: field, Key: m.Key, Params: m.Params, Msg: m.Error()}
 }
 

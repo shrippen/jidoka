@@ -254,7 +254,7 @@ func TestSaveProfileNeedsTag(t *testing.T) {
 	f := r.form()
 	f.Tags = nil
 	errs := r.save(f)
-	if _, ok := errs["profiles.standard.channels"]; !ok || len(errs) != 1 {
+	if _, ok := errs["profiles.standard.0.channels"]; !ok || len(errs) != 1 {
 		t.Errorf("errors: %+v", errs)
 	}
 	if r.stored() != doc {

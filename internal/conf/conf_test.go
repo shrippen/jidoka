@@ -371,8 +371,8 @@ func TestSettingsErrors(t *testing.T) {
 		{"mail no smtp", "[channels.mail]\nfrom = \"a@b\"\n", "channels.mail.smtp", 0, "smtp required"},
 		{"mail no from", "[channels.mail]\nsmtp = \"h:25\"\n", "channels.mail.from", 0, "from required"},
 		{"wrong type", "zone = 5\n", "", 1, "Wrong type"},
-		{"profile bad event", "[[profiles.p]]\non = [\"x\"]\nchannels = [\"mail\"]\n", "profiles.p.on", 0, "unknown event"},
-		{"profile bad tag", "[[profiles.p]]\non = [\"fail\"]\nchannels = [\"apprise:x\"]\n", "profiles.p.channels", 0, "not defined"},
+		{"profile bad event", "[[profiles.p]]\non = [\"x\"]\nchannels = [\"mail\"]\n", "profiles.p.0.on", 0, "unknown event"},
+		{"profile bad tag", "[[profiles.p]]\non = [\"fail\"]\nchannels = [\"apprise:x\"]\n", "profiles.p.0.channels", 0, "not defined"},
 	}
 
 	for _, tc := range tests {

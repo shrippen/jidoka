@@ -364,7 +364,7 @@ settings:
   mail_to: Empfänger
   mail_to_hint: Eine Adresse je Zeile.
   save: Speichern
-  profiles_hint: Profile sind noch nicht hier editierbar; ihr Editor folgt. Sie bleiben beim Speichern unverändert.
+  profiles_hint: "Meldungen folgen diesen Profilen. Sie werden auf einer eigenen Seite bearbeitet."
   int: Ganze Zahl angeben.
   secret_set: gesetzt
   secret_unset: nicht gesetzt
@@ -376,6 +376,49 @@ settings:
   secret_hint_apprise_key: "Wird nie angezeigt, Geheimnis"
   secret_hint_smtp_password: "Wird nie angezeigt, Geheimnis"
   secret_hint_heartbeat_url: "Wird nie angezeigt, Geheimnis (z. B. Push-Adresse von Uptime Kuma)"
+
+profiles:
+  title: Profile
+  lead: "Ein Profil ist eine benannte Liste von Regeln: wer was erfährt, und wo. Ein Job übernimmt eines mit notify_profile; ohne nimmt er standard."
+  crumb_settings: Einstellungen
+  saved: Gespeichert. Alle Jobs wurden neu geprüft.
+  not_saved: Nicht gespeichert. Bitte die markierten Felder korrigieren.
+  unsaved: Noch nicht gespeichert. Mit Speichern übernehmen.
+  broken: Die gespeicherten Einstellungen lassen sich nicht lesen. Der Editor zeigt die Vorgaben; Speichern ersetzt sie.
+  edit: Profile bearbeiten
+  no_channel: Kein Kanal eingerichtet. Zuerst auf der Seite Einstellungen Apprise oder Mail einrichten.
+  profile: Profil
+  name: Name
+  name_hint: "Buchstaben, Ziffern, - und _. Jobs nennen ihn in notify_profile."
+  name_bad: Das Profil mit Buchstaben, Ziffern, - und _ benennen; jeder Name nur einmal.
+  standard_note: "standard ist Pflicht: Meldungen ohne eigene Regeln nutzen es."
+  rule: "Regel {n}"
+  on: Ereignisse
+  on_hint: "Wann die Regel gilt."
+  channels: Kanäle
+  channels_hint: "Wohin die Meldung geht. Unterkanäle kommen aus den Einstellungen."
+  to: Empfänger der Mail
+  to_hint: "Eine Adresse je Zeile. Leer: die Empfänger des Mail-Kanals."
+  after: Ab Störung Nr.
+  after_hint: "Nur fail und timeout zählen. Leer oder 1: sofort."
+  remind: Erinnerung
+  remind_hint: "Abstand, solange die Störung anhält, z. B. 24h. Leer oder never: keine."
+  tail: Ausgabezeilen
+  tail_hint: "Letzte Zeilen in der Meldung. Leer: 20. 0: keine."
+  digest: Sammeln
+  digest_hint: "daily 08:00 oder weekly Mon 08:00. Nur für success und recover."
+  urgent: Hohe Priorität
+  urgent_hint: Durchbricht die Ruhezeit.
+  attach: Ganze Ausgabe anhängen
+  attach_hint: An die Mail.
+  add_profile: Profil hinzufügen
+  del_profile: Profil löschen
+  add_rule: Regel hinzufügen
+  del_rule: Regel löschen
+  save: Speichern
+  no_rule: Ein Profil braucht mindestens eine Regel.
+  no_standard: "Das Profil standard ist Pflicht: Meldungen ohne eigene Regeln nutzen es."
+  used: 'Das Profil "{profile}" nutzen {jobs}; diesen Jobs zuerst ein anderes Profil geben.'
 
 secrets:
   lead: Verschlüsselt mit einem Schlüssel aus MASTER_KEY. Werte lassen sich setzen und ersetzen, aber nie wieder anzeigen. Jobs bekommen nur, was sie in job.toml unter secrets nennen.

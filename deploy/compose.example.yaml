@@ -24,6 +24,8 @@ services:
       MASTER_KEY: ${MASTER_KEY}
       # Issuer or its configuration URL, e.g.
       # https://auth.arianw.de/application/o/jidoka/.well-known/openid-configuration
+      # Authentik: issuer mode "Each provider has a different issuer"; the
+      # metadata must name the issuer given here, or login stays closed.
       OIDC_ISSUER: ${OIDC_ISSUER}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID}
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET}

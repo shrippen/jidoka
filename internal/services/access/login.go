@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
+	"log/slog"
 	"net/url"
 	"strings"
 	"time"
@@ -76,6 +77,9 @@ func (s *Service) AuthorizeURL(ctx context.Context, baseURL, next string) (targe
 
 	p, err := s.discover(ctx)
 	if err != nil {
+		// The page says only "unreachable"; the log names the cause, e.g. an
+		// issuer the metadata does not name. No secret is in it.
+		slog.Warn("oidc discovery", "err", err)
 		return "", "", ErrUnreachable
 	}
 

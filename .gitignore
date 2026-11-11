@@ -1,0 +1,5 @@
+/data/
+/.local-test/
+*.db
+*.db-*
+.env

@@ -2,7 +2,8 @@
 // should have succeeded by now, and takes the pings of external watches.
 //
 //	Tick ──► per job with expect / watch: deadline = base + window
-//	         (a watch with a schedule: first slot after base + grace, plus grace)
+//	         (a watch with a schedule: the slot base leaves open, plus grace;
+//	         an ok ping answers the slot nearest to it, see dueSlot)
 //	         base = max(last ok run, first seen, last resume)
 //	         past the deadline, grace over ──► missed ──► OnMissed (once)
 //	         ok run again ──► missed ends (alerts sees the ok run: recover)
@@ -250,7 +251,27 @@ func (w *Watch) checkJob(job *model.Job, st *state, fl model.Flags, row repos.Sc
 
 // dueOf is the deadline from the newest of last ok, first seen and resume.
 func dueOf(job *model.Job, st *state, firstSeen, lastOK time.Time) time.Time {
-	return Deadline(job, latest(latest(firstSeen, st.resumed), lastOK))
+	base, kind := BaseOf(latest(firstSeen, st.resumed), lastOK)
+	return Deadline(job, base, kind)
+}
+
+// Base says what the window of a job starts from.
+type Base int
+
+const (
+	// BaseStart: first sight or a resume; it answers no slot.
+	BaseStart Base = iota
+	// BaseOK: an ok run or ping; it may answer the slot just after it.
+	BaseOK
+)
+
+// BaseOf picks the newer of start (first sight, resume) and the last ok
+// run, and says which it is.
+func BaseOf(start, lastOK time.Time) (time.Time, Base) {
+	if !lastOK.IsZero() && !lastOK.Before(start) {
+		return lastOK, BaseOK
+	}
+	return start, BaseStart
 }
 
 // Due is the deadline of a job as the alarm sees it, resume after a pause
@@ -275,13 +296,16 @@ func (w *Watch) Due(job *model.Job, firstSeen, lastOK time.Time) time.Time {
 // 03:10 -> missed Tue 05:00, not after the longest gap (Expect). A ping
 // shortly before a slot answers that slot (ok 02:59 for 03:00 -> next
 // slot); see dueSlot.
-func Deadline(job *model.Job, base time.Time) time.Time {
+func Deadline(job *model.Job, base time.Time, kind Base) time.Time {
 	if job.Kind == model.KindWatch && job.Schedule != "" {
 		sched, err := cron.Parse(job.Schedule, job.Zone)
 		if err != nil {
 			return time.Time{}
 		}
-		slot := dueSlot(sched, base, job.Grace)
+		slot := sched.Next(base)
+		if kind == BaseOK {
+			slot = dueSlot(sched, base, job.Grace)
+		}
 		if slot.IsZero() {
 			return time.Time{}
 		}

@@ -277,7 +277,7 @@ func TestDeadlineEarlyPing(t *testing.T) {
 		{"within grace before", day(12, 1, 30), day(13, 5, 0)},
 		{"long before", day(12, 0, 30), day(12, 5, 0)},
 	} {
-		if got := Deadline(job, c.ping); !got.Equal(c.want) {
+		if got := Deadline(job, c.ping, BaseOK); !got.Equal(c.want) {
 			t.Errorf("%s: Deadline = %v, want %v", c.name, got, c.want)
 		}
 	}
@@ -297,9 +297,23 @@ func TestDeadlineGraceOverGap(t *testing.T) {
 		{"hourly, ping just before", "0 * * * *", 2 * time.Hour, at(9, 58), at(13, 0)},
 	} {
 		job := &model.Job{Kind: model.KindWatch, Zone: time.UTC, Schedule: c.sched, Grace: c.grace, Expect: time.Hour}
-		if got := Deadline(job, c.ping); !got.Equal(c.want) {
+		if got := Deadline(job, c.ping, BaseOK); !got.Equal(c.want) {
 			t.Errorf("%s: Deadline = %v, want %v", c.name, got, c.want)
 		}
+	}
+}
+
+// First sight or a resume is no ping: it answers no slot, so the next
+// slot is due even if it comes soon.
+func TestDueAfterFirstSight(t *testing.T) {
+	job := &model.Job{ID: "w", Kind: model.KindWatch, Zone: time.UTC, Schedule: "0 3 * * *",
+		Grace: 2 * time.Hour, Expect: 26 * time.Hour}
+	w := New(Config{})
+
+	seen := time.Date(2026, 11, 12, 2, 59, 0, 0, time.UTC)
+	want := time.Date(2026, 11, 12, 5, 0, 0, 0, time.UTC)
+	if got := w.Due(job, seen, time.Time{}); !got.Equal(want) {
+		t.Errorf("first seen 02:59: Due = %v, want %v", got, want)
 	}
 }
 

@@ -657,8 +657,8 @@ Regeln, die man kennen muss:
 - **Sammelmeldung (`digest`):** gilt nur für `success` und `recover`.
   Störungen gehen immer einzeln und sofort (außerhalb der Ruhezeit). Ein
   `recover` mit dem Hinweis „Datei geht wieder, Job scheitert noch“
-  wartet ebenfalls nicht. `change` und `reload` gehen sofort, auch wenn die
-  Regel `digest` nennt.
+  wartet ebenfalls nicht. Eine Regel mit `digest` darf nur `success` und
+  `recover` nennen; mit anderen Ereignissen ist sie ungültig.
 - Zur Bestätigung und Stummschaltung siehe
   [Meldungen und Oberfläche](#9-meldungen-und-oberfläche).
 
@@ -811,8 +811,9 @@ Ein Versand wird je Kanal bis zu 3-mal versucht (sofort, nach 1 und nach
 eingerichtet ist und die Regel ihn nicht ohnehin nennt. Scheitern beide,
 bleibt die Meldung in der Datenbank und wird alle 15 Minuten neu
 versucht; sie geht spätestens mit dem nächsten erfolgreichen Versand
-raus. Ein gestörter Kanal wird alle 5 Minuten einmal probiert und gilt
-nach dem ersten Erfolg als gesund. Der Gesundheitszustand der Kanäle
+raus. Ein gestörter Kanal wird beim nächsten fälligen Versand wieder
+probiert, frühestens 5 Minuten nach dem letzten Versuch, und gilt nach
+dem ersten Erfolg als gesund. Der Gesundheitszustand der Kanäle
 liegt im Speicher; nach einem Neustart gelten beide als gesund, bis ein
 Versand scheitert.
 

@@ -404,7 +404,7 @@ conf:
   channels_required: "channels: mindestens ein Kanal nötig"
   after_negative: after darf nicht negativ sein
   tail_negative: tail darf nicht negativ sein
-  digest_events: digest nur mit success, recover, change, reload erlaubt
+  digest_events: digest nur mit success und recover erlaubt
   remind_positive: 'remind muss positiv oder "never" sein'
   duration: 'Ungültige Dauer "{text}" (5m, 26h, 365d)'
   duration_negative: 'Dauer "{text}" ist negativ'

@@ -94,6 +94,12 @@ func (e Event) Disturbing() bool {
 	return e == EvFail || e == EvTimeout || e == EvMissed || e == EvInvalid
 }
 
+// Digestable reports whether the event may wait for a digest (M7): only
+// good news. A change or reload goes out at once (Z6).
+func (e Event) Digestable() bool {
+	return e == EvSuccess || e == EvRecover
+}
+
 // Window is a daily time span in a zone, e.g. quiet hours 22:00-07:00.
 // Start > End wraps past midnight.
 type Window struct {

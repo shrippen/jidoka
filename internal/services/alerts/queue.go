@@ -75,11 +75,7 @@ func digestable(it item) bool {
 		return false
 	}
 
-	switch it.Event {
-	case model.EvSuccess, model.EvRecover:
-		return true
-	}
-	return false
+	return it.Event.Digestable()
 }
 
 // routeKey identifies where a rule sends to, so messages of the same route

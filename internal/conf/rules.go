@@ -56,7 +56,7 @@ func buildRule(is *issues, sect string, i int, r rawRule, tags map[string]string
 			continue
 		}
 		rule.On = append(rule.On, ev)
-		allDigestable = allDigestable && digestEvents[ev]
+		allDigestable = allDigestable && ev.Digestable()
 	}
 
 	if len(r.Channels) == 0 {
@@ -87,7 +87,7 @@ func buildRule(is *issues, sect string, i int, r rawRule, tags map[string]string
 	if err := checkDigest(r.Digest); err != nil {
 		is.atErr(sect, i, "digest", err)
 	}
-	// Disturbances never wait in a digest (M7).
+	// Only success and recover wait in a digest (M7).
 	if !allDigestable {
 		is.at(sect, i, "digest", i18n.M("conf.digest_events"))
 	}

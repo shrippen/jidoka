@@ -1,0 +1,101 @@
+{{/* Channels (O8): state per channel, profiles, quiet hours, what was sent. */}}
+{{define "title"}}{{t "nav.channels"}}{{end}}
+{{define "main"}}
+{{with .Data}}
+<main>
+  <div class="page-head"><h1>{{t "nav.channels"}}</h1></div>
+  <p class="muted">{{t "channels.lead"}}</p>
+
+  {{if .SettingsErr}}
+  <section class="callout callout-danger" role="alert">
+    <p><strong>✕ {{t "board.invalid_settings"}}</strong></p>
+    <p class="mono small">{{.SettingsErr.File}}{{if .SettingsErr.Line}}:{{.SettingsErr.Line}}{{end}}</p>
+    <p>{{.SettingsErr.Msg}}</p>
+  </section>
+  {{end}}
+
+  <div class="tiles channel-grid">
+    {{range .Rows}}
+    <article class="status" data-state="{{if not .Configured}}off{{else if .Health.Down}}bad{{else}}ok{{end}}">
+      <span class="name">{{t (print "channel." .Kind)}}</span>
+      <div class="row">{{if not .Configured}}{{t "channels.off"}}{{else if .Health.Down}}{{t "channels.down" "since" (when .Health.Since)}}{{tzMark}}{{else}}{{t "channels.up"}}{{end}}</div>
+      {{if .Health.Down}}{{if .Health.LastError}}<p class="small error">{{.Health.LastError}}</p>{{end}}{{end}}
+      <dl class="kv">
+        <dt>{{t "channels.last"}}</dt>
+        <dd>{{if .Last}}{{when .Last.At}}{{tzMark}} · {{if .Last.OK}}{{t "channels.sent"}}{{else}}{{t "channels.failed"}}{{end}}{{else}}—{{end}}</dd>
+        <dt>{{t "channels.days30"}}</dt>
+        <dd>{{t "channels.counts" "ok" .OK30 "failed" .Failed30}}</dd>
+        {{if .Subs}}<dt>{{t "channels.subs"}}</dt><dd class="mono">{{range .Subs}}apprise:{{.}} {{end}}</dd>{{end}}
+      </dl>
+      {{if .Configured}}
+      <form method="post" action="/channels/{{.Kind}}/test">{{template "csrf" $.CSRF}}
+        <button class="btn btn-outline btn-sm" type="submit">{{t "channels.test"}}</button></form>
+      {{end}}
+    </article>
+    {{end}}
+  </div>
+
+  <section>
+    <h2>{{t "channels.profiles"}}</h2>
+    {{if .Quiet}}<p class="muted">{{t "channels.quiet" "from" (hm .Quiet.Start) "to" (hm .Quiet.End)}} {{if .Quiet.Zone}}({{.Quiet.Zone}}){{end}}</p>{{else}}<p class="muted">{{t "channels.no_quiet"}}</p>{{end}}
+    {{range .Profiles}}
+    <div class="rule">
+      <h3>{{.Name}}</h3>
+      {{range .Rules}}
+      <div class="rule-events">{{range .On}}{{template "eventpill" .}}{{end}}</div>
+      <p class="mono small">→ {{join .Channels ", "}}</p>
+      <p class="small muted">{{ruleText .}}</p>
+      {{end}}
+    </div>
+    {{else}}
+    <p class="muted">{{t "channels.no_profiles"}}</p>
+    {{end}}
+  </section>
+
+  <section>
+    <h2>{{t "channels.recent"}}</h2>
+    {{if .Recent}}
+    <div class="table-wrap"><table class="table cards-sm">
+      <thead><tr><th>{{t "channels.time"}}</th><th>{{t "channels.job"}}</th><th>{{t "channels.event"}}</th><th>{{t "channels.channel"}}</th><th>{{t "channels.result"}}</th></tr></thead>
+      <tbody>
+      {{range .Recent}}
+        <tr>
+          <td data-label="{{t "channels.time"}}">{{when .At}}{{tzMark}}</td>
+          <td data-label="{{t "channels.job"}}">{{if .Job}}<a href="/jobs/{{.Job}}">{{.Job}}</a>{{else}}—{{end}}{{if .RunID}} <a href="/runs/{{.RunID}}">#{{.RunID}}</a>{{end}}</td>
+          <td data-label="{{t "channels.event"}}">{{template "eventpill" .Event}}</td>
+          <td data-label="{{t "channels.channel"}}" class="mono">{{.Channel}}</td>
+          <td data-label="{{t "channels.result"}}">{{if .OK}}<span class="pill" data-state="ok">{{t "channels.sent"}}</span>{{else}}<span class="pill" data-state="bad">{{t "channels.failed"}}</span> <span class="small error">{{.Error}}</span>{{end}}</td>
+        </tr>
+      {{end}}
+      </tbody>
+    </table></div>
+    {{else}}
+    <p class="muted">{{t "channels.no_recent"}}</p>
+    {{end}}
+  </section>
+
+  <section>
+    <h2>{{t "channels.outbox"}}</h2>
+    {{if .Outbox}}
+    <p class="small muted">{{t "channels.outbox_hint"}}</p>
+    <div class="table-wrap"><table class="table cards-sm">
+      <thead><tr><th>{{t "channels.due"}}</th><th>{{t "channels.job"}}</th><th>{{t "channels.event"}}</th><th>{{t "channels.channel"}}</th><th>{{t "channels.attempts"}}</th></tr></thead>
+      <tbody>
+      {{range .Outbox}}
+        <tr>
+          <td data-label="{{t "channels.due"}}">{{when .Due}}{{tzMark}}{{if .Digest}} · {{.Digest}}{{end}}</td>
+          <td data-label="{{t "channels.job"}}">{{if .Job}}<a href="/jobs/{{.Job}}">{{.Job}}</a>{{else}}—{{end}}</td>
+          <td data-label="{{t "channels.event"}}">{{template "eventpill" .Event}}</td>
+          <td data-label="{{t "channels.channel"}}" class="mono">{{.Channel}}</td>
+          <td data-label="{{t "channels.attempts"}}">{{.Attempts}}{{if .LastError}} <span class="small error">{{.LastError}}</span>{{end}}</td>
+        </tr>
+      {{end}}
+      </tbody>
+    </table></div>
+    {{else}}
+    <p class="muted">{{t "channels.no_outbox"}}</p>
+    {{end}}
+  </section>
+</main>
+{{end}}
+{{end}}

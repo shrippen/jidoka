@@ -658,7 +658,7 @@ textarea.input{min-height:5.5rem;line-height:1.5;resize:vertical}
   .search>:is(kbd,.engine){transition:opacity var(--dur-fast)}
   .login-code{transition:background-color var(--dur-fast)}
   .editbar.is-fixed,.editbar.is-sticky{animation:k-fade var(--dur) var(--ease-out) both}
-  .pill[data-state="analyzing"]::before,.led[data-rhythm="atem"]{animation:k-breathe 3s ease-in-out infinite}
+  .pill[data-state="analyzing"]::before,.pill[data-state="run"]::before,.led[data-rhythm="atem"]{animation:k-breathe 3s ease-in-out infinite}
   .led[data-rhythm="puls"]{animation:k-breathe 1.2s ease-in-out infinite}
   .led[data-rhythm="takt"]{animation:k-tick 1s steps(1) infinite}
   .loader i{animation:k-hop .9s ease-in-out infinite}.loader i:nth-child(2){animation-delay:.15s}.loader i:nth-child(3){animation-delay:.3s}
@@ -2176,3 +2176,43 @@ details.help.is-right>.help-text{left:auto;right:-.5rem}
 .goalbar{display:inline-flex;flex-direction:column-reverse;gap:2px;width:22px;vertical-align:middle}
 .goalbar>i{height:4px;background:var(--bg2)}
 .goalbar>i.on{background:var(--primary)}
+
+/* Kante 1.80: states of runs and the marks that show them. Colour, a sign and a word always go together.
+   Pill by the words of .status: <span class="pill" data-state="ok|warn|bad|run|off">ok</span>
+   (✓ ok, ! warn, ✕ bad, ▶ run, – off; run breathes). */
+.pill[data-state="ok"]{--c:var(--aqua);--sign:"✓"}
+.pill[data-state="warn"]{--c:var(--warn);--sign:"!"}
+.pill[data-state="bad"]{--c:var(--danger-text);--sign:"✕"}
+.pill[data-state="run"]{--c:var(--info);--sign:"\25B6\FE0E"}
+.pill[data-state="off"]{--c:var(--fg3);--sign:"–"}
+.pill:is([data-state="ok"],[data-state="warn"],[data-state="bad"],[data-state="run"],[data-state="off"])::before{content:var(--sign);width:auto;height:auto;background:none;font-size:.75rem;line-height:1}
+.status[data-state="run"]{--k:var(--info)}
+/* Result strip: the last runs as columns, oldest left, one rect per run so each can carry a read-out
+   (data-tip="#12 · 14:20 · ok · 3 s", in a .chart-wrap[data-readout] with a .readout). A shorter rect
+   (y, height) marks a lesser failure; a miss is a hollow dashed column for a run that did not come:
+   <svg class="ticks" viewBox="0 0 16 1" preserveAspectRatio="none" role="img" aria-label="…">
+   <rect data-state="ok|warn|bad|run|off|miss" x="0" width=".8" y="0" height="1" data-tip="…"/>…</svg> */
+.ticks{display:block;width:100%;height:1.1rem}
+.ticks rect{fill:var(--aqua)}
+.ticks rect[data-state="warn"]{fill:var(--warn)}.ticks rect[data-state="bad"]{fill:var(--danger)}
+.ticks rect[data-state="run"]{fill:var(--info)}.ticks rect[data-state="off"]{fill:var(--bg2)}
+.ticks rect[data-state="miss"]{fill:none;stroke:var(--warn);stroke-width:1;stroke-dasharray:2 2;vector-effect:non-scaling-stroke}
+.legend i[data-state="ok"]{--c:var(--aqua)}.legend i[data-state="warn"]{--c:var(--warn)}.legend i[data-state="bad"]{--c:var(--danger)}
+.legend i[data-state="run"]{--c:var(--info)}.legend i[data-state="off"]{--c:var(--bg2)}
+.legend i[data-state="miss"],.legend i.is-late{background:none;border:1px dashed var(--warn)}
+.legend i.is-round{border-radius:50%}
+.legend i.is-plan{background:none;border:2px solid var(--fg3);border-radius:50%}
+/* Lane chart: one row per item over a time axis, results as marks. In an svg.chart: <circle|rect class="ev"
+   data-state="ok|warn|bad|run"> a run, class="ev is-plan" a planned slot (hollow), class="ev is-late" a window
+   that passed without a run (dashed), <a href data-tip="…"> around a mark makes it a link with a read-out,
+   <text class="lane-name"> the row's name (also inside an <a>), <text class="is-late"> a word in the warning colour, .grid the hours, .now the present.
+   The same .ev colours the bars of a chart of single runs. */
+.chart .ev{fill:var(--aqua);stroke:none}
+.chart .ev[data-state="warn"]{fill:var(--warn)}.chart .ev[data-state="bad"]{fill:var(--danger)}.chart .ev[data-state="run"]{fill:var(--info)}
+.chart .ev.is-plan{fill:none;stroke:var(--fg3);stroke-width:1.5;vector-effect:non-scaling-stroke}
+.chart .ev.is-late{fill:none;stroke:var(--warn);stroke-width:1;stroke-dasharray:4 3;vector-effect:non-scaling-stroke}
+.chart a:hover .ev,.chart a:focus-visible .ev,.chart .ev:hover{stroke:var(--fg0);stroke-width:2;vector-effect:non-scaling-stroke}
+.chart .lane-name{fill:var(--fg0);font-weight:700;letter-spacing:.02em}
+.chart a:hover .lane-name,.chart a:focus-visible .lane-name{text-decoration:underline}
+.chart a:focus-visible{outline:none}
+.chart text.is-late{fill:var(--warn)}

@@ -31,12 +31,16 @@ var pages = mustParse()
 // placeholders let the templates parse before the locale-bound funcs
 // are set per render (see bind).
 func placeholders() template.FuncMap {
-	return template.FuncMap{
+	fm := template.FuncMap{
 		"t":      func(string, ...any) string { return "" },
 		"stamp":  func(time.Time) string { return "" },
 		"tzMark": func() template.HTML { return "" },
 		"asset":  asset,
 	}
+	for name, f := range (ui{}).funcs() {
+		fm[name] = f
+	}
+	return fm
 }
 
 func mustParse() map[string]*template.Template {
@@ -100,7 +104,8 @@ func currentTabs(path string) []tab {
 
 // bind sets the funcs that depend on the request: language and zone.
 func bind(set *template.Template, locale i18n.Locale, zone *time.Location) *template.Template {
-	return set.Funcs(template.FuncMap{
+	u := ui{locale: locale, zone: zone, now: time.Now()}
+	return set.Funcs(u.funcs()).Funcs(template.FuncMap{
 		// t "key" "name" value …: the text with {name} replaced.
 		"t": func(key string, kv ...any) string {
 			params := map[string]any{}
@@ -152,6 +157,43 @@ func (s *Server) page(w http.ResponseWriter, r *http.Request, sess *session, nam
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
 	_, _ = w.Write(buf.Bytes())
+}
+
+// fragment renders the template block name of page into w: the part of a
+// page an htmx poll swaps. Same data and funcs as the page.
+func (s *Server) fragment(w http.ResponseWriter, r *http.Request, sess *session, page, name string, data any) {
+	set, ok := pages[page]
+	if !ok {
+		s.log.Error("render", "template", page, "err", "unknown page")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	cfg := s.settings()
+	v := view{Locale: localeOf(r), Version: s.deps.Version, Data: data}
+	if sess != nil {
+		v.Who, v.CSRF = &sess.Who, sess.csrf()
+	}
+
+	var buf bytes.Buffer
+	clone, err := set.Clone()
+	if err == nil {
+		err = bind(clone, v.Locale, cfg.Zone).ExecuteTemplate(&buf, name, v)
+	}
+	if err != nil {
+		s.log.Error("render", "template", page+"/"+name, "err", err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", noStoreCache)
+	_, _ = w.Write(buf.Bytes())
+}
+
+// uiOf is the language and zone of r, for the code that builds page data.
+func (s *Server) uiOf(r *http.Request) ui {
+	return ui{locale: localeOf(r), zone: s.settings().Zone, now: time.Now()}
 }
 
 // errorPage is the data of error.html.

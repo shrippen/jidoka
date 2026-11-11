@@ -53,3 +53,14 @@
   </div>
 </header>
 {{end}}
+
+{{/* A state in colour, sign and word (Kante .pill). */}}
+{{define "jobpill"}}<span class="pill" data-state="{{jobKey .}}">{{t (print "state." .)}}</span>{{end}}
+{{define "runpill"}}<span class="pill" data-state="{{runKey .}}">{{t (print "run." .)}}</span>{{end}}
+{{define "eventpill"}}<span class="pill" data-state="{{eventKey .}}">{{t (print "event." .)}}</span>{{end}}
+
+{{/* The last runs of a tile as a strip with a read-out per run. */}}
+{{define "strip"}}<div class="chart-wrap" data-readout><svg class="ticks" viewBox="0 0 {{.N}} 1" preserveAspectRatio="none" role="img" aria-label="{{.Label}}">{{range .Cells}}<rect data-state="{{.State}}" x="{{.X}}" y="{{.Y}}" width=".8" height="{{.H}}" data-tip="{{.Tip}}"/>{{end}}</svg><div class="readout"></div></div>{{end}}
+
+{{/* A POST button: name of the action, its path, the button's look. */}}
+{{define "csrf"}}<input type="hidden" name="csrf" value="{{.}}">{{end}}

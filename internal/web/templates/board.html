@@ -1,7 +1,141 @@
+{{/* The board (O1): the page frame, and "boardwrap", the part the 15 s poll swaps. */}}
 {{define "title"}}{{t "nav.board"}}{{end}}
 {{define "main"}}
 <main>
   <div class="page-head"><h1>{{t "nav.board"}}</h1></div>
-  <p class="muted">{{t "board.placeholder"}}</p>
+  {{template "boardwrap" .}}
 </main>
+{{end}}
+
+{{define "boardwrap"}}
+<div id="board" class="board" hx-get="/board/tiles" hx-trigger="every 15s" hx-swap="outerHTML">
+  {{with .Data}}
+  <div class="board-bar">
+    <p class="small muted">
+      {{if .Board.Reload.At.IsZero}}{{t "board.not_loaded"}}{{else}}{{t "board.loaded"}} {{when .Board.Reload.At}}{{tzMark}}{{if .Board.Reload.Commit}} · {{t "board.commit"}} <span class="mono">{{.Board.Reload.Commit}}</span>{{end}} · {{diff .Board.Reload.Diff}}{{end}}
+    </p>
+    <form method="post" action="/reload">
+      {{template "csrf" $.CSRF}}
+      <button class="btn btn-outline btn-sm" type="submit">{{t "board.reload"}}</button>
+    </form>
+  </div>
+
+  {{range .Board.Invalid}}
+  <section class="callout callout-danger" role="alert">
+    <p><strong>✕ {{if .Job}}{{t "board.invalid_job" "job" .Job}}{{else}}{{t "board.invalid_settings"}}{{end}}</strong></p>
+    <p class="mono small">{{.File}}{{if .Line}}:{{.Line}}{{end}}</p>
+    <p>{{.Msg}}</p>
+    <p class="small muted">{{t "board.invalid_hint"}}</p>
+  </section>
+  {{end}}
+
+  {{range .Board.Channels}}
+  <section class="callout callout-warn" role="alert">
+    <p><strong>! {{t "board.channel_down" "channel" (t (print "channel." .Channel))}}</strong></p>
+    <p class="small">{{t "board.channel_since" "since" (when .Since)}}{{tzMark}}{{if .LastError}} · {{.LastError}}{{end}} · <a href="/channels">{{t "nav.channels"}}</a></p>
+  </section>
+  {{end}}
+
+  <div class="kpi-row">
+    <div class="kpi"><b>{{.Counts.Bad}}</b><span>{{t "board.count_bad"}}</span></div>
+    <div class="kpi"><b>{{.Counts.Missed}}</b><span>{{t "board.count_missed"}}</span></div>
+    <div class="kpi"><b>{{.Counts.Running}}</b><span>{{t "board.count_running"}}</span></div>
+    <div class="kpi"><b>{{.Counts.OK}}</b><span>{{t "board.count_ok"}}</span></div>
+    <div class="kpi"><b>{{.Counts.Idle}}</b><span>{{t "board.count_idle"}}</span></div>
+  </div>
+
+  <div class="board-filter">
+    <div class="seg" role="group" aria-label="{{t "board.filter"}}">
+      <button type="button" data-filter="all" aria-pressed="true">{{t "board.filter_all"}}</button>
+      <button type="button" data-filter="attn" aria-pressed="false">{{t "board.filter_attn"}} · {{.Board.Counts.Attention}}</button>
+      <button type="button" data-filter="job" aria-pressed="false">{{t "board.filter_jobs"}}</button>
+      <button type="button" data-filter="watch" aria-pressed="false">{{t "board.filter_watches"}}</button>
+    </div>
+    {{if .Board.Tags}}
+    <div class="board-tags" role="group" aria-label="{{t "board.filter_tags"}}">
+      {{range .Board.Tags}}<button class="chip is-filter" type="button" data-tag="{{.}}" aria-pressed="false">{{.}}</button>{{end}}
+    </div>
+    {{end}}
+  </div>
+
+  {{if .Board.Tiles}}
+  <div class="tiles board-tiles">
+    {{range .Board.Tiles}}
+    <article class="status board-tile{{if .State.Broken}} is-wide{{end}}" data-state="{{jobKey .State}}" data-kind="{{.Job.Kind}}" data-tags="{{join .Job.Tags " "}}"{{if .NeedsYou}} data-attn{{end}} data-href="/jobs/{{.Job.ID}}">
+      <a class="name" href="/jobs/{{.Job.ID}}">{{.Job.Name}}</a>
+      {{template "jobpill" .State}}
+      <div class="row">
+        {{if eq .Job.Kind "watch"}}{{t "board.watch"}}{{if .Job.Expect}} · {{t "board.expect" "every" (dur .Job.Expect)}}{{end}}
+        {{else if .Job.Schedule}}<span class="mono">{{.Job.Schedule}}</span>{{else}}{{t "board.no_schedule"}}{{end}}
+      </div>
+
+      {{if or .Acked .Muted}}
+      <p class="small muted">{{if .Acked}}✓ {{t "board.acked"}}{{end}}{{if and .Acked .Muted}} · {{end}}{{if .Muted}}{{t "board.muted"}}{{end}}</p>
+      {{end}}
+
+      <p class="tile-say">
+        {{if eq .State "missed"}}{{t "board.no_ping" "age" (dur (quiet .))}}
+        {{else if eq .State "paused"}}{{if .Flags.PausedBy}}{{t "board.paused_by" "who" .Flags.PausedBy}}{{else}}{{t "state.paused"}}{{end}}
+        {{else if eq .State "invalid"}}{{if .Load}}{{.Load.Msg}}{{end}}
+        {{else if eq .State "disabled"}}{{t "board.disabled"}}
+        {{else if eq .State "never"}}{{t "board.never"}}
+        {{else if .Summary}}{{.Summary}}
+        {{else if .Last}}{{if .Last.Error}}{{.Last.Error}}{{else}}{{t (print "run." .Last.State)}}{{end}}{{end}}
+      </p>
+      {{if .State.Broken}}{{if not .Since.IsZero}}
+      <p class="small mono">{{if eq .State "missed"}}{{t "board.due_since" "due" (when .Since)}}{{else}}{{t "board.since" "since" (when .Since) "count" .Streak}}{{end}}{{tzMark}}</p>
+      {{end}}{{end}}
+
+      {{if and .State.Broken (ne .State "invalid") (ne .Job.Kind "watch")}}
+      <div class="btn-row">
+        <form method="post" action="/jobs/{{.Job.ID}}/run">
+          {{template "csrf" $.CSRF}}<input type="hidden" name="next" value="/">
+          <button class="btn btn-accent btn-sm" type="submit"{{if .Busy}} disabled{{end}}>{{t "action.run_now"}}</button>
+        </form>
+        {{if .Last}}<a class="btn btn-outline btn-sm" href="/runs/{{.Last.ID}}">{{t "action.output"}}</a>{{end}}
+      </div>
+      {{end}}
+
+      {{template "strip" (strip .)}}
+
+      <div class="tile-foot small mono muted">
+        <span>{{t "board.last"}} {{if .Last}}{{when .Last.Start}}{{tzMark}}{{else}}—{{end}}</span>
+        <span>{{if eq .Job.Kind "watch"}}{{t "board.due"}}{{else}}{{t "board.next"}}{{end}}
+          {{if eq .State "paused"}}{{t "state.paused"}}{{else if eq .State "missed"}}{{t "board.overdue"}}{{else if .Next.IsZero}}—{{else}}{{when .Next}}{{tzMark}}{{end}}</span>
+      </div>
+    </article>
+    {{end}}
+  </div>
+  <p class="muted board-none" hidden>{{t "board.nothing"}}</p>
+
+  <ul class="legend" aria-label="{{t "board.legend"}}">
+    <li><span class="small muted">{{t "board.legend_lead"}}</span></li>
+    <li><i data-state="ok"></i>{{t "run.ok"}}</li>
+    <li><i data-state="bad"></i>{{t "run.fail"}} / {{t "run.timeout"}}</li>
+    <li><i data-state="run"></i>{{t "run.running"}}</li>
+    <li><i data-state="warn"></i>{{t "run.aborted"}}</li>
+    <li><i data-state="miss"></i>{{t "board.legend_miss"}}</li>
+  </ul>
+  {{else}}
+  <div class="empty"><b>{{t "board.empty_title"}}</b><p>{{t "board.empty"}}</p></div>
+  {{end}}
+
+  {{if .Removed}}
+  <h2>{{t "board.removed"}}</h2>
+  <p class="small muted">{{t "board.removed_hint"}}</p>
+  <div class="table-wrap"><table class="table cards-sm">
+    <thead><tr><th>{{t "board.removed_job"}}</th><th>{{t "board.removed_runs"}}</th><th>{{t "board.last"}}</th></tr></thead>
+    <tbody>
+    {{range .Removed}}
+      <tr>
+        <td data-label="{{t "board.removed_job"}}"><a href="/jobs/{{.ID}}">{{.ID}}</a></td>
+        <td data-label="{{t "board.removed_runs"}}">{{.Runs}}</td>
+        <td data-label="{{t "board.last"}}">{{when .Last}}{{tzMark}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table></div>
+  {{end}}
+  {{end}}
+</div>
 {{end}}

@@ -1,0 +1,64 @@
+{{/* One run (O4): output, facts, the messages it caused. */}}
+{{define "title"}}{{t "run.title" "id" .Data.Run.ID}}{{end}}
+{{define "main"}}
+{{with .Data}}
+<main>
+  <nav class="crumbs" aria-label="{{t "nav.crumbs"}}"><a href="/">{{t "nav.board"}}</a><a href="/jobs/{{.Run.Job}}">{{.Name}}</a><span aria-current="page">{{t "run.title" "id" .Run.ID}}</span></nav>
+
+  <div class="page-head head-line">
+    <h1>{{t "run.title" "id" .Run.ID}}</h1>
+    {{template "runpill" .Run.State}}
+    {{if .Run.Dry}}<span class="chip">{{t "trigger.dry"}}</span>{{end}}
+  </div>
+
+  <div class="btn-row">
+    {{if .Older}}<a class="btn btn-outline btn-sm" href="/runs/{{.Older}}">← {{t "run.older"}}</a>{{end}}
+    {{if .Newer}}<a class="btn btn-outline btn-sm" href="/runs/{{.Newer}}">{{t "run.newer"}} →</a>{{end}}
+    {{if eq .Run.State "running"}}
+    <form method="post" action="/runs/{{.Run.ID}}/cancel">{{template "csrf" $.CSRF}}
+      <button class="btn btn-danger btn-sm" type="submit">{{t "action.cancel"}}</button></form>
+    {{end}}
+  </div>
+
+  <div class="detail-body">
+    <div class="detail-main">
+      <section class="detail-block">
+        <h2 class="h-label">{{t "run.output"}}</h2>
+        {{if .Run.Output}}<pre class="codeblock">{{.Run.Output}}</pre>{{else}}<p class="muted">{{t "run.no_output"}}</p>{{end}}
+        <p class="small muted">{{t "run.redacted"}}</p>
+      </section>
+    </div>
+
+    <aside class="detail-side is-end">
+      <section>
+        <h2 class="h-label">{{t "run.facts"}}</h2>
+        <dl class="kv">
+          <dt>{{t "run.start"}}</dt><dd>{{when .Run.Started}}{{tzMark}}</dd>
+          <dt>{{t "run.length"}}</dt><dd>{{dur (.Run.Duration now)}}</dd>
+          <dt>{{t "run.exit"}}</dt><dd class="mono">{{if .Run.Exit}}{{.Run.Exit}}{{else}}—{{end}}</dd>
+          <dt>{{t "run.trigger"}}</dt><dd>{{t (print "trigger." .Run.Trigger)}}</dd>
+          <dt>{{t "run.attempt"}}</dt><dd>{{.Run.Attempt}}</dd>
+          {{if .Run.Summary}}<dt>{{t "run.summary"}}</dt><dd>{{.Run.Summary}}</dd>{{end}}
+          {{if .Run.Error}}<dt>{{t "run.error"}}</dt><dd class="error">{{.Run.Error}}</dd>{{end}}
+          {{if .Run.Commit}}<dt>{{t "run.commit"}}</dt><dd class="mono">{{.Run.Commit}}</dd>{{end}}
+        </dl>
+      </section>
+
+      <section>
+        <h2 class="h-label">{{t "run.deliveries"}}</h2>
+        {{range .Deliveries}}
+        <p class="small">
+          {{template "eventpill" .Event}}
+          <span class="pill" data-state="{{if .OK}}ok{{else}}bad{{end}}">{{if .OK}}{{t "channels.sent"}}{{else}}{{t "channels.failed"}}{{end}}</span>
+          <span class="mono">{{.Channel}} · {{clock .At}}{{tzMark}}</span>
+          {{if .Error}}<br><span class="error">{{.Error}}</span>{{end}}
+        </p>
+        {{else}}
+        <p class="muted">{{t "run.no_deliveries"}}</p>
+        {{end}}
+      </section>
+    </aside>
+  </div>
+</main>
+{{end}}
+{{end}}

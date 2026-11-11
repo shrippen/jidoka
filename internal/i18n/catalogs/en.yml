@@ -7,10 +7,23 @@ nav:
   access: Access
   andon: Andon
   logout: Sign out
+  crumbs: Breadcrumbs
 
 action:
   copy: Copy
   delete: Delete
+  run_now: Run now
+  output: Output
+  dry: Dry run
+  pause: Pause
+  resume: Resume
+  ack: Acknowledge
+  mute: "Mute:"
+  mute_hour: 1 h
+  mute_day: 1 day
+  mute_recover: until recovery
+  unmute: Unmute
+  cancel: Cancel run
 
 login:
   title: Sign in
@@ -49,7 +62,52 @@ error:
   unavailable: This part of Jidoka is not available right now.
 
 board:
-  placeholder: The board with all jobs appears here.
+  loaded: Jobs loaded
+  commit: commit
+  not_loaded: No jobs loaded yet.
+  reload: Reload jobs
+  count_bad: failing
+  count_missed: missed
+  count_running: running
+  count_ok: ok
+  count_idle: idle
+  filter: Filter
+  filter_all: All
+  filter_attn: Needs you
+  filter_jobs: Jobs
+  filter_watches: Watches
+  filter_tags: Tags
+  nothing: Nothing in this filter.
+  invalid_job: "Job not loaded: {job}"
+  invalid_settings: jidoka.toml not loaded, the last valid copy applies
+  invalid_hint: Fix the file in the jobs repo; Komodo reloads the jobs after the push, or use "Reload jobs" here.
+  channel_down: "Channel {channel} is down"
+  channel_since: "Since {since}; messages wait until it is back"
+  watch: Watch
+  expect: "expected every {every}"
+  no_schedule: no schedule
+  acked: acknowledged, no reminders
+  muted: muted
+  no_ping: "No ping for {age}"
+  paused_by: "Paused by {who}"
+  disabled: Disabled in the job file
+  never: No run yet
+  due_since: "due since {due}"
+  since: "since {since}, {count} runs in a row"
+  since_singular: "since {since}, {count} run"
+  last: last
+  next: next
+  due: due
+  overdue: overdue
+  legend: Legend of the strips
+  legend_lead: "Strips: last runs, newest right"
+  legend_miss: missed
+  empty_title: No jobs
+  empty: There is no valid job in the jobs folder yet.
+  removed: Removed
+  removed_hint: Jobs that are no longer in the folder. Their runs stay until the retention time ends.
+  removed_job: Job
+  removed_runs: Runs
 
 access:
   lead: The API knows tokens only. Each token has rights; its value is shown exactly once.
@@ -75,3 +133,227 @@ access:
   create_submit: Create token
   new_title: 'Token "{name}" created'
   new_once: Copy the value now. It is not shown again.
+
+channel:
+  apprise: Apprise
+  mail: Mail
+
+diff:
+  added: "{count} new"
+  changed: "{count} changed"
+  removed: "{count} removed"
+  invalid: "{count} invalid"
+  none: no change
+
+time:
+  yesterday: yesterday
+  tomorrow: tomorrow
+
+unit:
+  ms: ms
+  s: s
+  min: min
+  h: h
+
+strip:
+  label: History of the last runs
+  miss: "missed: expected by {until}"
+
+state:
+  ok: ok
+  fail: failed
+  timeout: timed out
+  missed: missed
+  running: running
+  paused: paused
+  disabled: disabled
+  never: new
+  invalid: invalid
+
+run:
+  ok: ok
+  fail: failed
+  timeout: timed out
+  running: running
+  aborted: aborted
+  skipped: skipped
+  title: "Run #{id}"
+  older: older
+  newer: newer
+  output: Output
+  no_output: No output.
+  redacted: Values of secrets appear as ***.
+  facts: Details
+  start: Start
+  length: Duration
+  exit: Exit code
+  trigger: Trigger
+  attempt: Attempt
+  summary: Summary
+  error: Error
+  commit: Commit
+  state: State
+  deliveries: Messages
+  no_deliveries: No message for this run.
+
+trigger:
+  schedule: schedule
+  manual: by hand
+  catchup: catch-up
+  retry: retry
+  dry: dry run
+  ping: ping
+
+event:
+  fail: failure
+  timeout: timeout
+  missed: missed
+  recover: recovery
+  success: success
+  invalid: invalid
+  reload: reload
+  change: change
+  start: start
+  slow: too slow
+  test: test
+
+rule:
+  at_once: at once
+  after: "from failure no. {n} in a row"
+  remind: "reminder every {every}"
+  digest: "collected: {when}"
+  urgent: high, breaks quiet hours
+  attach: whole output attached
+
+plan:
+  day: Day
+  yesterday: Yesterday
+  today: Today
+  tomorrow: Tomorrow
+  legend: Legend of the timetable
+  planned: planned
+  overdue: overdue
+  overdue_tip: "overdue since {since}"
+  dense_tip: "planned, dense, from {from}"
+  paused: paused
+  removed: removed
+  now: "now {time}"
+  axis: "Time of day ({zone}) · {day}"
+  aria: Runs per job over the day
+  hint: Hover shows time, duration and result; a click on a mark opens the run, on a name the job.
+  empty_title: No jobs
+  empty: There is no valid job in the jobs folder yet.
+
+job:
+  removed: removed
+  removed_hint: The job is no longer in the folder. Its runs stay until the retention time ends.
+  until: until
+  length: Duration per run
+  gap: Gap between pings
+  gap_tip: "{gap} since the ping before"
+  legend: Colours of the bars
+  runs_axis: Runs →
+  runs: Runs
+  no_runs: No run yet.
+  older: Older
+  newest: Newest
+  settings: Settings
+  schedule: Schedule
+  expect: Expected
+  timeout: Timeout
+  retries: Retries
+  jitter: Jitter
+  up_to: up to
+  lock: Lock
+  slow: Too slow from
+  link: Target
+  tags: Tags
+  none: none
+  manage: manage
+  file: File
+  edit_hint: Change it in the jobs repo, not here.
+  rules: Messages
+  rules_job: "from {file}"
+  rules_profile: "Profile \"{profile}\" from jidoka.toml"
+  no_rules: "No rule, this job reports nothing."
+  test_rule: Test message for this rule
+  ping: Ping address
+  ping_hint: "Success: POST …/ping/<token>, start: …/start, failure: …/fail (text in the body becomes the output)."
+  renew: Renew address
+
+channels:
+  lead: Set in jidoka.toml; passwords and keys are under Secrets.
+  off: not set up
+  up: reachable
+  down: "down since {since}"
+  last: Last sent
+  days30: 30 days
+  counts: "{ok} sent, {failed} failed"
+  subs: Sub channels (tags)
+  test: Send test message
+  sent: sent
+  failed: failed
+  profiles: Profiles and quiet hours
+  quiet: "Quiet hours {from}–{to}: messages wait and go out together afterwards; priority \"high\" at once."
+  no_quiet: No quiet hours set.
+  no_profiles: No profiles in jidoka.toml.
+  recent: Recent messages
+  no_recent: No message sent yet.
+  time: Time
+  job: Job
+  event: Event
+  channel: Channel
+  result: Result
+  outbox: Waiting messages
+  no_outbox: Nothing waits.
+  outbox_hint: These messages are not sent yet (quiet hours, digest or channel down).
+  due: Due
+  attempts: Attempts
+
+secrets:
+  lead: Encrypted with a key from MASTER_KEY. Values can be set and replaced, never shown again. Jobs get only what they name under secrets in job.toml.
+  missing: "Missing: {name}"
+  missing_by: "Named by"
+  missing_own: "Needed for {part}; nothing goes out there without it."
+  missing_short: missing
+  set: set
+  set_now: Set now
+  new: New secret
+  name: Name
+  name_hint: Capital letters, digits and _, starting with a letter.
+  value: Value
+  save: Save
+  stored: Stored
+  used_by: Used by
+  changed: Changed
+  replace: Replace
+  unused: named by no job
+  none: No secret yet.
+  audit: Log
+  no_audit: No change yet.
+  audit_hint: The log never names values.
+  action: Action
+  target: Name
+  actor: Who
+  own_apprise: channel Apprise
+  own_mail: channel Mail
+  own_heartbeat: heartbeat
+  own_andon: Andon
+
+audit:
+  ack: acknowledged
+  unmute: unmuted
+  mute-1h: muted 1 h
+  mute-1d: muted 1 day
+  mute-recover: muted until recovery
+  reload: jobs reloaded
+  cancel: run cancelled
+  renew-token: ping address renewed
+  set: set
+  replace: replaced
+  delete: deleted
+  rotate-key: key rotated
+  pause: paused
+  resume: resumed
+  run: started by hand
+  dry: dry run started

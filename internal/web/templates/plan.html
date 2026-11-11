@@ -1,0 +1,60 @@
+{{/* The timetable (O2): one lane per job over one day. The SVG is drawn on the
+     server; colours come from Kante's .ev and .grid classes. */}}
+{{define "title"}}{{t "nav.plan"}}{{end}}
+{{define "main"}}
+{{with .Data}}
+<main>
+  <div class="page-head">
+    <h1>{{t "nav.plan"}}</h1>
+    <form class="seg" method="get" action="/plan" role="group" aria-label="{{t "plan.day"}}">
+      {{range .Days}}<button type="submit" name="day" value="{{.Value}}" aria-pressed="{{.On}}">{{.Label}}</button>{{end}}
+    </form>
+  </div>
+
+  <ul class="legend" aria-label="{{t "plan.legend"}}">
+    <li><i data-state="ok" class="is-round"></i>{{t "run.ok"}}</li>
+    <li><i data-state="bad"></i>{{t "run.fail"}} / {{t "run.timeout"}}</li>
+    <li><i data-state="run"></i>{{t "run.running"}}</li>
+    <li><i class="is-plan"></i>{{t "plan.planned"}}</li>
+    <li><i class="is-late"></i>{{t "plan.overdue"}}</li>
+  </ul>
+
+  {{if .TT.Lanes}}
+  {{with $p := plan .TT}}
+  <div class="scroll-x">
+    <div class="chart-wrap plan-chart" data-readout>
+      <svg class="chart" viewBox="0 0 {{.W}} {{.H}}" role="img" aria-label="{{t "plan.aria"}}">
+        <text x="{{.Left}}" y="14">{{.AxisLabel}}</text>
+        {{range .Hours}}
+        <line class="grid" x1="{{.X}}" x2="{{.X}}" y1="{{$p.GridTop}}" y2="{{$p.GridBot}}"/>
+        <text x="{{.X}}" y="{{$p.LabelY}}" text-anchor="middle">{{.Label}}</text>
+        {{end}}
+        {{range .Lanes}}
+        <line class="grid" x1="{{$p.Left}}" x2="{{$p.Right}}" y1="{{.Y}}" y2="{{.Y}}" stroke-dasharray="2 4"/>
+        <a href="{{.Href}}"><text class="lane-name" x="0" y="{{.NameY}}">{{.Name}}</text></a>
+        <text x="0" y="{{.StateY}}">{{.StateWord}}</text>
+        {{range .Marks}}
+        {{if .Href}}<a href="{{.Href}}" data-tip="{{.Tip}}">{{else}}<g data-tip="{{.Tip}}">{{end}}
+          {{if eq .Shape "circle"}}<circle class="{{.Class}}"{{if .State}} data-state="{{.State}}"{{end}} cx="{{.X}}" cy="{{.Y}}" r="{{.R}}"/>
+          {{else if eq .Shape "line"}}<line class="{{.Class}}" x1="{{.X}}" x2="{{.X2}}" y1="{{.Y}}" y2="{{.Y}}" stroke-dasharray="2 4"/>
+          {{else}}<rect class="{{.Class}}"{{if .State}} data-state="{{.State}}"{{end}} x="{{.X}}" y="{{.Y}}" width="{{.W}}" height="{{.H}}"/>{{end}}
+        {{if .Href}}</a>{{else}}</g>{{end}}
+        {{end}}
+        {{range .Notes}}<text{{if .Class}} class="{{.Class}}"{{end}} x="{{.X}}" y="{{.Y}}"{{if .Mid}} text-anchor="middle"{{end}}>{{if eq .Class "is-late"}}! {{end}}{{.Text}}</text>{{end}}
+        {{end}}
+        {{if .HasNow}}
+        <line class="now" x1="{{.NowX}}" x2="{{.NowX}}" y1="{{.NowTop}}" y2="{{.GridBot}}"/>
+        <text x="{{.NowX}}" y="{{.NowLabelY}}" text-anchor="middle">{{.NowLabel}}</text>
+        {{end}}
+      </svg>
+      <div class="readout"></div>
+    </div>
+  </div>
+  {{end}}
+  <p class="small muted">{{t "plan.hint"}}</p>
+  {{else}}
+  <div class="empty"><b>{{t "plan.empty_title"}}</b><p>{{t "plan.empty"}}</p></div>
+  {{end}}
+</main>
+{{end}}
+{{end}}

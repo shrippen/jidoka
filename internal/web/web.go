@@ -80,6 +80,7 @@ func (s *Server) Handler() http.Handler {
 func (s *Server) routes() {
 	s.registerStatic()
 	s.registerLogin()
+	s.registerPages()
 	s.registerHome()
 	s.registerAccess()
 	s.registerAPI()

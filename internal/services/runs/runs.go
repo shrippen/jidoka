@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -114,7 +115,27 @@ func (s *Service) Recover() error {
 		return err
 	}
 
-	return os.RemoveAll(filepath.Join(s.cfg.DataDir, "tmp"))
+	return s.clearTmp()
+}
+
+// clearTmp removes the TMPDIRs a crashed process left. They belong to the
+// job uids (0700): each goes as its owner (proc.RemoveOwned).
+func (s *Service) clearTmp() error {
+	dir := filepath.Join(s.cfg.DataDir, "tmp")
+	entries, err := os.ReadDir(dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	var errs []error
+	for _, e := range entries {
+		errs = append(errs, proc.RemoveOwned(s.cfg.Shim, filepath.Join(dir, e.Name())))
+	}
+
+	return errors.Join(errs...)
 }
 
 // Cancel aborts a running run (J9); false if it is not running here.
@@ -230,7 +251,7 @@ func (s *Service) execute(ctx context.Context, job *model.Job, run *model.Run) {
 		run.State, run.Error = model.RunFail, err.Error()
 		return
 	}
-	defer os.RemoveAll(tmp)
+	defer s.dropTmp(job.ID, uid, tmp)
 
 	summaryPath := filepath.Join(tmp, summaryName)
 	notifyPath := filepath.Join(tmp, notifyName)
@@ -349,6 +370,14 @@ func (s *Service) prepare(job *model.Job, run *model.Run, uid uint32) (string, e
 	}
 
 	return tmp, nil
+}
+
+// dropTmp removes a run's TMPDIR as the job's uid: the server may not
+// enter it (0700, no DAC_OVERRIDE).
+func (s *Service) dropTmp(job string, uid uint32, tmp string) {
+	if err := proc.RemoveDir(s.cfg.Shim, uid, tmp); err != nil {
+		slog.Warn("remove TMPDIR", "job", job, "err", err)
+	}
 }
 
 // handOver gives a new dir to uid, mode 0700. Once it is the job's, the

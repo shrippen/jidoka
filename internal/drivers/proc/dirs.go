@@ -25,6 +25,10 @@ const (
 	modeRemove = "--rm"
 
 	dirOwnerRWX = 0o700
+
+	// keptDir is the shim's answer when it emptied dir but may not
+	// unlink it.
+	keptDir = "kept"
 )
 
 // DirSize returns the size of the files in dir in bytes, measured as uid
@@ -41,11 +45,35 @@ func DirSize(shim string, uid uint32, dir string) (int64, error) {
 }
 
 // RemoveDir deletes dir as uid (0 = no user switch); a missing dir is no
-// error. Symlinks are removed, not followed.
+// error. Symlinks are removed, not followed. If uid may not unlink dir
+// itself (its parent is ours, e.g. tmp/run-<id>), the shim empties it and
+// we remove the empty dir.
 func RemoveDir(shim string, uid uint32, dir string) error {
-	_, err := asUser(shim, uid, modeRemove, dir)
+	out, err := asUser(shim, uid, modeRemove, dir)
+	if err != nil || strings.TrimSpace(out) != keptDir {
+		return err
+	}
 
-	return err
+	return os.Remove(dir)
+}
+
+// RemoveOwned deletes dir as its owner (RemoveDir), for dirs a job left.
+func RemoveOwned(shim, dir string) error {
+	info, err := os.Lstat(dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	// Our own dir (tests, uid 0 runs): no user switch.
+	var uid uint32
+	if st, ok := info.Sys().(*syscall.Stat_t); ok && int(st.Uid) != os.Getuid() {
+		uid = st.Uid
+	}
+
+	return RemoveDir(shim, uid, dir)
 }
 
 func asUser(shim string, uid uint32, mode, dir string) (string, error) {
@@ -80,7 +108,10 @@ func dirMain(mode, dir string) int {
 			fmt.Println(n)
 		}
 	case modeRemove:
-		err = removeAll(dir)
+		var kept bool
+		if kept, err = removeAll(dir); err == nil && kept {
+			fmt.Println(keptDir)
+		}
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "jidoka-shim:", err)
@@ -96,12 +127,23 @@ func sizeOf(dir string) (int64, error) {
 	var total int64
 	seen := map[inode]bool{}
 
+	if _, err := os.Lstat(dir); errors.Is(err, fs.ErrNotExist) {
+		return 0, nil
+	}
+
+	// uv may delete files while we count (a running job): skip those.
 	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
 		if err != nil {
 			return err
 		}
 
 		info, err := d.Info()
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
 		if err != nil {
 			return err
 		}
@@ -121,16 +163,16 @@ func sizeOf(dir string) (int64, error) {
 
 		return nil
 	})
-	if errors.Is(err, fs.ErrNotExist) {
-		return 0, nil
-	}
 
 	return total, err
 }
 
 // removeAll first makes every folder writable: uv keeps some read-only,
-// and RemoveAll cannot empty those.
-func removeAll(dir string) error {
+// and RemoveAll cannot empty those. It empties dir child by child, as
+// os.RemoveAll(dir) opens dir's parent, which a job may not read
+// (tmp/, 0711); dir itself goes only where uid may unlink it, else
+// RemoveDir removes the empty dir (kept).
+func removeAll(dir string) (bool, error) {
 	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
 		if err != nil || !d.IsDir() {
 			return nil
@@ -139,8 +181,28 @@ func removeAll(dir string) error {
 		return os.Chmod(p, dirOwnerRWX)
 	})
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return err
+		return false, err
 	}
 
-	return os.RemoveAll(dir)
+	children, err := os.ReadDir(dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	for _, c := range children {
+		if err := os.RemoveAll(filepath.Join(dir, c.Name())); err != nil {
+			return false, err
+		}
+	}
+
+	err = os.Remove(dir)
+	if errors.Is(err, fs.ErrPermission) {
+		return true, nil
+	}
+	if errors.Is(err, fs.ErrNotExist) {
+		return false, nil
+	}
+	return false, err
 }

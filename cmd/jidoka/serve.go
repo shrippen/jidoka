@@ -36,7 +36,7 @@ const (
 	envJobs    = "JOBS_DIR"
 	envKey     = "MASTER_KEY"
 	envShim    = "JIDOKA_SHIM"
-	envJobUID  = "JIDOKA_JOB_UID"
+	envUIDBase = "JIDOKA_UID_BASE"
 	envListen  = "LISTEN"
 	defData    = "/data"
 	defJobs    = "/jobs"
@@ -118,7 +118,7 @@ func build() (*app, error) {
 		return nil, err
 	}
 
-	uid, err := jobUID()
+	uidBase, err := jobUIDBase()
 	if err != nil {
 		d.Close()
 		return nil, err
@@ -127,7 +127,7 @@ func build() (*app, error) {
 	a := &app{db: d, listen: envOr(envListen, defListen), states: map[string]model.JobState{}}
 	a.secrets = secrets.New(d)
 	a.jobs = jobs.New(d, envOr(envJobs, defJobs))
-	a.runs = runs.New(d, a.secrets, runs.Config{DataDir: dataDir, Shim: os.Getenv(envShim), UID: uid, GID: uid})
+	a.runs = runs.New(d, a.secrets, runs.Config{DataDir: dataDir, Shim: os.Getenv(envShim), UIDBase: uidBase})
 	a.watch = watch.New(watch.Config{DB: d, Mask: a.mask})
 	a.alerts = alerts.New(alerts.Config{
 		Store:   alerts.NewDBStore(d),
@@ -174,17 +174,17 @@ func initKey(dataDir string) error {
 	return nil
 }
 
-// jobUID is the user scripts run as (Z3); 0 keeps the server's user
-// (development only).
-func jobUID() (uint32, error) {
-	text := os.Getenv(envJobUID)
+// jobUIDBase is where the jobs' own uids start (Z3); 0 keeps the server's
+// user (development only).
+func jobUIDBase() (uint32, error) {
+	text := os.Getenv(envUIDBase)
 	if text == "" {
 		return 0, nil
 	}
 
 	n, err := strconv.ParseUint(text, 10, 32)
 	if err != nil {
-		return 0, fmt.Errorf("%s: %w", envJobUID, err)
+		return 0, fmt.Errorf("%s: %w", envUIDBase, err)
 	}
 	return uint32(n), nil
 }

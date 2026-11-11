@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 	"unicode/utf8"
 
@@ -45,8 +46,9 @@ const (
 	summaryName = "summary"
 	notifyName  = "notify"
 
-	dirMode = 0o755
-	// passMode: others may enter, not list (state/, tmp/).
+	dirMode  = 0o755
+	privMode = 0o700
+	// passMode: others may enter, not list (state/, home/, tmp/).
 	passMode = 0o711
 
 	msgNoMasterKey = "MASTER_KEY fehlt"
@@ -54,10 +56,12 @@ const (
 
 // Config is what the runs need from the process settings.
 type Config struct {
-	DataDir  string
-	Shim     string // "" = this executable
-	UID, GID uint32 // user of the scripts; 0 = no switch
-	BaseURL  string
+	DataDir string
+	Shim    string // "" = this executable
+	// UIDBase: job n gets its own uid and gid from here up (Z3); 0 = no
+	// user switch (development, tests).
+	UIDBase uint32
+	BaseURL string
 }
 
 // Service runs jobs.
@@ -205,7 +209,13 @@ func (s *Service) execute(ctx context.Context, job *model.Job, run *model.Run) {
 		return
 	}
 
-	tmp, err := s.prepare(job, run)
+	uid, err := s.uidFor(job)
+	if err != nil {
+		run.State, run.Error = model.RunFail, err.Error()
+		return
+	}
+
+	tmp, err := s.prepare(job, run, uid)
 	if err != nil {
 		run.State, run.Error = model.RunFail, err.Error()
 		return
@@ -220,8 +230,8 @@ func (s *Service) execute(ctx context.Context, job *model.Job, run *model.Run) {
 		Args:    job.Args,
 		Dir:     job.Dir,
 		Env:     s.env(job, run, sec, tmp, summaryPath, notifyPath),
-		UID:     s.cfg.UID,
-		GID:     s.cfg.GID,
+		UID:     uid,
+		GID:     uid,
 		Timeout: job.Timeout,
 		Shim:    s.cfg.Shim,
 	})
@@ -275,14 +285,39 @@ func (s *Service) resolve(job *model.Job) (map[string]string, string) {
 	return vals, ""
 }
 
-// prepare creates the state dir, HOME and an empty per-run TMPDIR (J22).
-func (s *Service) prepare(job *model.Job, run *model.Run) (string, error) {
+// uidFor returns the job's own uid; 0 without UIDBase (no switch).
+func (s *Service) uidFor(job *model.Job) (uint32, error) {
+	if s.cfg.UIDBase == 0 {
+		return 0, nil
+	}
+
+	var uid uint32
+	err := db.WithTx(s.db, func(tx *sql.Tx) error {
+		var err error
+		uid, err = repos.JobUID(tx, job.ID, s.cfg.UIDBase)
+		return err
+	})
+
+	return uid, err
+}
+
+// prepare creates the job's private folders (J22, Z3). Each belongs to
+// the job's uid, mode 0700, so no other job can enter it:
+//
+//	<data>/state/<id>        JIDOKA_STATE, survives runs
+//	<data>/home/<id>         HOME, holds .cache/uv of this job only
+//	<data>/tmp/run-<id>      TMPDIR, removed after the run
+//
+// The uv cache is per job: a cache several uids may write lets one job
+// poison the packages of another.
+func (s *Service) prepare(job *model.Job, run *model.Run, uid uint32) (string, error) {
 	data := s.cfg.DataDir
 	tmp := filepath.Join(data, "tmp", "run-"+strconv.FormatInt(run.ID, 10))
+	home := s.homeDir(job)
 
-	// The jobs user passes through state/ and tmp/ to its own folder but
-	// lists nothing; set the mode, the umask (077 in the image) cuts it.
-	for _, d := range []string{filepath.Join(data, "state"), filepath.Join(data, "tmp")} {
+	// Jobs pass through state/, home/ and tmp/ to their own folder but
+	// list nothing; set the mode, the umask (077 in the image) cuts it.
+	for _, d := range []string{filepath.Join(data, "state"), filepath.Join(data, "home"), filepath.Join(data, "tmp")} {
 		if err := os.MkdirAll(d, passMode); err != nil {
 			return "", err
 		}
@@ -291,14 +326,14 @@ func (s *Service) prepare(job *model.Job, run *model.Run) (string, error) {
 		}
 	}
 
-	for _, d := range []string{s.stateDir(job), filepath.Join(data, "home"), tmp} {
+	for _, d := range []string{s.stateDir(job), home, tmp} {
 		if err := os.MkdirAll(d, dirMode); err != nil {
 			return "", err
 		}
-		if s.cfg.UID == 0 {
+		if uid == 0 {
 			continue
 		}
-		if err := os.Chown(d, int(s.cfg.UID), int(s.cfg.GID)); err != nil {
+		if err := handOver(d, uid); err != nil {
 			return "", err
 		}
 	}
@@ -306,8 +341,31 @@ func (s *Service) prepare(job *model.Job, run *model.Run) (string, error) {
 	return tmp, nil
 }
 
+// handOver gives a new dir to uid, mode 0700. Once it is the job's, the
+// server may no longer chmod or enter it (it has no CAP_FOWNER or
+// CAP_DAC_OVERRIDE), so a dir already owned by uid is left alone.
+func handOver(dir string, uid uint32) error {
+	info, err := os.Stat(dir)
+	if err != nil {
+		return err
+	}
+	if st, ok := info.Sys().(*syscall.Stat_t); ok && st.Uid == uid {
+		return nil
+	}
+
+	if err := os.Chmod(dir, privMode); err != nil {
+		return err
+	}
+
+	return os.Lchown(dir, int(uid), int(uid))
+}
+
 func (s *Service) stateDir(job *model.Job) string {
 	return filepath.Join(s.cfg.DataDir, "state", job.ID)
+}
+
+func (s *Service) homeDir(job *model.Job) string {
+	return filepath.Join(s.cfg.DataDir, "home", job.ID)
 }
 
 // env builds the whole environment of the script (J16). Later entries win:
@@ -321,7 +379,7 @@ func (s *Service) env(job *model.Job, run *model.Run, sec map[string]string,
 
 	m := map[string]string{
 		"PATH": jobPath,
-		"HOME": filepath.Join(s.cfg.DataDir, "home"),
+		"HOME": s.homeDir(job),
 		"TZ":   tz,
 		"LANG": jobLang,
 	}

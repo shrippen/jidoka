@@ -17,7 +17,7 @@ trap 'docker rm -f "$name" >/dev/null 2>&1; rm -rf "$db"' EXIT
 docker run -d --name "$name" -e MASTER_KEY=image-test-only \
 	-v "$PWD/testdata/image:/jobs:ro" "$image" >/dev/null
 
-# The probe runs every minute; wait for its first run to end.
+# The probe and the holder run every minute; wait for the probe's first run.
 for _ in $(seq 1 90); do
 	sleep 2
 	docker exec "$name" sh -c 'ls /data/state/probe/probe' >/dev/null 2>&1 && break
@@ -38,6 +38,12 @@ PY
 echo "$out"
 
 fail=0
+expect_re() {
+	if ! printf '%s\n' "$out" | grep -qxE "$1"; then
+		echo "FAIL: expected $1"
+		fail=1
+	fi
+}
 expect() {
 	if ! printf '%s\n' "$out" | grep -qx "$1"; then
 		echo "FAIL: expected $1"
@@ -45,13 +51,18 @@ expect() {
 	fi
 }
 expect ok
-expect uid=10002
+expect_re "uid=2000[0-9]"
 expect db=denied
 expect datadir=denied
 expect serverenv=denied
 expect serverbin=denied
 expect state=writable
 expect tmp=writable
+expect otherenv=denied
+expect otherstate=denied
+expect otherwrite=denied
+expect otherhome=denied
+expect groups=own
 expect python=ok
 expect uv=ok
 

@@ -339,7 +339,7 @@ func TestParentsTraversable(t *testing.T) {
 		t.Fatalf("run: %s %s", r.State, r.Error)
 	}
 
-	for _, d := range []string{"state", "tmp"} {
+	for _, d := range []string{"state", "home", "tmp"} {
 		fi, err := os.Stat(filepath.Join(e.data, d))
 		if err != nil {
 			t.Fatal(err)
@@ -347,5 +347,19 @@ func TestParentsTraversable(t *testing.T) {
 		if fi.Mode().Perm()&0o011 != 0o011 {
 			t.Errorf("%s: mode %o, others cannot pass", d, fi.Mode().Perm())
 		}
+	}
+}
+
+func TestHomePerJob(t *testing.T) {
+	e := setup(t)
+	j := job(t, "echo \"home=$HOME\"\n")
+
+	r := e.exec(j, model.TrigManual)
+	want := "home=" + filepath.Join(e.data, "home", "demo")
+	if !strings.Contains(r.Output, want) {
+		t.Errorf("output %q, want %q", r.Output, want)
+	}
+	if _, err := os.Stat(filepath.Join(e.data, "home", "demo")); err != nil {
+		t.Errorf("home dir: %v", err)
 	}
 }

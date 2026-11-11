@@ -1,0 +1,7 @@
+run = "run.sh"
+schedule = "* * * * *"
+timeout = "90s"
+
+# Stands in for a secret: the probe must not be able to read it.
+[env]
+HOLDER_MARKER = "holder-marker-value"

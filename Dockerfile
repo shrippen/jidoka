@@ -17,19 +17,19 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -tags release -trim
 
 # ── Runtime: the tools jobs may use (J11) ──
 #
-#   uid 10001 jidoka   server: /data, database, MASTER_KEY
-#   uid 10002 jobs     scripts: only their state folder and $TMPDIR (Z3)
+#   uid 10001   jidoka   server: /data, database, MASTER_KEY
+#   uid 20000+  per job  scripts: only their own state, home and $TMPDIR (Z3)
 #
-# The server switches to the jobs user per run; the binary carries
-# CAP_SETUID/SETGID (switch user), CAP_KILL (end the job's process
-# group) and CAP_CHOWN (hand state and temp folders to the jobs user).
+# The server gives every job its own uid and gid, counted up from
+# JIDOKA_UID_BASE (no /etc/passwd entry needed), and switches to it per
+# run; the binary carries CAP_SETUID/SETGID (switch user), CAP_KILL (end
+# the job's process group) and CAP_CHOWN (hand folders to the job's uid).
 # tini reaps orphans of detached children (J4).
 FROM alpine:3.24
 RUN apk add --no-cache tini su-exec libcap bash curl jq python3 uv tzdata ca-certificates \
  && addgroup -S -g 10001 jidoka && adduser -S -u 10001 -G jidoka -h /app jidoka \
- && addgroup -S -g 10002 jobs && adduser -S -u 10002 -G jobs -h /data/home jobs \
  && mkdir -p /data /jobs && chown jidoka:jidoka /data
-ENV DATA_DIR=/data JOBS_DIR=/jobs JIDOKA_SHIM=/usr/local/bin/jidoka-shim JIDOKA_JOB_UID=10002 UV_PYTHON_DOWNLOADS=never UV_CACHE_DIR=/data/uv-cache
+ENV DATA_DIR=/data JOBS_DIR=/jobs JIDOKA_SHIM=/usr/local/bin/jidoka-shim JIDOKA_UID_BASE=20000 UV_PYTHON_DOWNLOADS=never
 COPY --from=build /out/jidoka /out/jidoka-shim /usr/local/bin/
 # Only uid 10001 may run the capable server binary; jobs get the shim.
 RUN chown root:jidoka /usr/local/bin/jidoka && chmod 750 /usr/local/bin/jidoka \

@@ -84,6 +84,7 @@ func newBackend(t *testing.T, proxies string) *backend {
 	})
 	b.plan = plan.New(plan.Config{DB: e.db, Exec: rn})
 
+	b.put("jidoka.toml", "[[profiles.standard]]\non = [\"fail\"]\nchannels = [\"mail\"]\n")
 	b.job("hello", "echo \"token=$TOKEN\"\necho '3 things' > \"$JIDOKA_SUMMARY\"\n", "secrets = [\"TOKEN\"]\n")
 	b.put("beat/watch.toml", "period = \"1h\"\ngrace = \"5m\"\n")
 	if err := b.jobs.Load(); err != nil {

@@ -27,6 +27,7 @@ func write(t *testing.T, files map[string]string) string {
 
 func TestValidateOK(t *testing.T) {
 	dir := write(t, map[string]string{
+		"jidoka.toml":  "[[profiles.standard]]\non = [\"fail\"]\nchannels = [\"mail\"]\n",
 		"a/job.toml":   "run = \"x.sh\"\nschedule = \"0 6 * * *\"\n",
 		"a/x.sh":       "",
 		"w/watch.toml": "period = \"24h\"\ngrace = \"1h\"\n",

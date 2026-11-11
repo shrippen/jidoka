@@ -107,6 +107,7 @@ func newEnv(t *testing.T) *env {
 
 	e := &env{t: t, d: d, dir: t.TempDir(), clk: &clock{t: time.Now().UTC().Truncate(time.Second)}}
 	e.jobs = jobs.New(d, e.dir)
+	put(t, e.dir, "jidoka.toml", "[[profiles.standard]]\non = [\"fail\"]\nchannels = [\"mail\"]\n")
 	e.plan = plan.New(plan.Config{DB: d, Exec: noExec{}, Now: e.clk.Now})
 	e.w = watch.New(watch.Config{DB: d, Now: e.clk.Now})
 	e.sec = secrets.New(d)

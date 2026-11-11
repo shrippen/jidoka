@@ -475,7 +475,7 @@ func wake(p *payload, now time.Time) bool {
 func (e *Engine) TestChannel(ctx context.Context, channel string) error {
 	set := e.cfg.Set()
 	it := e.baseItem(set, subject{name: globalName}, model.EvTest, e.cfg.Now())
-	it.Summary = texts[e.cfg.Locale].testBody
+	it.Summary = texts[localeOf(set)].testBody
 	return e.testSend(ctx, set, []string{channel}, payload{Items: []item{it}})
 }
 
@@ -495,7 +495,7 @@ func (e *Engine) TestRule(ctx context.Context, jobID string, idx int) error {
 		sub.name = globalName
 	}
 	it := e.baseItem(set, sub, model.EvTest, e.cfg.Now())
-	it.Summary = texts[e.cfg.Locale].testBody
+	it.Summary = texts[localeOf(set)].testBody
 	return e.testSend(ctx, set, rule.Channels, payload{Items: []item{it}, To: rule.To})
 }
 

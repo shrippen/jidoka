@@ -10,10 +10,11 @@
 package cron
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 	"time"
+
+	"jidoka/internal/i18n"
 )
 
 const (
@@ -24,21 +25,21 @@ const (
 	overlapSlack = 2 * time.Hour
 )
 
-// field describes one cron field: name, value range and names.
+// field describes one cron field: catalog key of its name, value range and names.
 type field struct {
-	name     string
+	key      string
 	min, max int
 	names    []string // names[i] is the name of value min+i
 }
 
 var (
-	fMinute = field{name: "minute", min: 0, max: 59}
-	fHour   = field{name: "hour", min: 0, max: 23}
-	fDom    = field{name: "day of month", min: 1, max: 31}
-	fMonth  = field{name: "month", min: 1, max: 12, names: []string{
+	fMinute = field{key: "cron.field.minute", min: 0, max: 59}
+	fHour   = field{key: "cron.field.hour", min: 0, max: 23}
+	fDom    = field{key: "cron.field.dom", min: 1, max: 31}
+	fMonth  = field{key: "cron.field.month", min: 1, max: 12, names: []string{
 		"JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"}}
 	// Day of week: 0 and 7 are Sunday.
-	fDow = field{name: "day of week", min: 0, max: 7, names: []string{
+	fDow = field{key: "cron.field.dow", min: 0, max: 7, names: []string{
 		"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"}}
 )
 
@@ -49,7 +50,7 @@ type Schedule struct {
 	loc                           *time.Location
 }
 
-// Parse reads "m h dom mon dow". A nil loc means UTC.
+// Parse reads "m h dom mon dow". A nil loc means UTC. Errors are i18n.Msg.
 func Parse(expr string, loc *time.Location) (*Schedule, error) {
 	if loc == nil {
 		loc = time.UTC
@@ -57,7 +58,7 @@ func Parse(expr string, loc *time.Location) (*Schedule, error) {
 
 	parts := strings.Fields(expr)
 	if len(parts) != fieldCount {
-		return nil, fmt.Errorf("need %d fields (minute hour day month weekday), got %d", fieldCount, len(parts))
+		return nil, i18n.M("cron.fields", "want", fieldCount, "got", len(parts))
 	}
 
 	s := &Schedule{loc: loc}
@@ -69,7 +70,7 @@ func Parse(expr string, loc *time.Location) (*Schedule, error) {
 	for i, t := range targets {
 		bits, err := parseField(parts[i], t.f)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", t.f.name, err)
+			return nil, err
 		}
 		*t.dst = bits
 	}
@@ -106,7 +107,7 @@ func parseItem(item string, f field) (uint64, error) {
 	if hasStep {
 		n, err := strconv.Atoi(stepText)
 		if err != nil || n < 1 {
-			return 0, fmt.Errorf("invalid step %q", stepText)
+			return 0, i18n.M("cron.step", "field", i18n.Key(f.key), "step", stepText)
 		}
 		step = n
 	}
@@ -124,7 +125,7 @@ func parseItem(item string, f field) (uint64, error) {
 			return 0, err
 		}
 		if lo > hi {
-			return 0, fmt.Errorf("range %q runs backwards", rng)
+			return 0, i18n.M("cron.backwards", "field", i18n.Key(f.key), "range", rng)
 		}
 	default:
 		v, err := parseValue(rng, f)
@@ -155,10 +156,10 @@ func parseValue(text string, f field) (int, error) {
 
 	v, err := strconv.Atoi(text)
 	if err != nil {
-		return 0, fmt.Errorf("invalid value %q", text)
+		return 0, i18n.M("cron.value", "field", i18n.Key(f.key), "value", text)
 	}
 	if v < f.min || v > f.max {
-		return 0, fmt.Errorf("value %d out of range %d-%d", v, f.min, f.max)
+		return 0, i18n.M("cron.range", "field", i18n.Key(f.key), "value", v, "min", f.min, "max", f.max)
 	}
 
 	return v, nil

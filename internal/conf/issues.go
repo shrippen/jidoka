@@ -1,9 +1,10 @@
 package conf
 
 import (
-	"fmt"
+	"errors"
 	"strings"
 
+	"jidoka/internal/i18n"
 	"jidoka/internal/model"
 )
 
@@ -24,18 +25,34 @@ func newIssues(job, file, src string) *issues {
 
 // at records an error for key in section sect. idx picks the n-th
 // occurrence of an array table ([[notify]] #2 is idx 1), or anyIdx.
-func (is *issues) at(sect string, idx int, key, format string, a ...any) {
-	is.list = append(is.list, model.LoadError{
-		Job:  is.job,
-		File: is.file,
-		Line: findLine(is.lines, sect, idx, key),
-		Msg:  fmt.Sprintf(format, a...),
-	})
+func (is *issues) at(sect string, idx int, key string, msg i18n.Msg) {
+	is.atLine(findLine(is.lines, sect, idx, key), msg)
 }
 
 // atLine records an error with a known line (TOML syntax errors).
-func (is *issues) atLine(line int, msg string) {
-	is.list = append(is.list, model.LoadError{Job: is.job, File: is.file, Line: line, Msg: msg})
+func (is *issues) atLine(line int, msg i18n.Msg) {
+	is.list = append(is.list, loadError(is.job, is.file, line, msg))
+}
+
+// atErr records an error of a parse helper: an i18n.Msg as it is,
+// anything else as its text.
+func (is *issues) atErr(sect string, idx int, key string, err error) {
+	is.at(sect, idx, key, msgOf(err))
+}
+
+// msgOf is err as a Msg.
+func msgOf(err error) i18n.Msg {
+	var m i18n.Msg
+	if errors.As(err, &m) {
+		return m
+	}
+
+	return i18n.M("conf.other", "detail", err.Error())
+}
+
+// loadError builds the error with its English text.
+func loadError(job, file string, line int, m i18n.Msg) model.LoadError {
+	return model.LoadError{Job: job, File: file, Line: line, Key: m.Key, Params: m.Params, Msg: m.Error()}
 }
 
 // findLine locates `key =` inside a section, 1-based; 0 if unknown.

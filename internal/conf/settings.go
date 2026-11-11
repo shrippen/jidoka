@@ -6,6 +6,7 @@ import (
 
 	_ "time/tzdata" // zone data in the binary (J3)
 
+	"jidoka/internal/i18n"
 	"jidoka/internal/model"
 )
 
@@ -31,6 +32,7 @@ type rawMail struct {
 
 type rawSettings struct {
 	Zone        string `toml:"zone"`
+	Locale      string `toml:"locale"`
 	Quiet       string `toml:"quiet"`
 	Heartbeat   string `toml:"heartbeat"`
 	MaxParallel *int   `toml:"max_parallel"`
@@ -54,6 +56,7 @@ func defaults() model.Settings {
 
 	return model.Settings{
 		Zone:        loc,
+		Locale:      string(i18n.DefaultLocale),
 		MaxParallel: defaultParallel,
 		Keep:        defaultKeepDays * hoursPerDay * time.Hour,
 		KeepRuns:    defaultKeepRuns,
@@ -67,16 +70,20 @@ func buildSettings(is *issues, raw rawSettings) model.Settings {
 	if raw.Zone != "" {
 		loc, err := time.LoadLocation(raw.Zone)
 		if err != nil {
-			is.at("", 0, "zone", "unknown zone %q", raw.Zone)
+			is.at("", 0, "zone", i18n.M("conf.zone", "zone", raw.Zone))
 		} else {
 			s.Zone = loc
 		}
 	}
 
+	if raw.Locale != "" {
+		s.Locale = checkLocale(is, raw.Locale, s.Locale)
+	}
+
 	if raw.Quiet != "" {
 		w, err := parseWindow(raw.Quiet, s.Zone)
 		if err != nil {
-			is.at("", 0, "quiet", "%v", err)
+			is.atErr("", 0, "quiet", err)
 		}
 		s.Quiet = w
 	}
@@ -84,7 +91,7 @@ func buildSettings(is *issues, raw rawSettings) model.Settings {
 	if raw.Heartbeat != "" {
 		d, err := parseDur(raw.Heartbeat)
 		if err != nil {
-			is.at("", 0, "heartbeat", "%v", err)
+			is.atErr("", 0, "heartbeat", err)
 		}
 		s.Heartbeat = d
 	}
@@ -92,7 +99,7 @@ func buildSettings(is *issues, raw rawSettings) model.Settings {
 	if raw.Keep != "" {
 		d, err := parseDur(raw.Keep)
 		if err != nil || d == 0 {
-			is.at("", 0, "keep", "keep must be a positive duration")
+			is.at("", 0, "keep", i18n.M("conf.keep_positive"))
 		} else {
 			s.Keep = d
 		}
@@ -119,12 +126,23 @@ func buildSettings(is *issues, raw rawSettings) model.Settings {
 	return s
 }
 
+// checkLocale accepts the languages with a catalog.
+func checkLocale(is *issues, text, def string) string {
+	switch i18n.Locale(text) {
+	case i18n.LocaleDE, i18n.LocaleEN:
+		return text
+	}
+	is.at("", 0, "locale", i18n.M("conf.locale"))
+
+	return def
+}
+
 func positive(is *issues, key string, v *int, def int) int {
 	if v == nil {
 		return def
 	}
 	if *v < 1 {
-		is.at("", 0, key, "%s must be at least 1", key)
+		is.at("", 0, key, i18n.M("conf.min_one", "key", key))
 		return def
 	}
 
@@ -138,7 +156,7 @@ func checkURL(is *issues, sect string, idx int, key, text string) string {
 
 	u, err := url.Parse(text)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		is.at(sect, idx, key, "%s must be an http(s) URL", key)
+		is.at(sect, idx, key, i18n.M("conf.url", "key", key))
 		return ""
 	}
 
@@ -152,7 +170,7 @@ func buildApprise(is *issues, raw *rawApprise) *model.Apprise {
 
 	const sect = "channels.apprise"
 	if raw.URL == "" {
-		is.at(sect, 0, "url", "url required")
+		is.at(sect, 0, "url", i18n.M("conf.url_required"))
 	}
 	checkURL(is, sect, 0, "url", raw.URL)
 
@@ -166,10 +184,10 @@ func buildMail(is *issues, raw *rawMail) *model.Mail {
 
 	const sect = "channels.mail"
 	if raw.SMTP == "" {
-		is.at(sect, 0, "smtp", "smtp required (host:port)")
+		is.at(sect, 0, "smtp", i18n.M("conf.smtp_required"))
 	}
 	if raw.From == "" {
-		is.at(sect, 0, "from", "from required")
+		is.at(sect, 0, "from", i18n.M("conf.from_required"))
 	}
 
 	return &model.Mail{SMTP: raw.SMTP, User: raw.User, From: raw.From, To: raw.To}

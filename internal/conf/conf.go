@@ -10,7 +10,6 @@ package conf
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -21,6 +20,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 
+	"jidoka/internal/i18n"
 	"jidoka/internal/model"
 )
 
@@ -43,7 +43,7 @@ func Load(dir string, prev *model.Settings) model.Set {
 
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		set.Invalid = append(set.Invalid, model.LoadError{File: ".", Msg: err.Error()})
+		set.Invalid = append(set.Invalid, loadError("", ".", 0, i18n.M("conf.io", "detail", err.Error())))
 		return set
 	}
 
@@ -77,7 +77,8 @@ func loadSettings(dir string, prev *model.Settings) (model.Settings, *model.Load
 		return fallback, nil
 	}
 	if err != nil {
-		return fallback, &model.LoadError{File: settingsFile, Msg: err.Error()}
+		le := loadError("", settingsFile, 0, i18n.M("conf.io", "detail", err.Error()))
+		return fallback, &le
 	}
 
 	s, lerr := ParseSettings(src)
@@ -117,16 +118,17 @@ func decode(is *issues, src string, v any) *issues {
 	if err != nil {
 		var pe toml.ParseError
 		if errors.As(err, &pe) {
-			is.atLine(pe.Position.Line, pe.Message)
+			is.atLine(pe.Position.Line, i18n.M("conf.syntax", "detail", pe.Message))
 			return is
 		}
-		is.atLine(typeErrLine(err))
+		line, detail := typeErrLine(err)
+		is.atLine(line, i18n.M("conf.type", "detail", detail))
 		return is
 	}
 
 	for _, key := range md.Undecoded() {
 		sect := strings.Join(key[:len(key)-1], ".")
-		is.at(sect, anyIdx, key[len(key)-1], "unknown key %q", key.String())
+		is.at(sect, anyIdx, key[len(key)-1], i18n.M("conf.unknown_key", "key", key.String()))
 	}
 
 	return is
@@ -170,17 +172,17 @@ func (c loadCtx) loadEntry(id string) {
 	}
 
 	if !idRe.MatchString(id) {
-		c.fail(id, file, 0, fmt.Sprintf("folder name %q must match [a-z0-9-]+", id))
+		c.fail(id, file, 0, i18n.M("conf.folder", "name", id))
 		return
 	}
 	if hasJob && hasWatch {
-		c.fail(id, file, 0, "job.toml and watch.toml in one folder")
+		c.fail(id, file, 0, i18n.M("conf.both_files"))
 		return
 	}
 
 	src, err := os.ReadFile(filepath.Join(c.dir, file))
 	if err != nil {
-		c.fail(id, file, 0, err.Error())
+		c.fail(id, file, 0, i18n.M("conf.io", "detail", err.Error()))
 		return
 	}
 
@@ -210,15 +212,15 @@ func (c loadCtx) loadEntry(id string) {
 
 	hash, err := hashDir(filepath.Join(c.dir, id))
 	if err != nil {
-		c.fail(id, file, 0, err.Error())
+		c.fail(id, file, 0, i18n.M("conf.io", "detail", err.Error()))
 		return
 	}
 	j.Hash = hash
 	c.set.Jobs[id] = j
 }
 
-func (c loadCtx) fail(id, file string, line int, msg string) {
-	c.set.Invalid = append(c.set.Invalid, model.LoadError{Job: id, File: file, Line: line, Msg: msg})
+func (c loadCtx) fail(id, file string, line int, msg i18n.Msg) {
+	c.set.Invalid = append(c.set.Invalid, loadError(id, file, line, msg))
 }
 
 func exists(path string) bool {

@@ -11,6 +11,7 @@ import (
 
 	"jidoka/internal/drivers/apprise"
 	"jidoka/internal/drivers/smtp"
+	"jidoka/internal/i18n"
 	"jidoka/internal/model"
 )
 
@@ -854,13 +855,13 @@ func TestSubChannelTagAndEnglish(t *testing.T) {
 	h := newHarness(t)
 	h.eng = New(Config{
 		Store: h.store, Set: func() model.Set { return h.set }, Now: func() time.Time { return h.now },
-		Locale:  "en",
 		Secrets: func(...string) (map[string]string, error) { return map[string]string{SecretAppriseKey: "k"}, nil },
 		Apprise: func(_ context.Context, _, _, tag string, m apprise.Msg) error {
 			h.apprises = append(h.apprises, appriseCall{tag: tag, msg: m})
 			return nil
 		},
 	})
+	h.set.Settings.Locale = "en"
 	j := h.job("a", func(j *model.Job) {
 		j.Rules = []model.Rule{{On: []model.Event{model.EvFail}, Channels: []string{"apprise:handy"}, Tail: -1}}
 	})
@@ -1038,5 +1039,34 @@ func TestFixedGlobalClosesQuietly(t *testing.T) {
 	}
 	if d, _ := h.store.Disturbance(KeyGlobal); d != nil {
 		t.Error("still open")
+	}
+}
+
+// TestInvalidFollowsLocale: the reason of an "invalid" message reads in
+// the language of jidoka.toml (D1, D2), not in the English of Msg.
+func TestInvalidFollowsLocale(t *testing.T) {
+	le := model.LoadError{
+		Job: "x", File: "x/job.toml", Line: 2, Msg: "invalid schedule: hour: value 25 out of range 0-23",
+		Key: "conf.schedule_invalid",
+		Params: map[string]any{"detail": i18n.M("cron.range",
+			"field", i18n.Key("cron.field.hour"), "value", 25, "min", 0, "max", 23)},
+	}
+
+	for _, tc := range []struct{ locale, want string }{
+		{"en", "invalid schedule: hour: value 25 out of range 0-23"},
+		{"de", "Ungültiger Zeitplan: Stunde: Wert 25 außerhalb von 0-23"},
+		{"", "Ungültiger Zeitplan: Stunde: Wert 25 außerhalb von 0-23"},
+	} {
+		h := newHarness(t)
+		h.set.Settings.Locale = tc.locale
+		h.set.Settings.Profiles["standard"] = []model.Rule{{On: []model.Event{model.EvInvalid}, Channels: []string{"apprise"}, Tail: -1}}
+		if err := h.eng.Invalid(le); err != nil {
+			t.Fatal(err)
+		}
+		h.tick()
+		h.wantApprise(1)
+		if body := h.apprises[0].msg.Body; !strings.Contains(body, tc.want) {
+			t.Errorf("locale %q: body %q lacks %q", tc.locale, body, tc.want)
+		}
 	}
 }

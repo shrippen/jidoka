@@ -3,6 +3,7 @@ package conf
 import (
 	"time"
 
+	"jidoka/internal/i18n"
 	"jidoka/internal/model"
 )
 
@@ -45,13 +46,13 @@ func buildRule(is *issues, sect string, i int, r rawRule, tags map[string]string
 	}
 
 	if len(r.On) == 0 {
-		is.at(sect, i, "on", "on: at least one event required")
+		is.at(sect, i, "on", i18n.M("conf.on_required"))
 	}
 	allDigestable := true
 	for _, name := range r.On {
 		ev := model.Event(name)
 		if !knownEvents[ev] {
-			is.at(sect, i, "on", "unknown event %q", name)
+			is.at(sect, i, "on", i18n.M("conf.event_unknown", "name", name))
 			continue
 		}
 		rule.On = append(rule.On, ev)
@@ -59,22 +60,22 @@ func buildRule(is *issues, sect string, i int, r rawRule, tags map[string]string
 	}
 
 	if len(r.Channels) == 0 {
-		is.at(sect, i, "channels", "channels: at least one required")
+		is.at(sect, i, "channels", i18n.M("conf.channels_required"))
 	}
 	for _, ch := range r.Channels {
 		if err := checkChannel(ch, tags); err != nil {
-			is.at(sect, i, "channels", "%v", err)
+			is.atErr(sect, i, "channels", err)
 		}
 	}
 
 	if r.After < 0 {
-		is.at(sect, i, "after", "after must not be negative")
+		is.at(sect, i, "after", i18n.M("conf.after_negative"))
 	}
 
 	if r.Tail != nil {
 		rule.Tail = *r.Tail
 		if rule.Tail < 0 {
-			is.at(sect, i, "tail", "tail must not be negative")
+			is.at(sect, i, "tail", i18n.M("conf.tail_negative"))
 		}
 	}
 
@@ -84,11 +85,11 @@ func buildRule(is *issues, sect string, i int, r rawRule, tags map[string]string
 		return rule
 	}
 	if err := checkDigest(r.Digest); err != nil {
-		is.at(sect, i, "digest", "%v", err)
+		is.atErr(sect, i, "digest", err)
 	}
 	// Disturbances never wait in a digest (M7).
 	if !allDigestable {
-		is.at(sect, i, "digest", "digest only allowed with success, recover, change, reload")
+		is.at(sect, i, "digest", i18n.M("conf.digest_events"))
 	}
 
 	return rule
@@ -102,11 +103,11 @@ func ruleRemind(is *issues, sect string, i int, text string) time.Duration {
 
 	d, err := parseDur(text)
 	if err != nil {
-		is.at(sect, i, "remind", "%v", err)
+		is.atErr(sect, i, "remind", err)
 		return 0
 	}
 	if d == 0 {
-		is.at(sect, i, "remind", `remind must be positive or "never"`)
+		is.at(sect, i, "remind", i18n.M("conf.remind_positive"))
 	}
 
 	return d

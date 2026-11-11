@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"jidoka/internal/cron"
+	"jidoka/internal/i18n"
 	"jidoka/internal/model"
 )
 
@@ -82,7 +83,7 @@ func (c jobCtx) common(j *model.Job, name, desc, link string, tags []string, zon
 	if zone != "" {
 		loc, err := time.LoadLocation(zone)
 		if err != nil {
-			is.at("", 0, "zone", "unknown zone %q", zone)
+			is.at("", 0, "zone", i18n.M("conf.zone", "zone", zone))
 		} else {
 			j.Zone = loc
 		}
@@ -100,7 +101,7 @@ func (c jobCtx) common(j *model.Job, name, desc, link string, tags []string, zon
 	}
 	j.Profile = profile
 	if _, ok := c.set.Profiles[profile]; !ok {
-		is.at("", 0, "notify_profile", "unknown profile %q", profile)
+		is.at("", 0, "notify_profile", i18n.M("conf.unknown_profile", "profile", profile))
 	}
 }
 
@@ -112,11 +113,11 @@ func (c jobCtx) dur(key, text string, min time.Duration) time.Duration {
 
 	d, err := parseDur(text)
 	if err != nil {
-		c.is.at("", 0, key, "%v", err)
+		c.is.atErr("", 0, key, err)
 		return 0
 	}
 	if d < min {
-		c.is.at("", 0, key, "%s must be positive", key)
+		c.is.at("", 0, key, i18n.M("conf.positive", "key", key))
 	}
 
 	return d
@@ -125,7 +126,7 @@ func (c jobCtx) dur(key, text string, min time.Duration) time.Duration {
 func (c jobCtx) schedule(j *model.Job, key string) {
 	_, err := cron.Parse(j.Schedule, j.Zone)
 	if err != nil {
-		c.is.at("", 0, key, "invalid schedule: %v", err)
+		c.is.at("", 0, key, i18n.M("conf.schedule_invalid", "detail", msgOf(err)))
 	}
 }
 
@@ -142,7 +143,7 @@ func (c jobCtx) buildJob(j *model.Job, dir string, raw rawJob) {
 
 	j.Schedule = raw.Schedule
 	if raw.Schedule == "" {
-		is.at("", 0, "schedule", "schedule required")
+		is.at("", 0, "schedule", i18n.M("conf.schedule_required"))
 	} else {
 		c.schedule(j, "schedule")
 	}
@@ -162,13 +163,13 @@ func (c jobCtx) buildJob(j *model.Job, dir string, raw rawJob) {
 	j.Keep = c.dur("keep", raw.Keep, 1)
 
 	if raw.Retries < 0 {
-		is.at("", 0, "retries", "retries must not be negative")
+		is.at("", 0, "retries", i18n.M("conf.retries_negative"))
 	}
 
 	if raw.Quiet != "" {
 		w, err := parseWindow(raw.Quiet, j.Zone)
 		if err != nil {
-			is.at("", 0, "quiet", "%v", err)
+			is.atErr("", 0, "quiet", err)
 		}
 		j.Quiet = w
 	}
@@ -176,7 +177,7 @@ func (c jobCtx) buildJob(j *model.Job, dir string, raw rawJob) {
 	j.Secrets = raw.Secrets
 	for _, name := range raw.Secrets {
 		if !secretRe.MatchString(name) {
-			is.at("", 0, "secrets", "secret name %q must match [A-Z][A-Z0-9_]*", name)
+			is.at("", 0, "secrets", i18n.M("conf.secret_name", "name", name))
 		}
 	}
 }
@@ -184,19 +185,19 @@ func (c jobCtx) buildJob(j *model.Job, dir string, raw rawJob) {
 // checkRun requires run to be a regular file inside the job folder.
 func (c jobCtx) checkRun(dir, run string) {
 	if run == "" {
-		c.is.at("", 0, "run", "run required")
+		c.is.at("", 0, "run", i18n.M("conf.run_required"))
 		return
 	}
 
 	rel := filepath.Clean(run)
 	if filepath.IsAbs(rel) || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		c.is.at("", 0, "run", "run %q must stay inside the job folder", run)
+		c.is.at("", 0, "run", i18n.M("conf.run_outside", "run", run))
 		return
 	}
 
 	info, err := os.Stat(filepath.Join(dir, rel))
 	if err != nil || !info.Mode().IsRegular() {
-		c.is.at("", 0, "run", "run file %q not found", run)
+		c.is.at("", 0, "run", i18n.M("conf.run_missing", "run", run))
 	}
 }
 
@@ -215,15 +216,15 @@ func (c jobCtx) buildWatch(j *model.Job, raw rawWatch) {
 	j.Grace = c.dur("grace", raw.Grace, 1)
 
 	if raw.Grace == "" {
-		is.at("", 0, "grace", "grace required")
+		is.at("", 0, "grace", i18n.M("conf.grace_required"))
 	}
 
 	switch {
 	case raw.Period == "" && raw.Schedule == "":
-		is.at("", 0, "", "period or schedule required")
+		is.at("", 0, "", i18n.M("conf.period_or_schedule"))
 		return
 	case raw.Period != "" && raw.Schedule != "":
-		is.at("", 0, "schedule", "set period or schedule, not both")
+		is.at("", 0, "schedule", i18n.M("conf.period_and_schedule"))
 		return
 	}
 
@@ -234,7 +235,7 @@ func (c jobCtx) buildWatch(j *model.Job, raw rawWatch) {
 
 	sched, err := cron.Parse(raw.Schedule, j.Zone)
 	if err != nil {
-		is.at("", 0, "schedule", "invalid schedule: %v", err)
+		is.at("", 0, "schedule", i18n.M("conf.schedule_invalid", "detail", msgOf(err)))
 		return
 	}
 	j.Expect = maxGap(sched, c.now) + j.Grace

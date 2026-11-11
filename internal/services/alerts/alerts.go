@@ -45,8 +45,7 @@ const (
 
 	defaultProfile = "standard"
 	defaultTail    = 20
-	// DefaultLocale is used when Config.Locale is empty or unknown; the
-	// settings file has no locale.
+	// DefaultLocale is used when the settings name no known language.
 	DefaultLocale = "de"
 	globalName    = "Jidoka"
 )
@@ -84,8 +83,6 @@ type Config struct {
 	Secrets func(names ...string) (map[string]string, error)
 	// Now defaults to time.Now.
 	Now func() time.Time
-	// Locale "de" or "en"; default DefaultLocale.
-	Locale string
 	// Apprise and Mail default to the drivers.
 	Apprise AppriseFunc
 	Mail    MailFunc
@@ -114,9 +111,6 @@ func New(cfg Config) *Engine {
 	}
 	if cfg.Mail == nil {
 		cfg.Mail = smtp.Send
-	}
-	if _, ok := texts[cfg.Locale]; !ok {
-		cfg.Locale = DefaultLocale
 	}
 	return &Engine{cfg: cfg, health: map[string]*chanHealth{}}
 }
@@ -244,7 +238,7 @@ func (e *Engine) Invalid(le model.LoadError) error {
 	if le.Line > 0 {
 		detail += ":" + strconv.Itoa(le.Line)
 	}
-	detail += ": " + le.Msg
+	detail += ": " + loadText(le, localeOf(set))
 
 	run := model.Run{Ended: e.cfg.Now()}
 	return e.disturb(set, sub, model.EvInvalid, &run, detail)

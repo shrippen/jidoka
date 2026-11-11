@@ -357,3 +357,76 @@ audit:
   resume: resumed
   run: started by hand
   dry: dry run started
+
+conf:
+  syntax: "Syntax error: {detail}"
+  type: "Wrong type: {detail}"
+  unknown_key: 'unknown key "{key}"'
+  io: "Cannot read file: {detail}"
+  other: "{detail}"
+  folder: 'folder name "{name}" must match [a-z0-9-]+'
+  both_files: job.toml and watch.toml in one folder
+  zone: 'unknown zone "{zone}"'
+  locale: 'locale must be "de" or "en"'
+  keep_positive: keep must be a positive duration
+  min_one: "{key} must be at least 1"
+  url: "{key} must be an http(s) URL"
+  url_required: url required
+  smtp_required: smtp required (host:port)
+  from_required: from required
+  unknown_profile: 'unknown profile "{profile}"'
+  positive: "{key} must be positive"
+  schedule_invalid: "invalid schedule: {detail}"
+  schedule_required: schedule required
+  retries_negative: retries must not be negative
+  secret_name: 'secret name "{name}" must match [A-Z][A-Z0-9_]*'
+  run_required: run required
+  run_outside: 'run "{run}" must stay inside the job folder'
+  run_missing: 'run file "{run}" not found'
+  grace_required: grace required
+  period_or_schedule: period or schedule required
+  period_and_schedule: set period or schedule, not both
+  on_required: "on: at least one event required"
+  event_unknown: 'unknown event "{name}"'
+  channels_required: "channels: at least one required"
+  after_negative: after must not be negative
+  tail_negative: tail must not be negative
+  digest_events: digest only allowed with success, recover, change, reload
+  remind_positive: 'remind must be positive or "never"'
+  duration: 'invalid duration "{text}" (use 5m, 26h, 365d)'
+  duration_negative: 'duration "{text}" is negative'
+  window: 'invalid window "{text}" (use HH:MM-HH:MM)'
+  window_empty: 'window "{text}" is empty'
+  time: 'invalid time "{text}" (use HH:MM)'
+  weekday: 'invalid weekday "{day}" (use Mon..Sun)'
+  digest: 'invalid digest "{text}" (use "daily HH:MM" or "weekly Mon HH:MM")'
+  channel: 'unknown channel "{channel}" (apprise, apprise:<tag>, mail)'
+  tag_undefined: 'apprise tag "{tag}" is not defined in jidoka.toml'
+
+cron:
+  field:
+    minute: minute
+    hour: hour
+    dom: day of month
+    month: month
+    dow: day of week
+  fields: "need {want} fields (minute hour day month weekday), got {got}"
+  step: '{field}: invalid step "{step}"'
+  backwards: '{field}: range "{range}" runs backwards'
+  value: '{field}: invalid value "{value}"'
+  range: "{field}: value {value} out of range {min}-{max}"
+  every_min: every minute
+  every_n_min: every {n} minutes
+  hourly: hourly at :{min}
+  daily: daily at {times}
+  weekdays: weekdays at {times}
+  weekly: weekly on {days} at {times}
+  monthly: monthly on day {day} at {times}
+  dow:
+    '0': Sun
+    '1': Mon
+    '2': Tue
+    '3': Wed
+    '4': Thu
+    '5': Fri
+    '6': Sat

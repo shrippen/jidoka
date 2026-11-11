@@ -111,8 +111,50 @@ func T(key string, locale Locale, params map[string]any) string {
 		if !ok {
 			return m
 		}
-		return fmt.Sprint(v)
+		return paramText(v, locale)
 	})
+}
+
+// Key is a param value that names a catalog key; it is translated in
+// place: {"field": Key("cron.field.hour")} -> "Stunde".
+type Key string
+
+// Msg is a catalog key with its params: a text not yet in a language. It
+// is also an error, which reads in English, for logs and the CLI.
+type Msg struct {
+	Key    string
+	Params map[string]any
+}
+
+// M builds a Msg from name/value pairs: M("cron.step", "step", "x").
+func M(key string, kv ...any) Msg {
+	params := map[string]any{}
+	for i := 0; i+1 < len(kv); i += 2 {
+		params[fmt.Sprint(kv[i])] = kv[i+1]
+	}
+
+	return Msg{Key: key, Params: params}
+}
+
+// In is the text in locale.
+func (m Msg) In(locale Locale) string {
+	return T(m.Key, locale, m.Params)
+}
+
+func (m Msg) Error() string {
+	return m.In(LocaleEN)
+}
+
+// paramText is a param as text; a Key or Msg param is translated too.
+func paramText(v any, locale Locale) string {
+	switch p := v.(type) {
+	case Key:
+		return T(string(p), locale, nil)
+	case Msg:
+		return p.In(locale)
+	}
+
+	return fmt.Sprint(v)
 }
 
 // isOne: the count is the number one, of whatever numeric type.

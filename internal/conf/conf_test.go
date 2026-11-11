@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"jidoka/internal/i18n"
 	"jidoka/internal/model"
 )
 
@@ -157,6 +158,22 @@ type jobErr struct {
 	msg  string
 }
 
+// checkKey: an error carries a catalog key that exists, and its English
+// Msg is that key's text (D2).
+func checkKey(t *testing.T, e model.LoadError) {
+	t.Helper()
+	if e.Key == "" || !i18n.Has(e.Key) {
+		t.Errorf("error without catalog key: %+v", e)
+		return
+	}
+	if want := i18n.T(e.Key, i18n.LocaleEN, e.Params); e.Msg != want {
+		t.Errorf("Msg = %q, want %q", e.Msg, want)
+	}
+	if de := i18n.T(e.Key, i18n.LocaleDE, e.Params); strings.Contains(de, "{") {
+		t.Errorf("German text keeps a placeholder: %q", de)
+	}
+}
+
 func TestJobErrors(t *testing.T) {
 	const head = "run = \"x.sh\"\nschedule = \"0 6 * * *\"\n"
 
@@ -186,6 +203,17 @@ func TestJobErrors(t *testing.T) {
 		{"bad weekday", head + "[[notify]]\non = [\"success\"]\nchannels = [\"mail\"]\ndigest = \"weekly Foo 08:00\"\n", 6, "invalid weekday"},
 		{"wrong type", head + "timeout = 5\n", 3, "incompatible"},
 		{"negative retries", head + "retries = -1\n", 3, "retries"},
+		{"bad cron field", "run = \"x.sh\"\nschedule = \"0 6 * *\"\n", 2, "5 fields"},
+		{"bad cron step", "run = \"x.sh\"\nschedule = \"*/x * * * *\"\n", 2, "invalid step"},
+		{"bad cron range", "run = \"x.sh\"\nschedule = \"5-1 * * * *\"\n", 2, "runs backwards"},
+		{"bad cron value", "run = \"x.sh\"\nschedule = \"x * * * *\"\n", 2, "invalid value"},
+		{"empty on", head + "[[notify]]\nchannels = [\"mail\"]\n", 3, "at least one event"},
+		{"no channels", head + "[[notify]]\non = [\"fail\"]\n", 3, "at least one required"},
+		{"negative after", head + "[[notify]]\non = [\"fail\"]\nchannels = [\"mail\"]\nafter = -1\n", 6, "after must not"},
+		{"negative tail", head + "[[notify]]\non = [\"fail\"]\nchannels = [\"mail\"]\ntail = -1\n", 6, "tail must not"},
+		{"zero remind", head + "[[notify]]\non = [\"fail\"]\nchannels = [\"mail\"]\nremind = \"0s\"\n", 6, "remind must be positive"},
+		{"empty window", head + "quiet = \"08:00-08:00\"\n", 3, "is empty"},
+		{"negative duration", head + "jitter = \"-5m\"\n", 3, "is negative"},
 	}
 
 	for _, tc := range tests {
@@ -214,6 +242,7 @@ func TestJobErrors(t *testing.T) {
 			if !strings.Contains(e.Msg, tc.msg) {
 				t.Errorf("msg = %q, want %q", e.Msg, tc.msg)
 			}
+			checkKey(t, e)
 		})
 	}
 }
@@ -238,6 +267,7 @@ func TestWatchErrors(t *testing.T) {
 			if e.Line != tc.line || !strings.Contains(e.Msg, tc.msg) || e.File != "w/watch.toml" {
 				t.Errorf("got %+v, want line %d %q", e, tc.line, tc.msg)
 			}
+			checkKey(t, e)
 		})
 	}
 }
@@ -272,6 +302,7 @@ func TestInvalidID(t *testing.T) {
 	if e := set.Invalid[0]; e.File != "Bad_ID/job.toml" || !strings.Contains(e.Msg, "[a-z0-9-]+") {
 		t.Errorf("invalid: %+v", e)
 	}
+	checkKey(t, set.Invalid[0])
 }
 
 func TestBothFiles(t *testing.T) {
@@ -284,6 +315,7 @@ func TestBothFiles(t *testing.T) {
 	if len(set.Invalid) != 1 || !strings.Contains(set.Invalid[0].Msg, "one folder") {
 		t.Errorf("invalid: %+v", set.Invalid)
 	}
+	checkKey(t, set.Invalid[0])
 }
 
 func TestSettingsErrors(t *testing.T) {
@@ -292,11 +324,15 @@ func TestSettingsErrors(t *testing.T) {
 		{"unknown key", "zone = \"UTC\"\ncolour = 1\n", 2, `unknown key "colour"`},
 		{"unknown nested key", "[channels.mail]\nsmtp = \"h:25\"\nfrom = \"a@b\"\nbogus = 1\n", 4, "unknown key"},
 		{"bad zone", "zone = \"Mars/Base\"\n", 1, "unknown zone"},
+		{"bad locale", "locale = \"fr\"\n", 1, "locale must be"},
+		{"bad keep", "keep = \"0s\"\n", 1, "positive duration"},
 		{"bad quiet", "quiet = \"x\"\n", 1, "invalid window"},
 		{"bad parallel", "max_parallel = 0\n", 1, "at least 1"},
 		{"bad url", "andon_url = \"nope\"\n", 1, "http(s) URL"},
 		{"apprise no url", "[channels.apprise]\ntags = {a = \"b\"}\n", 1, "url required"},
 		{"mail no smtp", "[channels.mail]\nfrom = \"a@b\"\n", 1, "smtp required"},
+		{"mail no from", "[channels.mail]\nsmtp = \"h:25\"\n", 1, "from required"},
+		{"wrong type", "zone = 5\n", 1, "Wrong type"},
 		{"profile bad event", "[[profiles.p]]\non = [\"x\"]\nchannels = [\"mail\"]\n", 2, "unknown event"},
 		{"profile bad tag", "[[profiles.p]]\non = [\"fail\"]\nchannels = [\"apprise:x\"]\n", 3, "not defined"},
 	}
@@ -427,5 +463,33 @@ func TestRemindNever(t *testing.T) {
 	j := Load(dir, nil).Jobs["a"]
 	if j == nil || j.Rules[0].Remind != 0 {
 		t.Errorf("job: %+v", j)
+	}
+}
+
+// TestScheduleErrorIsGerman: the cron error nests inside the schedule
+// error and both translate.
+func TestScheduleErrorIsGerman(t *testing.T) {
+	dir := write(t, map[string]string{
+		"j/job.toml": "run = \"x.sh\"\nschedule = \"0 25 * * *\"\n",
+		"j/x.sh":     "",
+	})
+
+	e := Load(dir, nil).Invalid[0]
+	got := i18n.T(e.Key, i18n.LocaleDE, e.Params)
+	if want := "Ungültiger Zeitplan: Stunde: Wert 25 außerhalb von 0-23"; got != want {
+		t.Errorf("German = %q, want %q", got, want)
+	}
+	if want := "invalid schedule: hour: value 25 out of range 0-23"; e.Msg != want {
+		t.Errorf("English = %q, want %q", e.Msg, want)
+	}
+}
+
+func TestLocaleSetting(t *testing.T) {
+	tests := map[string]string{"": "de", "locale = \"en\"\n": "en", "locale = \"de\"\n": "de"}
+	for src, want := range tests {
+		s, err := ParseSettings([]byte(src))
+		if err != nil || s.Locale != want {
+			t.Errorf("%q: locale %q err %v, want %q", src, s.Locale, err, want)
+		}
 	}
 }

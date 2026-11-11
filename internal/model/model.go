@@ -177,6 +177,7 @@ type Settings struct {
 	Apprise     *Apprise
 	Mail        *Mail
 	Profiles    map[string][]Rule
+	Locale      string // "de" or "en": language of alert messages
 	AndonURL    string // I7: link in the header
 	BaseURL     string // links in messages
 }
@@ -186,7 +187,12 @@ type LoadError struct {
 	Job  string // "" for jidoka.toml
 	File string // relative to /jobs
 	Line int    // 0 = unknown
-	Msg  string
+	// Key and Params are the catalog text of the error, for the UI and
+	// alerts in the reader's language; Msg is the same in English, for the
+	// CLI and logs. Key is "" for an error made without the catalog.
+	Key    string
+	Params map[string]any
+	Msg    string
 }
 
 // Set is everything loaded from /jobs at one moment.

@@ -15,8 +15,8 @@ import (
 // Keys used literally in templates, e.g. {{t "nav.board"}}.
 var templateKey = regexp.MustCompile(`\bt\s+"([a-z0-9_.]+)"`)
 
-// codeKey: keys given to T or i18n.T in Go code, e.g. T("x.y", ...).
-var codeKey = regexp.MustCompile(`\bT\(\s*"([a-z0-9_.]+)"`)
+// codeKey: keys given to T or M (i18n.Msg) in Go code, e.g. T("x.y", ...).
+var codeKey = regexp.MustCompile(`\b[TM]\(\s*"([a-z0-9_.]+)"`)
 
 // srcRoot is internal/.
 const srcRoot = "../"
@@ -34,7 +34,7 @@ func TestCatalogsHaveSameKeys(t *testing.T) {
 	}
 }
 
-// TestUsedKeysExist: every literal key in templates and web code exists.
+// TestUsedKeysExist: every literal key in templates, web, conf and cron code exists.
 func TestUsedKeysExist(t *testing.T) {
 	ensureLoaded()
 	de := catalogs[LocaleDE]
@@ -44,7 +44,7 @@ func TestUsedKeysExist(t *testing.T) {
 		if err != nil || e.IsDir() || strings.HasSuffix(path, "_test.go") {
 			return err
 		}
-		if !strings.Contains(path, "/web/") {
+		if !strings.Contains(path, "/web/") && !strings.Contains(path, "/conf/") && !strings.Contains(path, "/cron/") {
 			return nil
 		}
 

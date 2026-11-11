@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"jidoka/internal/drivers/apprise"
+	"jidoka/internal/i18n"
 	"jidoka/internal/model"
 )
 
@@ -70,6 +71,25 @@ func lastLines(s string, n int) string {
 		lines = lines[len(lines)-n:]
 	}
 	return strings.Join(lines, "\n")
+}
+
+// localeOf is the language of messages: locale in jidoka.toml (D1).
+func localeOf(set model.Set) string {
+	if _, ok := texts[set.Settings.Locale]; !ok {
+		return DefaultLocale
+	}
+
+	return set.Settings.Locale
+}
+
+// loadText is a load error in the language of messages; an error made
+// without a catalog key keeps its text.
+func loadText(le model.LoadError, lang string) string {
+	if le.Key == "" {
+		return le.Msg
+	}
+
+	return i18n.T(le.Key, i18n.Locale(lang), le.Params)
 }
 
 type locale struct {
@@ -163,7 +183,7 @@ type rendered struct {
 //
 // A digest lists one line per item.
 func (e *Engine) render(set model.Set, p payload) rendered {
-	l := texts[e.cfg.Locale]
+	l := texts[localeOf(set)]
 	if p.Digest {
 		return e.renderDigest(l, p.Items)
 	}

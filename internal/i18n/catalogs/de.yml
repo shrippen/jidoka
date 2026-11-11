@@ -357,3 +357,76 @@ audit:
   resume: fortgesetzt
   run: von Hand gestartet
   dry: Probelauf gestartet
+
+conf:
+  syntax: "Syntaxfehler: {detail}"
+  type: "Falscher Typ: {detail}"
+  unknown_key: 'Unbekannter Schlüssel "{key}"'
+  io: "Datei nicht lesbar: {detail}"
+  other: "{detail}"
+  folder: 'Ordnername "{name}" muss [a-z0-9-]+ entsprechen'
+  both_files: job.toml und watch.toml im selben Ordner
+  zone: 'Unbekannte Zeitzone "{zone}"'
+  locale: 'locale muss "de" oder "en" sein'
+  keep_positive: keep muss eine positive Dauer sein
+  min_one: "{key} muss mindestens 1 sein"
+  url: "{key} muss eine http(s)-Adresse sein"
+  url_required: url fehlt
+  smtp_required: smtp fehlt (Host:Port)
+  from_required: from fehlt
+  unknown_profile: 'Unbekanntes Profil "{profile}"'
+  positive: "{key} muss positiv sein"
+  schedule_invalid: "Ungültiger Zeitplan: {detail}"
+  schedule_required: schedule fehlt
+  retries_negative: retries darf nicht negativ sein
+  secret_name: 'Geheimnisname "{name}" muss [A-Z][A-Z0-9_]* entsprechen'
+  run_required: run fehlt
+  run_outside: 'run "{run}" muss im Job-Ordner bleiben'
+  run_missing: 'Datei "{run}" aus run nicht gefunden'
+  grace_required: grace fehlt
+  period_or_schedule: period oder schedule fehlt
+  period_and_schedule: period oder schedule setzen, nicht beides
+  on_required: "on: mindestens ein Ereignis nötig"
+  event_unknown: 'Unbekanntes Ereignis "{name}"'
+  channels_required: "channels: mindestens ein Kanal nötig"
+  after_negative: after darf nicht negativ sein
+  tail_negative: tail darf nicht negativ sein
+  digest_events: digest nur mit success, recover, change, reload erlaubt
+  remind_positive: 'remind muss positiv oder "never" sein'
+  duration: 'Ungültige Dauer "{text}" (5m, 26h, 365d)'
+  duration_negative: 'Dauer "{text}" ist negativ'
+  window: 'Ungültiges Zeitfenster "{text}" (HH:MM-HH:MM)'
+  window_empty: 'Zeitfenster "{text}" ist leer'
+  time: 'Ungültige Uhrzeit "{text}" (HH:MM)'
+  weekday: 'Ungültiger Wochentag "{day}" (Mon..Sun)'
+  digest: 'Ungültiger digest "{text}" ("daily HH:MM" oder "weekly Mon HH:MM")'
+  channel: 'Unbekannter Kanal "{channel}" (apprise, apprise:<Tag>, mail)'
+  tag_undefined: 'Apprise-Tag "{tag}" ist in jidoka.toml nicht definiert'
+
+cron:
+  field:
+    minute: Minute
+    hour: Stunde
+    dom: Tag des Monats
+    month: Monat
+    dow: Wochentag
+  fields: "{want} Felder nötig (Minute Stunde Tag Monat Wochentag), {got} gefunden"
+  step: '{field}: ungültige Schrittweite "{step}"'
+  backwards: '{field}: Bereich "{range}" läuft rückwärts'
+  value: '{field}: ungültiger Wert "{value}"'
+  range: "{field}: Wert {value} außerhalb von {min}-{max}"
+  every_min: jede Minute
+  every_n_min: alle {n} Minuten
+  hourly: stündlich um :{min}
+  daily: täglich um {times}
+  weekdays: werktags um {times}
+  weekly: wöchentlich {days} um {times}
+  monthly: monatlich am {day}. um {times}
+  dow:
+    '0': So
+    '1': Mo
+    '2': Di
+    '3': Mi
+    '4': Do
+    '5': Fr
+    '6': Sa

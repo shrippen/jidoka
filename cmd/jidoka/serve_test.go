@@ -67,7 +67,7 @@ func TestSettingsRepairCloses(t *testing.T) {
 		t.Fatal("broken jidoka.toml opened no disturbance")
 	}
 
-	if err := os.WriteFile(settings, []byte("zone = \"Europe/Berlin\"\n"), 0o644); err != nil {
+	if err := os.WriteFile(settings, []byte("zone = \"Europe/Berlin\"\n"+"[[profiles.standard]]\non = [\"fail\"]\nchannels = [\"mail\"]\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := a.jobs.Reload(); err != nil {

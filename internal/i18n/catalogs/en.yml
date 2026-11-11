@@ -366,6 +366,7 @@ conf:
   unknown_key: 'unknown key "{key}"'
   io: "Cannot read file: {detail}"
   other: "{detail}"
+  no_standard: "[[profiles.standard]] required: messages without own rules use it"
   repo: "Fetching the jobs repo failed: {detail}"
   folder: 'folder name "{name}" must match [a-z0-9-]+'
   both_files: job.toml and watch.toml in one folder

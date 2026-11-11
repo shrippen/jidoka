@@ -27,6 +27,8 @@ const (
 	defaultBranch  = "main"
 	defaultTimeout = time.Minute
 
+	defaultProtocols = "https"
+
 	// Modes of the checkout: jobs run under other uids and only read it.
 	dirMode  = 0o755
 	fileMode = 0o644
@@ -38,12 +40,14 @@ const (
 
 // Config describes the checkout.
 type Config struct {
-	URL     string // https URL of the repo
-	Branch  string // default main
-	Token   string // sent as "Authorization: token <Token>"; may be empty
-	Dir     string // the checkout
-	Bin     string // git binary; default "git"
-	Timeout time.Duration
+	URL    string // https URL of the repo
+	Branch string // default main
+	Token  string // sent as "Authorization: token <Token>"; may be empty
+	Dir    string // the checkout
+	Bin    string // git binary; default "git"
+	// Protocols is GIT_ALLOW_PROTOCOL, default "https"; tests use "file".
+	Protocols string
+	Timeout   time.Duration
 }
 
 // Repo is the checkout of one repo.
@@ -58,6 +62,9 @@ func New(cfg Config) *Repo {
 	}
 	if cfg.Bin == "" {
 		cfg.Bin = defaultBin
+	}
+	if cfg.Protocols == "" {
+		cfg.Protocols = defaultProtocols
 	}
 	if cfg.Timeout <= 0 {
 		cfg.Timeout = defaultTimeout
@@ -129,6 +136,7 @@ func (r *Repo) env() []string {
 		"HOME=" + r.cfg.Dir,
 		"LANG=C.UTF-8",
 		"GIT_TERMINAL_PROMPT=0",
+		"GIT_ALLOW_PROTOCOL=" + r.cfg.Protocols,
 		"GIT_CONFIG_NOSYSTEM=1",
 		"GIT_CONFIG_GLOBAL=" + os.DevNull,
 	}

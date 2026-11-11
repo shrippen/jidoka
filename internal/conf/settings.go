@@ -123,6 +123,12 @@ func buildSettings(is *issues, raw rawSettings) model.Settings {
 		s.Profiles[name] = buildRules(is, "profiles."+name, rules, tags)
 	}
 
+	// Every fallback (a job without [[notify]], reload, invalid, a failed
+	// repo fetch) goes through the standard profile (B8).
+	if len(s.Profiles[defaultProfile]) == 0 {
+		is.at("profiles", anyIdx, defaultProfile, i18n.M("conf.no_standard"))
+	}
+
 	return s
 }
 

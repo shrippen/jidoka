@@ -366,6 +366,7 @@ conf:
   unknown_key: 'Unbekannter Schlüssel "{key}"'
   io: "Datei nicht lesbar: {detail}"
   other: "{detail}"
+  no_standard: "[[profiles.standard]] fehlt: Meldungen ohne eigene Regeln nutzen es"
   repo: "Jobs-Repo konnte nicht geholt werden: {detail}"
   folder: 'Ordnername "{name}" muss [a-z0-9-]+ entsprechen'
   both_files: job.toml und watch.toml im selben Ordner

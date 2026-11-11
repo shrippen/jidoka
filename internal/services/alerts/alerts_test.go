@@ -549,6 +549,28 @@ func TestQuietHoursJobOverridesAndUrgent(t *testing.T) {
 	h.wantApprise(2)
 }
 
+// M7, Z6: change and reload are not collected; they go out at once even
+// with a digest rule.
+func TestChangeAndReloadIgnoreDigest(t *testing.T) {
+	h := newHarness(t)
+	rules := []model.Rule{
+		{On: []model.Event{model.EvChange, model.EvReload}, Channels: []string{"apprise"}, Digest: "daily 08:00", Tail: -1},
+	}
+	a := h.job("a", func(j *model.Job) { j.Rules = rules })
+	h.set.Settings.Profiles["standard"] = rules
+
+	h.at(9, 0)
+	h.done(a, model.RunOK, day(11), AttemptFinal, func(r *model.Run) { r.Message = "neu: 2" })
+	h.tick()
+	h.wantApprise(1)
+
+	if err := h.eng.Reloaded(Reload{Added: []string{"b"}}); err != nil {
+		t.Fatal(err)
+	}
+	h.tick()
+	h.wantApprise(2)
+}
+
 func TestDigestCollectsSuccessNotFail(t *testing.T) {
 	h := newHarness(t)
 	rules := []model.Rule{

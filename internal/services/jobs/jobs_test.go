@@ -125,7 +125,7 @@ func TestBrokenSettingsKeepOldAcrossRestart(t *testing.T) {
 	dir := t.TempDir()
 	d := open(t)
 	putJob(t, dir, "a", "echo\n")
-	put(t, dir, "jidoka.toml", "max_parallel = 7\n")
+	put(t, dir, "jidoka.toml", "max_parallel = 7\n[[profiles.standard]]\non = [\"fail\"]\nchannels = [\"mail\"]\n")
 
 	s := New(d, dir)
 	if err := s.Load(); err != nil {

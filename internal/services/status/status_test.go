@@ -339,7 +339,7 @@ func TestRemovedJobs(t *testing.T) {
 func TestTimetableAcrossDST(t *testing.T) {
 	e := newEnv(t)
 	berlin, _ := time.LoadLocation("Europe/Berlin")
-	put(t, e.dir, "jidoka.toml", "zone = \"Europe/Berlin\"\n")
+	put(t, e.dir, "jidoka.toml", "zone = \"Europe/Berlin\"\n[[profiles.standard]]\non = [\"fail\"]\nchannels = [\"mail\"]\n")
 	e.job("nightly", "schedule = \"30 2 * * *\"\nzone = \"Europe/Berlin\"\n")
 	e.start()
 
@@ -495,7 +495,7 @@ func TestSecretsPage(t *testing.T) {
 	t.Cleanup(func() { crypto.Init(nil) })
 
 	e := newEnv(t)
-	put(t, e.dir, "jidoka.toml", "heartbeat = \"5m\"\n[channels.apprise]\nurl = \"http://x/notify\"\n")
+	put(t, e.dir, "jidoka.toml", "heartbeat = \"5m\"\n[channels.apprise]\nurl = \"http://x/notify\"\n[[profiles.standard]]\non = [\"fail\"]\nchannels = [\"mail\"]\n")
 	e.job("one", "secrets = [\"SHARED\", \"MISSING_ONE\"]\n")
 	e.job("two", "secrets = [\"SHARED\"]\n")
 	e.start()

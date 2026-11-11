@@ -36,6 +36,10 @@ const okSettings = `
 url = "http://apprise:8000/notify"
 tags = { handy = "handy" }
 
+[[profiles.standard]]
+on = ["fail"]
+channels = ["apprise"]
+
 [[profiles.leise]]
 on = ["fail"]
 channels = ["mail"]
@@ -485,11 +489,28 @@ func TestScheduleErrorIsGerman(t *testing.T) {
 }
 
 func TestLocaleSetting(t *testing.T) {
+	const std = "[[profiles.standard]]\non = [\"fail\"]\nchannels = [\"mail\"]\n"
 	tests := map[string]string{"": "de", "locale = \"en\"\n": "en", "locale = \"de\"\n": "de"}
 	for src, want := range tests {
-		s, err := ParseSettings([]byte(src))
+		s, err := ParseSettings([]byte(src + std))
 		if err != nil || s.Locale != want {
 			t.Errorf("%q: locale %q err %v, want %q", src, s.Locale, err, want)
 		}
+	}
+}
+
+// B8: every fallback goes through the standard profile, so a jidoka.toml
+// without it is invalid and the last valid copy stays.
+func TestSettingsNeedStandardProfile(t *testing.T) {
+	const noStandard = "[[profiles.leise]]\non = [\"fail\"]\nchannels = [\"mail\"]\n"
+
+	for name, toml := range map[string]string{"none": "zone = \"UTC\"\n", "other only": noStandard} {
+		dir := write(t, map[string]string{"jidoka.toml": toml})
+		set := Load(dir, nil)
+		if set.SettingsErr == nil || set.SettingsErr.Key != "conf.no_standard" {
+			t.Errorf("%s: SettingsErr %+v", name, set.SettingsErr)
+			continue
+		}
+		checkKey(t, *set.SettingsErr)
 	}
 }

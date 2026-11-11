@@ -67,10 +67,11 @@ func (e *Engine) deliver(set model.Set, sub subject, rule model.Rule, it item, n
 	return e.push("", sub.id, now, rule, it, now, false)
 }
 
-// digestable: M7, only these may wait for a digest.
+// digestable: M7, only these may wait for a digest. A reload or change
+// goes out at once (Z6).
 func digestable(ev model.Event) bool {
 	switch ev {
-	case model.EvSuccess, model.EvRecover, model.EvChange, model.EvReload:
+	case model.EvSuccess, model.EvRecover:
 		return true
 	}
 	return false

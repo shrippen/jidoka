@@ -54,7 +54,7 @@ func put(t *testing.T, dir, rel, content string, mode os.FileMode) {
 func TestSyncFollowsOrigin(t *testing.T) {
 	src := origin(t)
 	co := filepath.Join(t.TempDir(), "jobs")
-	r := New(Config{URL: "file://" + src, Dir: co, Token: testToken})
+	r := New(Config{URL: "file://" + src, Dir: co, Token: testToken, Protocols: "file"})
 
 	old := syscallUmask(0o077)
 	defer syscallUmask(old)
@@ -94,7 +94,7 @@ func TestSyncFollowsOrigin(t *testing.T) {
 func TestTokenOnlyInEnvironment(t *testing.T) {
 	src := origin(t)
 	co := filepath.Join(t.TempDir(), "jobs")
-	r := New(Config{URL: "file://" + src, Dir: co, Token: testToken})
+	r := New(Config{URL: "file://" + src, Dir: co, Token: testToken, Protocols: "file"})
 
 	if err := r.Sync(context.Background()); err != nil {
 		t.Fatal(err)
@@ -147,11 +147,11 @@ func TestFakeGitSeesHeader(t *testing.T) {
 func TestFailureKeepsOldState(t *testing.T) {
 	src := origin(t)
 	co := filepath.Join(t.TempDir(), "jobs")
-	if err := New(Config{URL: "file://" + src, Dir: co}).Sync(context.Background()); err != nil {
+	if err := New(Config{URL: "file://" + src, Dir: co, Protocols: "file"}).Sync(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 
-	bad := New(Config{URL: "file://" + src + "-gone", Dir: co, Timeout: 10 * time.Second})
+	bad := New(Config{URL: "file://" + src + "-gone", Dir: co, Timeout: 10 * time.Second, Protocols: "file"})
 	if err := bad.Sync(context.Background()); err == nil {
 		t.Fatal("expected an error")
 	}
@@ -165,7 +165,7 @@ func TestFirstSyncFailsLeavesEmptyDir(t *testing.T) {
 		t.Skip("no git binary")
 	}
 	co := filepath.Join(t.TempDir(), "jobs")
-	r := New(Config{URL: "file://" + co + "-none", Dir: co})
+	r := New(Config{URL: "file://" + co + "-none", Dir: co, Protocols: "file"})
 	if err := r.Sync(context.Background()); err == nil {
 		t.Fatal("expected an error")
 	}

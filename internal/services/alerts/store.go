@@ -13,7 +13,9 @@ import (
 // The table needs more than since/streak/first_sent/last_sent: Sent is one
 // time per rule (JSON column), plus LastSlot, RunID, Name and Detail.
 type Disturbance struct {
-	Job      string // job id; KeyGlobal for jidoka.toml
+	// Job is the key: the job id for run trouble, FileKey(id) for a broken
+	// job file, KeyGlobal for jidoka.toml, KeyRepo for the repo fetch.
+	Job      string
 	Event    model.Event
 	Since    time.Time
 	Streak   int       // slots in a row with disturbance (J13: retries do not count)
@@ -21,9 +23,6 @@ type Disturbance struct {
 	RunID    int64     // last run that belongs to it, 0 = none
 	Name     string    // shown when the job is gone from the Set
 	Detail   string    // invalid: file, line, message
-	// Prev is the disturbance as it was when a broken file made it
-	// "invalid"; the repair restores it whole. nil = it began as invalid.
-	Prev *Disturbance
 
 	// Sent holds, per rule index, when the rule last queued a message
 	// (first message or reminder). A missing entry = rule has not spoken.

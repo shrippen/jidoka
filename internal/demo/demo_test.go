@@ -17,6 +17,7 @@ import (
 	"jidoka/internal/db"
 	"jidoka/internal/model"
 	"jidoka/internal/repos"
+	"jidoka/internal/services/alerts"
 )
 
 const (
@@ -99,7 +100,7 @@ func TestInvalidJob(t *testing.T) {
 		t.Fatalf("no invalid job: %+v", f.set.Invalid)
 	}
 
-	a, err := repos.GetAlert(f.conn, "abrechnung-monat")
+	a, err := repos.GetAlert(f.conn, alerts.FileKey("abrechnung-monat"))
 	if err != nil {
 		t.Fatal(err)
 	}

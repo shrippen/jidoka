@@ -33,13 +33,6 @@ func TestAlerts(t *testing.T) {
 		t.Fatalf("replace: %+v", got)
 	}
 
-	a.Prev = &Alert{Job: "a", Event: model.EvFail, Since: t0, Streak: 2, Sent: map[int]time.Time{1: t0}}
-	must(t, OpenAlert(d, a))
-	got, _ = GetAlert(d, "a")
-	if got.Prev == nil || got.Prev.Event != model.EvFail || got.Prev.Streak != 2 || !got.Prev.Sent[1].Equal(t0) {
-		t.Fatalf("prev: %+v", got.Prev)
-	}
-
 	if all, _ := AllAlerts(d); len(all) != 1 {
 		t.Fatalf("all: %+v", all)
 	}

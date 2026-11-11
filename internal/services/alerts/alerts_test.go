@@ -842,7 +842,7 @@ func TestInvalidFixedRecovers(t *testing.T) {
 	_ = h.eng.Reloaded(Reload{Fixed: []string{"x"}})
 	h.tick()
 	h.wantApprise(2)
-	if d, _ := h.store.Disturbance("x"); d != nil {
+	if d, _ := h.store.Disturbance(FileKey("x")); d != nil {
 		t.Error("disturbance still open")
 	}
 }
@@ -891,15 +891,14 @@ func TestReloadKeepsFailDisturbance(t *testing.T) {
 	_ = h.eng.Reloaded(Reload{Fixed: []string{"b"}})
 	h.tick()
 	h.wantApprise(3)
-	if d, _ := h.store.Disturbance("b"); d != nil {
+	if d, _ := h.store.Disturbance(FileKey("b")); d != nil {
 		t.Error("invalid disturbance still open")
 	}
 }
 
-// A failing job whose file then breaks and is repaired has not run well:
-// the repair gives back the failure, no "recovered", and only a good run
-// ends it.
-func TestRepairedFileRestoresFailure(t *testing.T) {
+// A failing job whose file breaks and is repaired: the repair ends the
+// file trouble ("recovered"), the failure stays until a good run.
+func TestRepairedFileKeepsFailure(t *testing.T) {
 	h := newHarness(t)
 	h.set.Settings.Profiles["standard"][0].On = []model.Event{model.EvFail, model.EvInvalid}
 	h.set.Settings.Profiles["standard"][1].On = []model.Event{model.EvRecover}
@@ -912,18 +911,17 @@ func TestRepairedFileRestoresFailure(t *testing.T) {
 
 	_ = h.eng.Reloaded(Reload{Fixed: []string{"a"}})
 	h.tick()
-	h.wantApprise(2)
-	d, _ := h.store.Disturbance("a")
-	if d == nil || d.Event != model.EvFail {
-		t.Fatalf("after the repair: %+v", d)
+	h.wantApprise(3)
+	if d, _ := h.store.Disturbance(FileKey("a")); d != nil {
+		t.Errorf("file trouble open: %+v", d)
+	}
+	if d, _ := h.store.Disturbance("a"); d == nil || d.Event != model.EvFail {
+		t.Fatalf("failure after the repair: %+v", d)
 	}
 
 	h.done(a, model.RunOK, day(2), AttemptFinal, nil)
 	h.tick()
-	h.wantApprise(3)
-	if !strings.Contains(h.apprises[2].msg.Title, "erholt") {
-		t.Errorf("last = %q", h.apprises[2].msg.Title)
-	}
+	h.wantApprise(4)
 	if d, _ := h.store.Disturbance("a"); d != nil {
 		t.Errorf("still open: %+v", d)
 	}
@@ -972,6 +970,92 @@ func TestRepairRestoresStreak(t *testing.T) {
 	h.done(a, model.RunFail, day(3), AttemptFinal, nil)
 	h.tick()
 	h.wantApprise(2)
+}
+
+// Run trouble and file trouble of one job are two disturbances: a file
+// problem in between does not restart the failure.
+func TestInvalidFileDoesNotTouchFailure(t *testing.T) {
+	h := newHarness(t)
+	a := h.job("a", func(j *model.Job) {
+		j.Rules = []model.Rule{{On: []model.Event{model.EvFail, model.EvInvalid}, Channels: []string{"apprise"}, Tail: -1}}
+	})
+
+	h.done(a, model.RunFail, day(1), AttemptFinal, nil)
+	_ = h.eng.Invalid(model.LoadError{Job: "a", File: "a/job.toml", Msg: "bad"})
+	h.done(a, model.RunFail, day(2), AttemptFinal, nil)
+	h.tick()
+	h.wantApprise(2)
+
+	d, _ := h.store.Disturbance("a")
+	if d == nil || d.Event != model.EvFail || d.Streak != 2 {
+		t.Errorf("run disturbance: %+v", d)
+	}
+}
+
+// An ok run ends the run disturbance; the broken file stays open and its
+// reminders go on.
+func TestOkRunLeavesFileDisturbance(t *testing.T) {
+	h := newHarness(t)
+	a := h.job("a", func(j *model.Job) {
+		j.Rules = []model.Rule{{
+			On: []model.Event{model.EvFail, model.EvInvalid, model.EvRecover}, Channels: []string{"apprise"},
+			Remind: 24 * time.Hour, Tail: -1,
+		}}
+	})
+
+	h.done(a, model.RunFail, day(1), AttemptFinal, nil)
+	_ = h.eng.Invalid(model.LoadError{Job: "a", File: "a/job.toml", Msg: "bad"})
+	h.done(a, model.RunOK, day(2), AttemptFinal, nil)
+	h.tick()
+	h.wantApprise(3)
+
+	if d, _ := h.store.Disturbance("a"); d != nil {
+		t.Errorf("run disturbance open: %+v", d)
+	}
+	if d, _ := h.store.Disturbance(FileKey("a")); d == nil {
+		t.Fatal("file disturbance closed by an ok run")
+	}
+
+	h.now = h.now.Add(25 * time.Hour)
+	h.tick()
+	h.wantApprise(4)
+}
+
+// A job gone from the set takes its disturbances with it, silently.
+func TestRemovedJobClosesSilently(t *testing.T) {
+	h := newHarness(t)
+	a := h.job("a", func(j *model.Job) {
+		j.Rules = []model.Rule{{
+			On: []model.Event{model.EvFail, model.EvInvalid}, Channels: []string{"apprise"},
+			Remind: 24 * time.Hour, Tail: -1,
+		}}
+	})
+	h.done(a, model.RunFail, day(1), AttemptFinal, nil)
+	_ = h.eng.Invalid(model.LoadError{Job: "a", File: "a/job.toml", Msg: "bad"})
+	h.tick()
+	h.wantApprise(2)
+
+	delete(h.set.Jobs, "a")
+	_ = h.eng.Invalid(model.LoadError{File: "jidoka.toml", Msg: "bad"})
+	h.tick()
+	h.wantApprise(3)
+	_ = h.eng.Reloaded(Reload{Removed: []string{"a"}, Known: []string{}})
+	h.now = h.now.Add(50 * time.Hour)
+	h.tick()
+
+	for _, key := range []string{"a", FileKey("a")} {
+		if d, _ := h.store.Disturbance(key); d != nil {
+			t.Errorf("%s still open: %+v", key, d)
+		}
+	}
+	if d, _ := h.store.Disturbance(KeyGlobal); d == nil {
+		t.Error("global disturbance closed")
+	}
+	for _, c := range h.apprises[3:] {
+		if !strings.Contains(c.msg.Title, "Jobs geändert") {
+			t.Errorf("message after the removal: %q", c.msg.Title)
+		}
+	}
 }
 
 func TestTailAndAttach(t *testing.T) {

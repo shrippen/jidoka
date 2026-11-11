@@ -388,7 +388,7 @@ func (s *Service) invalidTile(job *model.Job, le *model.LoadError, d *data, now 
 	t.State, t.Reason, t.Load = model.JobInvalid, ReasonInvalid, le
 	t.NeedsYou = !t.Acked
 
-	if a, ok := d.alerts[job.ID]; ok {
+	if a, ok := d.alerts[alerts.FileKey(job.ID)]; ok {
 		t.Since, t.Streak = a.Since, a.Streak
 	}
 	return t

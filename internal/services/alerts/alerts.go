@@ -17,7 +17,7 @@ package alerts
 
 import (
 	"context"
-	"maps"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -46,6 +46,11 @@ const (
 	// KeyRepo is the disturbance key of a failed fetch of the jobs repo (J1).
 	KeyRepo = "_repo"
 
+	// fileSuffix marks the disturbance of a job's broken file, apart from
+	// the job's run trouble: "a" is run trouble, "a/file" file trouble.
+	// Job ids are [a-z0-9-]+, so the keys never meet.
+	fileSuffix = "/file"
+
 	defaultProfile = "standard"
 	defaultTail    = 20
 	// DefaultLocale is used when the settings name no known language.
@@ -67,8 +72,12 @@ const (
 type Reload struct {
 	Added, Changed, Removed []string
 	// Fixed lists ids whose load error is gone; their "invalid"
-	// disturbance ends with a recover message.
+	// disturbance (file trouble) ends with a recover message.
 	Fixed []string
+	// Known lists every job id that is loaded or has a load error. Trouble
+	// of any other job id closes silently: the job is gone. nil skips
+	// this; KeyGlobal and KeyRepo are never closed by it.
+	Known []string
 }
 
 // AppriseFunc and MailFunc are the drivers; tests replace them.
@@ -118,9 +127,16 @@ func New(cfg Config) *Engine {
 	return &Engine{cfg: cfg, health: map[string]*chanHealth{}}
 }
 
+// FileKey is the disturbance key of the broken file of job id.
+func FileKey(id string) string { return id + fileSuffix }
+
+// jobOfKey is the job id a disturbance key belongs to.
+func jobOfKey(key string) string { return strings.TrimSuffix(key, fileSuffix) }
+
 // subject is who a message is about.
 type subject struct {
 	id   string
+	key  string // disturbance key; id for run trouble
 	name string
 	job  *model.Job // nil: unknown, removed or global
 }
@@ -133,7 +149,7 @@ func subjectOf(set model.Set, id, name string) subject {
 	if name == "" {
 		name = id
 	}
-	return subject{id: id, name: name, job: job}
+	return subject{id: id, key: id, name: name, job: job}
 }
 
 // rulesOf: the job's own rules replace the profile, never merge (M3, M4).
@@ -239,6 +255,9 @@ func (e *Engine) Invalid(le model.LoadError) error {
 		id = KeyRepo
 	}
 	sub := subjectOf(set, id, name)
+	if le.Job != "" {
+		sub.key = FileKey(le.Job)
+	}
 
 	detail := le.File
 	if le.Line > 0 {
@@ -257,8 +276,15 @@ func (e *Engine) Reloaded(r Reload) error {
 	defer e.mu.Unlock()
 
 	set := e.cfg.Set()
+	if err := e.closeGone(r.Known); err != nil {
+		return err
+	}
+
 	for _, id := range r.Fixed {
 		sub := subjectOf(set, id, id)
+		if id != KeyGlobal && id != KeyRepo {
+			sub.key = FileKey(id)
+		}
 		if err := e.recoverOf(set, sub, e.cfg.Now(), nil); err != nil {
 			return err
 		}
@@ -272,6 +298,29 @@ func (e *Engine) Reloaded(r Reload) error {
 	it := e.baseItem(set, sub, model.EvReload, e.cfg.Now())
 	it.Detail = reloadDetail(r)
 	return e.fire(set, sub, it, nil)
+}
+
+// closeGone ends, without a message, the trouble of every job id not in
+// known: the job was removed. nil known does nothing.
+func (e *Engine) closeGone(known []string) error {
+	if known == nil {
+		return nil
+	}
+
+	ds, err := e.cfg.Store.Disturbances()
+	if err != nil {
+		return err
+	}
+
+	for _, d := range ds {
+		if d.Job == KeyGlobal || d.Job == KeyRepo || slices.Contains(known, jobOfKey(d.Job)) {
+			continue
+		}
+		if err := e.cfg.Store.CloseDisturbance(d.Job); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func reloadDetail(r Reload) string {
@@ -352,35 +401,13 @@ func (e *Engine) recoverable(id string) (open, announced bool, err error) {
 	return true, len(d.Sent) > 0, nil
 }
 
-// prevOf is what a repair of an "invalid" disturbance gives back: a copy
-// of d as it is now, when ev turns it into invalid; the copy already held
-// while it stays invalid; nothing for any other kind.
-func prevOf(d *Disturbance, ev model.Event) *Disturbance {
-	if d == nil || ev != model.EvInvalid {
-		return nil
-	}
-	if d.Event == model.EvInvalid {
-		return d.Prev
-	}
-
-	snap := *d
-	snap.Prev = nil
-	snap.Sent = maps.Clone(d.Sent)
-	return &snap
-}
-
-// recoverOf closes an invalid-file disturbance and sends recover. Any
-// other kind (a failing run) stays: only a good run ends it.
+// recoverOf closes the file or settings disturbance sub.key and sends
+// recover if a rule announced it. The job's run trouble and flags are not
+// touched.
 func (e *Engine) recoverOf(set model.Set, sub subject, now time.Time, run *model.Run) error {
-	d, err := e.cfg.Store.Disturbance(sub.id)
-	if err != nil || d == nil || d.Event != model.EvInvalid {
+	d, err := e.cfg.Store.Disturbance(sub.key)
+	if err != nil || d == nil {
 		return err
-	}
-
-	// The job never ran well: give the earlier trouble back as it was,
-	// say nothing.
-	if d.Prev != nil {
-		return e.cfg.Store.SaveDisturbance(*d.Prev)
 	}
 
 	if len(d.Sent) > 0 {
@@ -389,10 +416,7 @@ func (e *Engine) recoverOf(set model.Set, sub subject, now time.Time, run *model
 			return err
 		}
 	}
-	if err := e.cfg.Store.CloseDisturbance(sub.id); err != nil {
-		return err
-	}
-	return e.cfg.Store.ResetFlags(sub.id)
+	return e.cfg.Store.CloseDisturbance(sub.key)
 }
 
 // firstOf picks the first event, in the given order, the rule listens to.
@@ -460,7 +484,7 @@ func (e *Engine) muted(f model.Flags, ev model.Event, now time.Time) bool {
 // rule has spoken already. Reminders are Tick's job.
 func (e *Engine) disturb(set model.Set, sub subject, ev model.Event, run *model.Run, detail string) error {
 	now := e.cfg.Now()
-	d, err := e.cfg.Store.Disturbance(sub.id)
+	d, err := e.cfg.Store.Disturbance(sub.key)
 	if err != nil {
 		return err
 	}
@@ -468,7 +492,6 @@ func (e *Engine) disturb(set model.Set, sub subject, ev model.Event, run *model.
 	// Missed and invalid are one slot long; a repeat of the same kind adds
 	// nothing. A different kind is new trouble: the rules that listen to it
 	// speak again, the others keep their reminder clock.
-	prev := prevOf(d, ev)
 	oneShot := ev == model.EvMissed || ev == model.EvInvalid
 	if d != nil && oneShot && d.Event == ev {
 		return nil
@@ -482,9 +505,8 @@ func (e *Engine) disturb(set model.Set, sub subject, ev model.Event, run *model.
 	}
 
 	if d == nil {
-		d = &Disturbance{Job: sub.id, Since: endOf(*run, now), Sent: map[int]time.Time{}}
+		d = &Disturbance{Job: sub.key, Since: endOf(*run, now), Sent: map[int]time.Time{}}
 	}
-	d.Prev = prev
 	d.Event, d.Name, d.Detail = ev, sub.name, detail
 	if run.ID != 0 {
 		d.RunID = run.ID
@@ -561,7 +583,8 @@ func (e *Engine) remind(now time.Time) error {
 }
 
 func (e *Engine) remindOne(set model.Set, d Disturbance, now time.Time) error {
-	flags, err := e.flagsOf(d.Job)
+	id := jobOfKey(d.Job)
+	flags, err := e.flagsOf(id)
 	if err != nil {
 		return err
 	}
@@ -571,7 +594,7 @@ func (e *Engine) remindOne(set model.Set, d Disturbance, now time.Time) error {
 		return nil
 	}
 
-	sub := subjectOf(set, d.Job, d.Name)
+	sub := subjectOf(set, id, d.Name)
 	changed := false
 	for i, rule := range rulesOf(set, sub.job) {
 		last, spoke := d.Sent[i]

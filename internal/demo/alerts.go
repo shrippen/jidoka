@@ -10,6 +10,7 @@ import (
 	"jidoka/internal/db"
 	"jidoka/internal/model"
 	"jidoka/internal/repos"
+	"jidoka/internal/services/alerts"
 )
 
 const defaultProfile = "standard"
@@ -33,6 +34,11 @@ func seedAlerts(q db.Queryer, d data, set model.Set, runs map[string][]model.Run
 func buildAlert(def alertDef, set model.Set, runs []model.Run, now time.Time) (repos.Alert, error) {
 	ev := model.Event(def.Event)
 	a := repos.Alert{Job: def.Job, Event: ev, Name: def.Job, Streak: 1, Sent: map[int]time.Time{}}
+
+	// A broken file is trouble of its own, apart from the job's runs.
+	if ev == model.EvInvalid {
+		a.Job = alerts.FileKey(def.Job)
+	}
 
 	job := set.Jobs[def.Job]
 	if job != nil && job.Name != "" {

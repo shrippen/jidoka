@@ -303,7 +303,7 @@ func (a *app) start() error {
 	a.reportInvalid(set)
 
 	// What broke before the stop and works now: close it, as a reload does.
-	logErr("alert reload", a.alerts.Reloaded(alerts.Reload{Fixed: fixed(set)}))
+	logErr("alert reload", a.alerts.Reloaded(alerts.Reload{Fixed: fixed(set), Known: known(set)}))
 
 	return nil
 }
@@ -317,7 +317,7 @@ func (a *app) reloaded(d jobs.Diff, set model.Set) {
 	// Also with an empty diff: a repaired jidoka.toml changes no job but
 	// ends its disturbance. The engine sends "jobs changed" only when
 	// jobs changed.
-	r := alerts.Reload{Added: d.Added, Changed: d.Changed, Removed: d.Removed, Fixed: fixed(set)}
+	r := alerts.Reload{Added: d.Added, Changed: d.Changed, Removed: d.Removed, Fixed: fixed(set), Known: known(set)}
 	logErr("alert reload", a.alerts.Reloaded(r))
 }
 
@@ -333,6 +333,21 @@ func fixed(set model.Set) []string {
 	}
 	if set.RepoErr == nil {
 		ids = append(ids, alerts.KeyRepo)
+	}
+	return ids
+}
+
+// known lists the job ids the engine may keep trouble for: loaded jobs and
+// jobs with a load error. Trouble of any other id belongs to a removed job.
+func known(set model.Set) []string {
+	ids := make([]string, 0, len(set.Jobs))
+	for id := range set.Jobs {
+		ids = append(ids, id)
+	}
+	for _, le := range set.Invalid {
+		if le.Job != "" {
+			ids = append(ids, le.Job)
+		}
 	}
 	return ids
 }

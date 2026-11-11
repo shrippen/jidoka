@@ -93,6 +93,7 @@ board:
   channel_since: "Seit {since}; Meldungen warten, bis er wieder geht"
   watch: Wächter
   expect: "erwartet je {every}"
+  grace: "Karenz {grace}"
   no_schedule: kein Zeitplan
   acked: bestätigt, keine Erinnerung
   muted: stumm
@@ -268,6 +269,7 @@ job:
   settings: Einstellung
   schedule: Zeitplan
   expect: Erwartet
+  grace: Karenz
   timeout: Timeout
   retries: Wiederholen
   jitter: Streuung

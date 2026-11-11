@@ -11,6 +11,7 @@ import (
 	"jidoka/internal/repos"
 	"jidoka/internal/services/alerts"
 	"jidoka/internal/services/jobs"
+	"jidoka/internal/services/watch"
 )
 
 // Reason says why a job is disturbed, for the API (I1, I2).
@@ -73,8 +74,10 @@ type Tile struct {
 	LastOK *Tick
 	// Next is the next planned slot; for a watch the time its window ends.
 	Next time.Time
-	// Due is when the watch window ends (W1): last success or first sight
-	// plus expect. Past Due without an ok run, the job is missed.
+	// Due is when the watch window ends (W1, W2), as the alarm reckons it
+	// (watch.Due): from the last success, first sight or resume, plus
+	// expect or period, or the slot left open plus grace for a schedule.
+	// Past Due without an ok run, the job is missed.
 	Due time.Time
 	// Ticks are the last runs, oldest first: the strip reads left to right.
 	Ticks []Tick
@@ -437,11 +440,11 @@ func (t *Tile) fillWhen(s *Service, d *data, recent []model.Run, missed time.Tim
 	}
 
 	if job.Expect > 0 {
-		base := d.sched[job.ID].FirstSeen
-		if t.LastOK != nil && t.LastOK.End.After(base) {
-			base = t.LastOK.End
+		var lastOK time.Time
+		if t.LastOK != nil {
+			lastOK = t.LastOK.End
 		}
-		t.Due = base.Add(job.Expect)
+		t.Due = s.due(job, d.sched[job.ID].FirstSeen, lastOK)
 	}
 
 	if s.d.Plan != nil && job.Kind == model.KindJob {
@@ -480,4 +483,13 @@ func sortTiles(tiles []Tile) {
 		}
 		return a.Job.ID < b.Job.ID
 	})
+}
+
+// due asks the watch, so board and alarm share one base (resume included).
+func (s *Service) due(job *model.Job, firstSeen, lastOK time.Time) time.Time {
+	if s.d.Watch == nil {
+		base, kind := watch.BaseOf(firstSeen, lastOK)
+		return watch.Deadline(job, base, kind)
+	}
+	return s.d.Watch.Due(job, firstSeen, lastOK)
 }

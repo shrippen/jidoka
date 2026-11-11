@@ -223,6 +223,111 @@ func TestWatchSchedule(t *testing.T) {
 	}
 }
 
+// weeklyWatch has an uneven schedule: Expect (as conf sets it) is the longest
+// gap plus grace, yet a single missed slot must be reported at its own grace.
+func weeklyWatch() *model.Job {
+	return &model.Job{ID: "w", Kind: model.KindWatch, Enabled: true, Zone: time.UTC,
+		Schedule: "0 3 * * 4,5", Grace: 2 * time.Hour, Expect: 6*24*time.Hour + 2*time.Hour}
+}
+
+func TestWatchScheduleMissedSlot(t *testing.T) {
+	e := newEnv(t, weeklyWatch())
+
+	thu := time.Date(2026, 11, 12, 3, 10, 0, 0, time.UTC)
+	fri := time.Date(2026, 11, 13, 0, 0, 0, 0, time.UTC)
+	addOK(t, e.d, "w", thu)
+
+	e.tick(fri.Add(4*time.Hour + 30*time.Minute)) // slot 03:00, grace until 05:00
+	if len(e.events()) != 0 {
+		t.Fatal("missed inside the grace")
+	}
+	e.tick(fri.Add(5*time.Hour + 30*time.Minute))
+	ev := e.events()
+	if len(ev) != 1 || !ev[0].since.Equal(fri.Add(5*time.Hour)) {
+		t.Fatalf("events = %+v", ev)
+	}
+}
+
+func TestWatchScheduleNewWatch(t *testing.T) {
+	e := newEnv(t, weeklyWatch())
+
+	// Loaded Wed 10:00, no ping yet: the first slot is Thu 03:00.
+	e.tick(time.Date(2026, 11, 11, 20, 0, 0, 0, time.UTC))
+	e.tick(time.Date(2026, 11, 12, 4, 0, 0, 0, time.UTC))
+	if len(e.events()) != 0 {
+		t.Fatalf("missed before the first slot ran out: %+v", e.events())
+	}
+	e.tick(time.Date(2026, 11, 12, 5, 0, 0, 0, time.UTC))
+	if len(e.events()) != 1 {
+		t.Fatalf("events = %+v", e.events())
+	}
+}
+
+func TestDeadlineEarlyPing(t *testing.T) {
+	job := &model.Job{Kind: model.KindWatch, Zone: time.UTC, Schedule: "0 3 * * *",
+		Grace: 2 * time.Hour, Expect: 26 * time.Hour}
+	day := func(d, h, m int) time.Time { return time.Date(2026, 11, d, h, m, 0, 0, time.UTC) }
+
+	for _, c := range []struct {
+		name       string
+		ping, want time.Time
+	}{
+		{"after the slot", day(12, 3, 10), day(13, 5, 0)},
+		{"just before the slot", day(12, 2, 59), day(13, 5, 0)},
+		{"within grace before", day(12, 1, 30), day(13, 5, 0)},
+		{"long before", day(12, 0, 30), day(12, 5, 0)},
+	} {
+		if got := Deadline(job, c.ping, BaseOK); !got.Equal(c.want) {
+			t.Errorf("%s: Deadline = %v, want %v", c.name, got, c.want)
+		}
+	}
+}
+
+// A grace longer than the gap between slots must not delay the alarm: a
+// ping answers its own slot, not every slot within the grace after it.
+func TestDeadlineGraceOverGap(t *testing.T) {
+	at := func(h, m int) time.Time { return time.Date(2026, 11, 12, h, m, 0, 0, time.UTC) }
+	for _, c := range []struct {
+		name, sched string
+		grace       time.Duration
+		ping, want  time.Time
+	}{
+		{"hourly, ping at the slot", "0 * * * *", 2 * time.Hour, at(10, 0), at(13, 0)},
+		{"every 5 min, ping at the slot", "*/5 * * * *", time.Hour, at(10, 0), at(11, 5)},
+		{"hourly, ping just before", "0 * * * *", 2 * time.Hour, at(9, 58), at(13, 0)},
+	} {
+		job := &model.Job{Kind: model.KindWatch, Zone: time.UTC, Schedule: c.sched, Grace: c.grace, Expect: time.Hour}
+		if got := Deadline(job, c.ping, BaseOK); !got.Equal(c.want) {
+			t.Errorf("%s: Deadline = %v, want %v", c.name, got, c.want)
+		}
+	}
+}
+
+// First sight or a resume is no ping: it answers no slot, so the next
+// slot is due even if it comes soon.
+func TestDueAfterFirstSight(t *testing.T) {
+	job := &model.Job{ID: "w", Kind: model.KindWatch, Zone: time.UTC, Schedule: "0 3 * * *",
+		Grace: 2 * time.Hour, Expect: 26 * time.Hour}
+	w := New(Config{})
+
+	seen := time.Date(2026, 11, 12, 2, 59, 0, 0, time.UTC)
+	want := time.Date(2026, 11, 12, 5, 0, 0, 0, time.UTC)
+	if got := w.Due(job, seen, time.Time{}); !got.Equal(want) {
+		t.Errorf("first seen 02:59: Due = %v, want %v", got, want)
+	}
+}
+
+func TestWatchScheduleEarlyPing(t *testing.T) {
+	e := newEnv(t, &model.Job{ID: "w", Kind: model.KindWatch, Enabled: true, Zone: time.UTC,
+		Schedule: "0 3 * * *", Grace: 2 * time.Hour, Expect: 26 * time.Hour})
+
+	addOK(t, e.d, "w", time.Date(2026, 11, 12, 2, 59, 0, 0, time.UTC))
+	e.tick(time.Date(2026, 11, 12, 5, 30, 0, 0, time.UTC))
+	if len(e.events()) != 0 {
+		t.Fatalf("false alarm after an early ping: %+v", e.events())
+	}
+}
+
 func useKey(t *testing.T) {
 	t.Helper()
 	crypto.Init([]byte("0123456789abcdef0123456789abcdef"))

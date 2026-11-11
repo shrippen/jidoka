@@ -204,8 +204,10 @@ func (c jobCtx) checkRun(dir, run string) {
 // buildWatch validates a watch.toml.
 //
 // Expect (one field for the watcher, W1/W2) is the longest time allowed
-// without a ping: period + grace, or for a schedule the longest gap
-// between its next watchSlots slots + grace.
+// without a ping: period + grace. For a schedule it is the longest gap
+// between its next watchSlots slots + grace, but only a switch that makes
+// the watch count as watched: the deadline comes from the schedule
+// (watch.Deadline) and the pages show schedule and grace.
 func (c jobCtx) buildWatch(j *model.Job, raw rawWatch) {
 	is := c.is
 	j.Kind = model.KindWatch

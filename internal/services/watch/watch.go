@@ -31,7 +31,6 @@ import (
 )
 
 const (
-	checkEvery = 5 * time.Second
 	// graceExtra is added to timeout and jitter after a start, so J10
 	// catchup runs before anything is called missed.
 	graceExtra = 5 * time.Minute

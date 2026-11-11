@@ -24,9 +24,11 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -tags release -trim
 # JIDOKA_UID_BASE (no /etc/passwd entry needed), and switches to it per
 # run; the binary carries CAP_SETUID/SETGID (switch user), CAP_KILL (end
 # the job's process group) and CAP_CHOWN (hand folders to the job's uid).
-# tini reaps orphans of detached children (J4).
+# tini reaps orphans of detached children (J4). coreutils-env: busybox env
+# knows no -S, which the start line of a uv script needs
+# (#!/usr/bin/env -S uv run --script).
 FROM alpine:3.24
-RUN apk add --no-cache tini su-exec libcap git bash curl jq python3 uv tzdata ca-certificates \
+RUN apk add --no-cache tini su-exec libcap git bash curl jq python3 uv tzdata ca-certificates coreutils-env \
  && addgroup -S -g 10001 jidoka && adduser -S -u 10001 -G jidoka -h /app jidoka \
  && mkdir -p /data /jobs && chown jidoka:jidoka /data
 ENV DATA_DIR=/data JOBS_DIR=/jobs JIDOKA_SHIM=/usr/local/bin/jidoka-shim JIDOKA_UID_BASE=20000 UV_PYTHON_DOWNLOADS=never

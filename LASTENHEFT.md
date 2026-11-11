@@ -1,7 +1,7 @@
 # Lastenheft Jidoka
 
 Stand: 11.11.2026, Entwurf, überarbeitet nach Review (Fable-Agent).
-Mit *Annahme* markierte Punkte warten auf Bestätigung (Abschnitt 10).
+Entscheidungen des Eigentümers: Abschnitt 9.
 
 ## 1. Zweck
 
@@ -57,10 +57,10 @@ Priorität: **M** muss, **S** soll, **K** kann.
 
 | Nr. | Prio | Anforderung |
 |---|---|---|
-| J1 | M | Jobs sind Ordner unter `/jobs` (Bind-Mount, nur lesen) aus dem Git-Repo `jidoka-jobs` auf Gitea. Jidoka liest sie beim Start und beim Neuladen (J20). |
+| J1 | M | Jobs sind Ordner eines privaten Git-Repos auf Gitea (`jidoka-jobs`). Jidoka holt es selbst, beim Start und bei jedem Neuladen (J20): Adresse, Branch und Zugangs-Token kommen als Umgebungsvariablen (`JOBS_REPO`, `JOBS_BRANCH`, `JOBS_REPO_TOKEN`). Ohne `JOBS_REPO` liest Jidoka einen eingebundenen Ordner `/jobs` (Entwicklung). |
 | J2 | M | Ein fehlerhafter Job verhindert weder Start noch Neuladen. Er wird `ungültig`, mit Fehlertext auf der Seite und Meldung (`invalid`). Eine ältere gültige Fassung läuft nicht weiter, damit Laufzeit und Neustart gleich ausgehen. |
 | J3 | M | Zeitplan als Cron-Ausdruck (5 Felder) in der Zone des Jobs, Standard `Europe/Berlin`. Sommerzeit: Ein Termin in der fehlenden Stunde (02:30 im März) läuft um 03:00; in der doppelten Stunde im Oktober läuft er nur beim ersten Mal. Die Zonendaten liegen im Binary. |
-| J4 | M | Erfolg heißt Exit-Code 0, alles andere `fehler`. Beim Timeout (Standard 10 min) bekommt die Prozessgruppe SIGTERM, nach 10 s SIGKILL; Zustand `zeitüberschreitung`. Ein Init-Prozess im Container sammelt verwaiste Prozesse ein. |
+| J4 | M | Erfolg heißt Exit-Code 0, alles andere `fehler`. Beim Timeout (Standard 10 min) bekommt die Prozessgruppe SIGTERM, nach 10 s SIGKILL; Zustand `zeitüberschreitung`. Ein Shim je Lauf ist Subreaper und beendet auch Kinder, die sich lösen (`setsid`, Double-Fork); ein Init-Prozess im Container sammelt Zombies ein. |
 | J5 | M | Ein Job läuft nie zweimal gleichzeitig. Fällt ein Termin in einen laufenden Lauf, wird er als `entfallen` vermerkt. |
 | J6 | M | Ausgabe (stdout und stderr, zeitlich verschränkt) wird je Lauf gespeichert, gekürzt auf 256 KB (Anfang und Ende bleiben). |
 | J7 | M | Geheimnisse liegen verschlüsselt in Jidokas Datenbank (Z7) und werden auf der Seite „Geheimnisse“ gesetzt (O11). Ein Job nennt in `job.toml` die Namen, die er braucht (`secrets = ["DAVIS_PASSWORD"]`); nur diese bekommt er als Umgebungsvariablen. Fehlt ein genanntes Geheimnis, scheitert der Lauf mit klarer Meldung, ohne das Skript zu starten. Werte ab 6 Zeichen werden in Ausgabe, Seite, API und Meldung durch `***` ersetzt, auch in Base64- und URL-Kodierung. Das ist Schadensbegrenzung, keine Sicherheitsgrenze. |
@@ -72,14 +72,14 @@ Priorität: **M** muss, **S** soll, **K** kann.
 | J13 | S | Wiederholung nach Fehler (`retries`, `retry_delay`). Ein Termin mit allen Wiederholungen zählt als **ein** Ergebnis; gemeldet wird nach dem letzten Versuch. |
 | J14 | S | `jitter`: zufällige Verzögerung bis zur angegebenen Dauer, damit Jobs fremde Server nicht immer zur selben Sekunde treffen. |
 | J15 | S | `lock`: Jobs mit gleichem Lock laufen nie gleichzeitig (z. B. zwei Jobs, die in Davis schreiben). |
-| J16 | S | `args` und `[env]`: Argumente und Umgebungsvariablen ohne Geheimnis. Die Umgebung des Jobs ist bereinigt: nur `PATH`, `HOME`, `TZ`, `LANG`, `[env]`, die genannten Geheimnisse und die `JIDOKA_*`-Variablen. Jidoka setzt `JIDOKA_JOB`, `JIDOKA_RUN`, `JIDOKA_TRIGGER` (Zeitplan, Hand, Nachholen, Wiederholung, Probelauf), `JIDOKA_LAST_OK`, `JIDOKA_STATE`, `JIDOKA_SUMMARY`, `JIDOKA_NOTIFY`. |
+| J16 | S | `args` und `[env]`: Argumente und Umgebungsvariablen ohne Geheimnis. Die Umgebung des Jobs ist bereinigt: nur `PATH`, `HOME`, `TZ`, `LANG`, `TMPDIR` (J22), die Variablen der Laufzeit für `uv` (J11), `[env]`, die genannten Geheimnisse und die `JIDOKA_*`-Variablen. Jidoka setzt `JIDOKA_JOB`, `JIDOKA_RUN`, `JIDOKA_TRIGGER` (Zeitplan, Hand, Nachholen, Wiederholung, Probelauf), `JIDOKA_LAST_OK`, `JIDOKA_STATE`, `JIDOKA_SUMMARY`, `JIDOKA_NOTIFY`. |
 | J17 | S | `description`, `link`, `tags`: Beschreibung und Ziel-Link auf der Job-Seite, Filter nach Tags auf der Tafel. |
 | J18 | S | `keep` je Job: Aufbewahrung abweichend vom Standard. |
 | J19 | S | `enabled = false`: Job bleibt sichtbar als `deaktiviert`, läuft nicht, sein Wächter ruht. |
 | J20 | M | Neuladen zur Laufzeit, ohne Neustart: Knopf „Jobs neu laden“ und `POST /api/v1/reload` (Token mit Recht `reload`). Jidoka liest alle Jobs, prüft sie und tauscht erst dann aus; laufende Läufe enden mit der alten Fassung. Das Ergebnis steht auf der Seite: neu, geändert, entfernt, ungültig, dazu der Commit aus `/jobs/.git/HEAD`. Ein Neuladen, das Jobs ändert, löst eine Meldung aus (Auslöser `reload`). |
 | J21 | M | Ein entfernter Job verschwindet von der Tafel; seine Läufe bleiben bis zum Ende der Aufbewahrung unter „Entfernt“ lesbar. Pause, Bestätigen und Stummschalten hängen an der Id und gelten wieder, wenn der Job zurückkommt. |
 | J22 | M | Zustandsordner je Job (`$JIDOKA_STATE` unter `/data/state/<id>`), bleibt über Läufe erhalten, z. B. für ETag oder Inhalts-Hash. Dazu ein leeres `$TMPDIR` je Lauf, danach gelöscht. |
-| J23 | M | Absturz und Stopp: Bei SIGTERM an den Container beendet Jidoka laufende Jobs wie J4 und vermerkt `abgebrochen`. Läufe, die beim Start noch `läuft` heißen, werden `abgebrochen`. Beides meldet keinen Fehler; J10 holt nach. |
+| J23 | M | Absturz und Stopp: Bei SIGTERM an den Container beendet Jidoka laufende Jobs wie J4 und vermerkt `abgebrochen`. Läufe, die beim Start noch `läuft` heißen, werden `abgebrochen`. Beides meldet keinen Fehler. Bei `catchup = true` wird ein so abgebrochener Termin nach dem Start einmal nachgeholt (wie J10). |
 | J24 | S | Probelauf per Knopf: Lauf mit `JIDOKA_TRIGGER=dry`; das Skript soll dann nur zeigen, was es täte. Probeläufe zählen nicht für Zustand und Wächter. |
 
 Beispiel `job.toml` (alle Felder außer `run` und `schedule` sind
@@ -139,7 +139,7 @@ quiet = "22:00-07:00"     # Ruhezeit in dieser Zone
 heartbeat = "5m"          # eigener Herzschlag an Uptime Kuma (URL als Geheimnis)
 
 [channels.apprise]
-url  = "http://apprise-eredin:8000/notify/jidoka"
+url  = "http://apprise-eredin:8000/notify"   # Schlüssel: Geheimnis APPRISE_KEY
 tags = { handy = "handy", desktop = "kde" }   # apprise:handy → Apprise-Tag "handy"
 
 [channels.mail]
@@ -148,7 +148,7 @@ from = "jidoka@arianw.de"
 to   = ["arian@…"]
 
 [[profiles.standard]]
-on = ["fail", "timeout", "missed", "invalid"]
+on = ["fail", "timeout", "missed", "invalid", "reload"]
 channels = ["apprise", "mail"]
 remind = "24h"
 
@@ -177,12 +177,12 @@ channels = ["mail"]
 | M1 | M | Kanäle Apprise (Apprise-API auf eredin) und E-Mail (SMTP auf eredin), eingestellt in `/jobs/jidoka.toml`, Passwörter und Schlüssel als Geheimnisse (Z5). Apprise-Tags als Unterkanäle (`apprise:handy`), Mail mit eigenen Empfängern je Regel (`to`). |
 | M2 | M | Auslöser: `fail`, `timeout`, `missed`, `recover` (erster Erfolg nach Störung), `success`, `invalid` (Job nicht geladen), `reload` (Jobs geändert), `change` (Skript hat in `$JIDOKA_NOTIFY` geschrieben). **S:** `start`, `slow` (Lauf länger als `slow`). |
 | M3 | M | Regeln je Job (`[[notify]]`): Auslöser, Kanäle, `after` (ab dem wievielten **Termin** in Folge mit Störung; Wiederholungen nach J13 zählen nicht extra), `remind` (oder `"never"`), `urgent` (durchbricht die Ruhezeit), `tail`. Der Apprise-Typ folgt aus dem Auslöser: Störung `failure`, `missed` `warning`, `recover`/`success` `success`, sonst `info`. Ohne Regeln gilt das Profil `standard`. |
-| M4 | M | Profile in `jidoka.toml`: benannte Regelsätze, die Jobs mit `notify_profile` übernehmen. Regeln im Job ersetzen das Profil ganz, mischen nicht. |
+| M4 | M | Profile in `jidoka.toml`: benannte Regelsätze, die Jobs mit `notify_profile` übernehmen. Regeln im Job ersetzen das Profil ganz, mischen nicht. Ereignisse ohne lesbare Job-Regeln (`reload`, `invalid` eines Jobs, dessen `job.toml` nicht lädt, eine kaputte `jidoka.toml`) folgen immer dem Profil `standard` (bei kaputter `jidoka.toml` dem der letzten gültigen Fassung, B8). |
 | M5 | M | Keine Flut: Bei anhaltender Störung nur die erste Meldung, dann Erinnerungen nach `remind`. Ein Neustart wiederholt keine Meldung, die schon gesendet ist. |
 | M6 | M | Ruhezeit (`quiet`) global in der Zone von `jidoka.toml`, je Job überschreibbar. Meldungen warten bis zum Ende und gehen dann gebündelt raus, mit dem Endstand: Störung und Erholung in derselben Ruhezeit ergeben eine Meldung „gestört 02:15, erholt 03:15“. `urgent` gilt sofort. |
-| M7 | S | Sammelmeldung (`digest = "daily 08:00"` oder `"weekly Mon 08:00"`) nur für `success`, `recover`, `change` und `reload`. Störungen gehen immer einzeln und sofort (Ruhezeit ausgenommen). |
+| M7 | S | Sammelmeldung (`digest = "daily 08:00"` oder `"weekly Mon 08:00"`) nur für gute Nachrichten: `success`, `recover`, `change` und `reload`. Störungen gehen immer einzeln und sofort (Ruhezeit ausgenommen). |
 | M8 | M | Inhalt: Job, Zustand, Zeit mit Zone, Dauer, Zusammenfassung, letzte Zeilen der Ausgabe (`tail`, Standard 20, `0` = keine), Link zum Lauf. Mail optional mit ganzer Ausgabe als Anhang (`attach_output = true`). |
-| M9 | M | Versand wird bis zu 3-mal in 15 min wiederholt. Danach gilt der Kanal als gestört: Fehler oben auf der Seite, und Meldungen mit diesem Kanal gehen über den anderen. Regeln mit nur einem Kanal nutzen ebenfalls den anderen. Scheitern beide, bleibt die Meldung in `/data` und geht beim nächsten erfolgreichen Versand mit raus. |
+| M9 | M | Versand wird bis zu 3-mal in 15 min wiederholt. Danach gilt der Kanal als gestört: Fehler oben auf der Seite, und Meldungen mit diesem Kanal gehen über den anderen. Regeln mit nur einem Kanal nutzen ebenfalls den anderen. Scheitern beide, bleibt die Meldung in `/data`; sie wird alle 15 min neu versucht und geht spätestens mit dem nächsten erfolgreichen Versand raus. Ein gestörter Kanal wird alle 5 min erneut probiert und gilt nach dem ersten Erfolg wieder als gesund. |
 | M10 | S | In der Oberfläche, ohne das Repo zu ändern: Störung **bestätigen** (keine Erinnerungen mehr, bis der Job sich erholt) und **stummschalten** (1 h, 1 Tag, bis Erholung). Beides steht sichtbar an Kachel und Job und überlebt den Neustart. |
 | M11 | S | Testmeldung je Kanal und je Regel per Knopf; die Job-Seite zeigt die wirksamen Regeln (aus Job oder Profil). |
 
@@ -196,29 +196,31 @@ channels = ["mail"]
 | O4 | M | **Lauf-Seite**: Zustand, Exit-Code, Dauer, Auslöser, Ausgabe, gesendete Meldungen. |
 | O5 | M | Gestaltung aus Kante, dunkel und hell, auch am Telefon. Texte deutsch und englisch über Kataloge wie in Andon. |
 | O6 | M | Uhrzeiten mit Zone, wo der Browser abweicht (`tzMark` wie in Andon). |
-| O7 | M | Die Oberfläche bearbeitet keine Jobs. Quelle bleibt der Ordner. Nur Pause, Bestätigen, Stummschalten, Ping-Token und Geheimnisse entstehen in der Oberfläche; sie liegen in `/data`. |
+| O7 | M | Die Oberfläche bearbeitet keine Jobs. Quelle bleibt das Repo. Nur Pause, Bestätigen, Stummschalten, Ping-Token, API-Token und Geheimnisse entstehen in der Oberfläche; sie liegen in `/data`. |
 | O8 | S | Seite **Kanäle**: Zustand der Kanäle, letzter Versand, Profile, Ruhezeit, letzte Meldungen, Testknopf. |
 | O9 | M | Ladefehler (ungültige Jobs, fehlerhafte `jidoka.toml`) stehen sichtbar oben, mit Datei und Zeile. |
 | O11 | M | Seite **Geheimnisse**: Name, welche Jobs ihn nennen, zuletzt geändert; Setzen, Ersetzen, Löschen. Werte sind nur schreibbar, nie wieder sichtbar. Genannte, aber fehlende Geheimnisse und ungenutzte stehen oben. Jede Änderung steht im Protokoll (wer, wann, welcher Name, nie der Wert). |
+| O12 | M | Seite **Zugang**: API-Token anlegen (einmal angezeigt), Rechte, zuletzt genutzt, löschen (Z2). |
+| O13 | S | Zeitpläne in Worten („täglich 06:00“, „alle 5 min“), der Cron-Ausdruck im Tooltip. Texte der Ladefehler übersetzt. |
 | O10 | M | Demo-Modus mit Beispieljobs für Screenshots und QA, nach der Regel `demo-screenshots`; nie in der Auslieferung. |
 
 ### 4.5 Zugang und Sicherheit
 
 | Nr. | Prio | Anforderung |
 |---|---|---|
-| Z1 | M | Nur über die Webseite. Anmeldung über Authentik (OIDC) wie Andon. Zugelassen ist nur das eine Konto (`sub` oder Gruppe in der Konfiguration); jedes andere Authentik-Konto wird abgewiesen. |
+| Z1 | M | Nur über die Webseite. Anmeldung über Authentik (OIDC) wie Andon. Wer zugreifen darf, entscheidet Authentik (Richtlinie der Anwendung); Jidoka prüft keine Konten oder Gruppen. Optional schränken `OIDC_ALLOW_SUB` oder `OIDC_ALLOW_GROUP` zusätzlich ein. |
 | Z2 | M | API nur mit Token. Token entstehen auf der Seite „Zugang“, werden einmal angezeigt und gehasht in `/data` gespeichert. Rechte je Token: `read`, `run`, `reload`. Andon bekommt `read` (später `run`), Komodo nur `reload`. |
-| Z3 | M | Jobs laufen unter einer eigenen UID, nicht der des Servers, ohne Docker-Socket. Die Datenbank, `MASTER_KEY` und die Umgebung des Servers sind für sie nicht lesbar; jeder Job bekommt nur seine genannten Geheimnisse (J7) und seinen Zustandsordner (J22). |
-| Z4 | M | Schreibende Aktionen der Oberfläche (Starten, Pausieren, Abbrechen, Bestätigen, Stummschalten, Neuladen) mit CSRF-Schutz und nur per POST. |
+| Z3 | M | Jeder Job läuft unter einer eigenen UID, nicht der des Servers und nicht der eines anderen Jobs, ohne Docker-Socket. Die Datenbank, `MASTER_KEY` und die Umgebung des Servers sind für sie nicht lesbar; jeder Job bekommt nur seine genannten Geheimnisse (J7) und seinen Zustandsordner (J22). |
+| Z4 | M | Jede schreibende Aktion der Oberfläche mit CSRF-Schutz und nur per POST: Starten, Probelauf, Pausieren, Abbrechen, Bestätigen, Stummschalten, Neuladen, Testmeldung, Ping-Token erneuern, API-Token anlegen und löschen, Geheimnisse setzen und löschen. |
 | Z5 | M | Geheimnisse von Jidoka selbst (SMTP-Passwort, Apprise-Schlüssel, Andon-Hook-URL, Herzschlag-URL) liegen wie die der Jobs verschlüsselt in der Datenbank. Nur was vor der ersten Anmeldung nötig ist, kommt als Umgebungsvariable von Komodo: `MASTER_KEY` und das OIDC-Client-Secret. Nie in `jidoka.toml`, Log, Seite oder API. |
-| Z7 | M | Verschlüsselung wie in Andon (`internal/crypto`, übernommen nach I10): Schlüssel = Argon2id(`MASTER_KEY`, Salt in `/data`), Werte in Spalten `*_enc`. `MASTER_KEY` liefert Komodo als Secret aus; eine Kopie liegt in Vaultwarden. Ohne ihn startet Jidoka, aber Jobs mit Geheimnissen scheitern mit klarer Meldung. `jidoka rotate-key` verschlüsselt alle Werte mit einem neuen Schlüssel. |
+| Z7 | M | Verschlüsselung wie in Andon (`internal/crypto`, übernommen nach I10): Schlüssel = Argon2id(`MASTER_KEY`, Salt in `/data`), Werte in Spalten `*_enc`. `MASTER_KEY` liefert Komodo als Secret aus; eine Kopie liegt in Vaultwarden. Ohne ihn startet Jidoka, aber Jobs mit Geheimnissen scheitern mit klarer Meldung, und die Seite zeigt oben, dass der Schlüssel fehlt. Meldungen gehen dann nur über Kanäle, die kein Geheimnis brauchen; Jidokas eigener Herzschlag (B7) fehlt, sein Ausbleiben meldet Uptime Kuma. `jidoka rotate-key` verschlüsselt alle Werte mit einem neuen Schlüssel. |
 | Z6 | M | Das Jobs-Repo ist Codeausführung: Wer nach `jidoka-jobs` pushen kann, führt Code auf ploetze mit Netz und Job-Geheimnissen aus. Schreibrecht hat nur der Eigentümer; jedes Neuladen mit Änderungen meldet sich (J20). |
 
 ### 4.6 Integration mit Andon
 
 | Nr. | Prio | Anforderung |
 |---|---|---|
-| I1 | M | Jidoka-API, Zeiten in RFC 3339 (UTC), Listen mit `limit`/`before`: `GET /api/v1/status` (Version, Commit der Jobs, letztes Neuladen, Zahl ungültiger Jobs, Zustand der Kanäle, letzter Takt des Planers), `GET /api/v1/jobs` (Jobs **und** Wächter: Zustand, Grund, letzter und nächster Lauf, Zusammenfassung, Ende der letzten Ausgabe, URL der Job-Seite), `GET /api/v1/jobs/{id}/runs`, `GET /api/v1/runs/{id}`. Ohne Geheimnisse. |
+| I1 | M | Jidoka-API, Zeiten in RFC 3339 (UTC), Listen mit `limit`/`before`: `GET /api/v1/status` (Version, Commit der Jobs, letztes Neuladen, Zahl ungültiger Jobs, Zustand der Kanäle, letzter Takt des Planers), `GET /api/v1/jobs` (Jobs **und** Wächter: Zustand, Grund, letzter und nächster Lauf, die letzten 16 Läufe, Zusammenfassung, Ende der letzten Ausgabe, Tags, Zeitplan, URL der Job-Seite; dazu der Stand wie `/status`, damit Andon eine Anfrage je Abruf braucht), `GET /api/v1/jobs/{id}/runs`, `GET /api/v1/runs/{id}`. Ohne Geheimnisse. |
 | I2 | M | Andon: Heartbeats als gemeinsame **Form mit Schnittstelle** (`Heartbeat`, `HeartbeatSource`), bereichsweit gelesen und vereinigt wie die Sicherungen, nicht als `caps.Members`-Kategorie (dort zählt nur das erste Mitglied). Healthchecks und Jidoka liefern beide. Die Form bekommt einen Grund (`gescheitert`, `ausgeblieben`), Zusammenfassung und Link. |
 | I3 | M | Umbau in Andon als eigener PR **vor** der Jidoka-Quelle: `heartbeat.down`, `cross.heartbeat_backup`, die Kachel `heartbeats`, `metrics/ops` und `services/hosts` lesen die Form statt `HealthchecksDataset`. Danach nehmen externe Wächter (W2) von selbst am Abgleich mit Borg teil. |
 | I4 | M | Andon-Quelle `jidoka`: Fähigkeiten in `caps`, Demo-Daten. Hinweise: `heartbeat.down` mit Grund deckt gescheitert und ausgeblieben; eigene Jidoka-Regeln nur für `ungültig` und gestörte Kanäle; „Jidoka nicht erreichbar“ wie bei jeder Verbindung. |
@@ -234,11 +236,11 @@ channels = ["mail"]
 | Nr. | Prio | Anforderung |
 |---|---|---|
 | B1 | M | Ein Container, Image `ghcr.io/shrippen/jidoka`, gebaut von der CI auf dem GitHub-Spiegel wie bei Andon. Betrieb auf **ploetze** neben Andon; Compose in `docker-compose-ploetze/jidoka/`, ausgeliefert von Komodo. |
-| B2 | M | Volumes: `/jobs` (nur lesen), `/data` (SQLite mit Geheimnissen, Zustand, Python-Pakete, Token, Salt). Ein Port. Umgebung von Komodo: `MASTER_KEY`, OIDC-Client-Secret. |
+| B2 | M | Volumes: `/data` (SQLite mit Geheimnissen, Zustand, Python-Pakete, Token, Salt). Ein Port. Umgebung von Komodo: `MASTER_KEY`, OIDC-Client-Secret, `JOBS_REPO_TOKEN`; dazu `BASE_URL` (Adresse von Jidoka, z. B. `https://jidoka.intern.arianw.de`), `JOBS_REPO`, `JOBS_BRANCH`. |
 | B3 | M | Zeit in UTC gespeichert. |
 | B4 | S | Leerlauf unter 30 MB RAM. Höchstens 2 Läufe gleichzeitig (einstellbar). Weitere Termine warten in einer Schlange; die Wartezeit zählt nicht zum Timeout. Wer länger wartet als sein Abstand zum nächsten Termin, entfällt (J5). |
 | B5 | M | `/healthz` antwortet nur 200, wenn der Planer in der letzten Minute getaktet hat und die Datenbank schreibbar ist. |
-| B6 | S | Komodo checkt `jidoka-jobs` auf ploetze aus (Repo-Ressource). Nach einem Push zieht Komodo das Repo und ruft `POST /api/v1/reload` auf. *Annahme: Komodo kann nach dem Pull einen HTTP-Aufruf mit Token absetzen; sonst Beobachten des Ordners mit 10 s Entprellung.* |
+| B6 | S | Nach einem Push nach `jidoka-jobs` ruft Komodo (oder ein Gitea-Webhook) `POST /api/v1/reload` mit einem Token (Recht `reload`) auf; Jidoka holt das Repo dann selbst (J1). |
 | B7 | M | Ausfall von Jidoka oder ploetze fällt außerhalb auf: Jidoka sendet alle 5 min einen Herzschlag an einen Push-Monitor in Uptime Kuma (eredin); Komodo (eredin) überwacht den Container. |
 | B8 | M | Fehlerhafte `jidoka.toml`: Beim Start und beim Neuladen bleibt die letzte gültige Fassung (in `/data`) in Kraft; der Fehler steht oben (O9) und geht über die alten Kanäle raus. Ohne jede gültige Fassung startet Jidoka ohne Kanäle und zeigt das. |
 | B9 | M | `/data` wird mit dem vorhandenen Borgmatic von ploetze gesichert, samt Salt. Ohne `MASTER_KEY` ist die Sicherung für Geheimnisse wertlos, darum liegt er in Komodo und Vaultwarden. Ein Verlust von `/data` kostet Verlauf, Pause, Stummschaltung, Token und Geheimnisse; danach kann je Störung eine Meldung doppelt kommen. |
@@ -318,7 +320,7 @@ Jeder Fall ist ein automatischer Test (Go) oder ein Schritt in `QA.md`.
 
 ## 9. Entscheidungen
 
-- Anmeldung über Authentik, ein Benutzer (11.11.2026).
+- Anmeldung über Authentik; wer zugreifen darf, regelt Authentik, Jidoka prüft das nicht (11.11.2026, ersetzt „ein Benutzer“).
 - `/jobs` kommt aus einem eigenen Git-Repo `jidoka-jobs` (11.11.2026).
 - Externe Wächter mit Ping-URL sind gewollt (11.11.2026).
 - Jobs in Python mit `uv` und sh/bash (11.11.2026).
@@ -326,7 +328,7 @@ Jeder Fall ist ein automatischer Test (Go) oder ein Schritt in `QA.md`.
   Ruhezeit, Sammelmeldung, Bestätigen und Stummschalten (11.11.2026).
 - Jobs zur Laufzeit neu laden, ohne Neustart des Containers (11.11.2026).
 - Apprise und SMTP auf eredin reichen als Meldewege (11.11.2026).
-- Sammelmeldungen nur für Erfolg und Erholung, Störungen immer sofort
+- Sammelmeldungen nur für gute Nachrichten (Erfolg, Erholung, Änderung, Neuladen), Störungen immer sofort
   (11.11.2026).
 - Jidoka läuft auf ploetze neben Andon; ein Ausfall fällt über Uptime
   Kuma und Komodo auf eredin auf (11.11.2026).
@@ -335,6 +337,15 @@ Jeder Fall ist ein automatischer Test (Go) oder ein Schritt in `QA.md`.
   über Komodo; Jobs nennen ihre Geheimnisse (11.11.2026).
 - Review-Vorschläge mit M und S übernommen, K-Vorschläge als K
   (11.11.2026).
+- Jidoka holt das private Jobs-Repo selbst mit Token; Repo, Branch und
+  Adresse von Jidoka (`https://jidoka.intern.arianw.de`) sind per
+  Umgebung einstellbar. Komodo ruft nach einem Push das Neuladen auf
+  (11.11.2026).
+- Sprache der Meldungen per `locale` in `jidoka.toml`; Ladefehler
+  übersetzt; Zeitpläne in Worten (11.11.2026).
+- Andon liest Jidoka mit einer Anfrage je Abruf (11.11.2026).
+- Erster Job schreibt nach `http://cal.arianw.de/dav/calendars/shinki/Lehrgaenge`,
+  mit Link zur Ausschreibung, wo es einen gibt (11.11.2026).
 
 ## 10. Offene Fragen
 

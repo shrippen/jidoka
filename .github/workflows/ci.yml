@@ -56,6 +56,9 @@ jobs:
           go build -tags release -o jidoka-release ./cmd/jidoka
           scripts/release-check.sh jidoka-release
       - run: CGO_ENABLED=1 go test -race ./...
+      # The image: a probe job runs as the jobs user and must not reach
+      # the database or the server (Z3).
+      - run: scripts/image-test.sh
 
   # Also runs when test failed or was cancelled, so Gitea never keeps a
   # stale "pending".

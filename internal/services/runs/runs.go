@@ -46,6 +46,8 @@ const (
 	notifyName  = "notify"
 
 	dirMode = 0o755
+	// passMode: others may enter, not list (state/, tmp/).
+	passMode = 0o711
 
 	msgNoMasterKey = "MASTER_KEY fehlt"
 )
@@ -277,6 +279,17 @@ func (s *Service) resolve(job *model.Job) (map[string]string, string) {
 func (s *Service) prepare(job *model.Job, run *model.Run) (string, error) {
 	data := s.cfg.DataDir
 	tmp := filepath.Join(data, "tmp", "run-"+strconv.FormatInt(run.ID, 10))
+
+	// The jobs user passes through state/ and tmp/ to its own folder but
+	// lists nothing; set the mode, the umask (077 in the image) cuts it.
+	for _, d := range []string{filepath.Join(data, "state"), filepath.Join(data, "tmp")} {
+		if err := os.MkdirAll(d, passMode); err != nil {
+			return "", err
+		}
+		if err := os.Chmod(d, passMode); err != nil {
+			return "", err
+		}
+	}
 
 	for _, d := range []string{s.stateDir(job), filepath.Join(data, "home"), tmp} {
 		if err := os.MkdirAll(d, dirMode); err != nil {

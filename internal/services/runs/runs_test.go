@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -321,5 +322,30 @@ func TestRecover(t *testing.T) {
 	}
 	if r, _ := repos.GetRun(e.d, id); r.State != model.RunAborted {
 		t.Errorf("state %s", r.State)
+	}
+}
+
+// The jobs user must pass through state/ and tmp/ to its own folders,
+// also after Recover cleared tmp/ and under the image's umask 077 (Z3).
+func TestParentsTraversable(t *testing.T) {
+	old := syscall.Umask(0o077)
+	t.Cleanup(func() { syscall.Umask(old) })
+
+	e := setup(t)
+	if err := e.svc.Recover(); err != nil {
+		t.Fatal(err)
+	}
+	if r := e.exec(job(t, "exit 0\n"), model.TrigManual); r.State != model.RunOK {
+		t.Fatalf("run: %s %s", r.State, r.Error)
+	}
+
+	for _, d := range []string{"state", "tmp"} {
+		fi, err := os.Stat(filepath.Join(e.data, d))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if fi.Mode().Perm()&0o011 != 0o011 {
+			t.Errorf("%s: mode %o, others cannot pass", d, fi.Mode().Perm())
+		}
 	}
 }

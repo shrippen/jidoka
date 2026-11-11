@@ -1,0 +1,26 @@
+zone  = "Europe/Berlin"
+quiet = "22:00-07:00"
+heartbeat = "5m"
+
+[channels.apprise]
+url  = "http://apprise-eredin:8000/notify/jidoka"
+tags = { handy = "handy", desktop = "kde" }
+
+[channels.mail]
+smtp = "smtp.eredin:587"
+from = "jidoka@arianw.de"
+to   = ["arian@example.org"]
+
+[[profiles.standard]]
+on = ["fail", "timeout", "missed", "invalid"]
+channels = ["apprise", "mail"]
+remind = "24h"
+
+[[profiles.standard]]
+on = ["recover"]
+channels = ["apprise"]
+
+[[profiles.leise]]
+on = ["fail", "missed"]
+after = 3
+channels = ["mail"]

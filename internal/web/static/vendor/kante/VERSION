@@ -1,0 +1,5 @@
+Kante 1.80
+source: https://github.com/shrippen/Kante
+branch: main
+commit: bd409a7141655bb86a699383505ad4668b474ded
+files: tokens.css base.css components.css shrippen.js fonts/OFL.txt fonts/*.woff2 (Latin subsets, see tools/sync-design.sh)

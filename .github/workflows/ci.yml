@@ -1,0 +1,138 @@
+# Public mirror: Gitea pushes every branch and tag here on each commit.
+# This runs the checks and reports them back to the commit on Gitea as
+# the status "github / test", where the pull requests live. main and
+# tags also publish the image to ghcr.io. There are no pull requests on
+# GitHub, so everything runs on push. Copied from Andon (468474a).
+#
+# Needs the secret GITEA_TOKEN: a Gitea token with write access to the
+# repository (commit statuses).
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+
+# No concurrency group: every commit runs to the end and keeps its own
+# status, a newer push does not cancel an older run.
+
+permissions:
+  contents: read
+
+env:
+  GITEA_STATUS: https://git.arianw.de/api/v1/repos/shrippen/jidoka/statuses/${{ github.sha }}
+  RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+jobs:
+  test:
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    outputs:
+      started: ${{ steps.start.outputs.t }}
+    steps:
+      # A missing status is no reason to fail the checks.
+      - id: start
+        name: Report pending to Gitea
+        run: |
+          echo "t=$(date +%s)" >> "$GITHUB_OUTPUT"
+          curl -fsS -X POST "$GITEA_STATUS" \
+            -H "Authorization: token $GITEA_TOKEN" -H "Content-Type: application/json" \
+            -d "{\"state\":\"pending\",\"context\":\"github / test\",\"description\":\"running\",\"target_url\":\"$RUN_URL\"}" \
+            || echo "::warning::Gitea status not reported"
+        env:
+          GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: "1.26"
+          check-latest: true
+      - run: gofmt -l . | (! grep .)
+      - run: go vet ./...
+      - run: go vet -tags release ./...
+      - run: go run honnef.co/go/tools/cmd/staticcheck@2026.2.1 ./...
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
+      - run: go build -tags release ./...
+      - run: |
+          go build -tags release -o jidoka-release ./cmd/jidoka
+          scripts/release-check.sh jidoka-release
+      - run: CGO_ENABLED=1 go test -race ./...
+      # The image: a probe job runs as the jobs user and must not reach
+      # the database or the server (Z3).
+      - run: scripts/image-test.sh
+
+  # Also runs when test failed or was cancelled, so Gitea never keeps a
+  # stale "pending".
+  report:
+    needs: test
+    if: always()
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report result to Gitea
+        run: |
+          case "$RESULT" in
+            success) state=success ;;
+            failure) state=failure ;;
+            *) state=error ;;
+          esac
+          desc=$RESULT
+          if [ -n "$STARTED" ]; then desc="$RESULT in $(( ($(date +%s) - STARTED) / 60 )) min"; fi
+          curl -fsS -X POST "$GITEA_STATUS" \
+            -H "Authorization: token $GITEA_TOKEN" -H "Content-Type: application/json" \
+            -d "{\"state\":\"$state\",\"context\":\"github / test\",\"description\":\"$desc\",\"target_url\":\"$RUN_URL\"}"
+        env:
+          RESULT: ${{ needs.test.result }}
+          STARTED: ${{ needs.test.outputs.started }}
+          GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
+
+  image:
+    needs: test
+    timeout-minutes: 30
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write # keyless cosign signature
+    steps:
+      # Full history and tags for scripts/version.sh.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - id: version
+        run: echo "version=$(scripts/version.sh)" >> "$GITHUB_OUTPUT"
+        env:
+          BRANCH: ${{ github.ref_name }}
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # main → edge; tag v1.2.3 → latest, 1.2.3, 1.2 (pre-releases never latest).
+      - id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/jidoka
+          flavor: latest=false
+          tags: |
+            type=raw,value=edge,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-') }}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+      - id: build
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: VERSION=${{ steps.version.outputs.version }}
+          sbom: true
+          provenance: mode=max
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
+      - run: cosign sign --yes ghcr.io/${{ github.repository_owner }}/jidoka@${{ steps.build.outputs.digest }}

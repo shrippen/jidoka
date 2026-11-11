@@ -1,0 +1,5 @@
+name   = "Borg-Sicherung"
+tags   = ["backup"]
+period = "24h"
+grace  = "2h"
+notify_profile = "leise"

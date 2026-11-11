@@ -1,0 +1,41 @@
+name        = "Shinkiryu-Lehrgänge → Kalender"
+description = "Lehrgänge von shinkiryu.de in den Davis-Kalender Aikido"
+link        = "https://davis.arianw.de/calendars/aikido"
+tags        = ["aikido", "kalender"]
+run         = "main.py"
+args        = ["--kalender", "aikido"]
+schedule    = "0 6 * * *"
+zone        = "Europe/Berlin"
+jitter      = "5m"
+timeout     = "5m"
+slow        = "2m"
+retries     = 2
+retry_delay = "10m"
+catchup     = true
+lock        = "davis"
+expect      = "26h"
+keep        = "365d"
+quiet       = "22:00-07:00"
+
+secrets     = ["DAVIS_USER", "DAVIS_PASSWORD"]
+
+[env]
+DAVIS_URL = "https://davis.arianw.de/dav/"
+
+[[notify]]
+on       = ["fail", "timeout", "missed"]
+after    = 2
+channels = ["apprise:handy", "mail"]
+remind   = "24h"
+urgent   = true
+
+[[notify]]
+on       = ["change"]
+channels = ["apprise:handy"]
+
+[[notify]]
+on       = ["recover", "success"]
+channels = ["mail"]
+to       = ["arian@example.org"]
+digest   = "weekly Mon 08:00"
+tail     = 0

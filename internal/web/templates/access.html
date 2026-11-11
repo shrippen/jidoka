@@ -1,0 +1,65 @@
+{{define "title"}}{{t "nav.access"}}{{end}}
+{{define "main"}}
+<main>
+  <div class="page-head"><h1>{{t "nav.access"}}</h1></div>
+  <p class="muted">{{t "access.lead"}}</p>
+
+  {{if .Data.NewToken}}
+  <section class="callout" aria-label="{{t "access.new_title"}}">
+    <p><b>{{t "access.new_title" "name" .Data.NewName}}</b></p>
+    <p class="small">{{t "access.new_once"}}</p>
+    <div class="cmd-row is-plain">
+      <div class="cmd-box">{{.Data.NewToken}}</div>
+      <button class="copy-btn" type="button" title="{{t "action.copy"}}" aria-label="{{t "action.copy"}}">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+      </button>
+    </div>
+  </section>
+  {{end}}
+
+  <h2>{{t "access.tokens"}} <span class="small muted">{{t "access.count" "count" (len .Data.Tokens)}}</span></h2>
+  {{if .Data.Tokens}}
+  <div class="table-wrap"><table class="table cards-sm">
+    <thead><tr>
+      <th>{{t "access.name"}}</th><th>{{t "access.rights"}}</th><th>{{t "access.created"}}</th><th>{{t "access.last_used"}}</th><th></th>
+    </tr></thead>
+    <tbody>
+    {{range .Data.Tokens}}
+      <tr>
+        <td data-label="{{t "access.name"}}">{{.Name}}</td>
+        <td data-label="{{t "access.rights"}}">{{range .Rights}}<span class="pill">{{t (print "access.right_" .)}}</span> {{end}}</td>
+        <td data-label="{{t "access.created"}}">{{stamp .Created}}{{tzMark}}</td>
+        <td data-label="{{t "access.last_used"}}">{{if .LastUsed}}{{stamp .LastUsed}}{{tzMark}}{{else}}{{t "access.never"}}{{end}}</td>
+        <td>
+          <form method="post" action="/access/tokens/{{.ID}}/delete">
+            <input type="hidden" name="csrf" value="{{$.CSRF}}">
+            <button class="btn btn-danger btn-sm" type="submit">{{t "action.delete"}}</button>
+          </form>
+        </td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table></div>
+  {{else}}
+  <p class="muted">{{t "access.none"}}</p>
+  {{end}}
+
+  <h2>{{t "access.create"}}</h2>
+  <form class="form" method="post" action="/access/tokens">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    {{if and .Data.Error (not .Data.NewToken)}}<p class="error" role="alert">{{t .Data.Error}}</p>{{end}}
+    <div class="field">
+      <label for="token-name">{{t "access.name"}}</label>
+      <input class="input" id="token-name" name="name" maxlength="80" required value="{{if not .Data.NewToken}}{{.Data.NewName}}{{end}}">
+      <span class="field-hint">{{t "access.name_hint"}}</span>
+    </div>
+    <fieldset class="field">
+      <legend class="field-label">{{t "access.rights"}}</legend>
+      {{range .Data.Rights}}
+      <label class="check"><input type="checkbox" name="right" value="{{.}}"><span class="check-box"><svg viewBox="0 0 14 14" aria-hidden="true"><path d="M2.5 7.5l3 3 6-6.5"/></svg></span> {{t (print "access.right_" .)}} <span class="field-hint">{{t (print "access.right_hint_" .)}}</span></label>
+      {{end}}
+    </fieldset>
+    <button class="btn btn-accent" type="submit">{{t "access.create_submit"}}</button>
+  </form>
+</main>
+{{end}}

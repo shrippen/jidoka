@@ -1,0 +1,440 @@
+nav:
+  main: Hauptnavigation
+  board: Tafel
+  plan: Fahrplan
+  channels: Kanäle
+  secrets: Geheimnisse
+  access: Zugang
+  andon: Andon
+  logout: Abmelden
+  crumbs: Brotkrumen
+
+action:
+  copy: Kopieren
+  delete: Löschen
+  run_now: Jetzt ausführen
+  output: Ausgabe
+  dry: Probelauf
+  pause: Pausieren
+  resume: Fortsetzen
+  ack: Störung bestätigen
+  mute: "Stumm:"
+  mute_hour: 1 h
+  mute_day: 1 Tag
+  mute_recover: bis Erholung
+  unmute: Stumm aufheben
+  cancel: Lauf abbrechen
+
+login:
+  title: Anmelden
+  with_authentik: Mit authentik anmelden
+  dev: Dev-Anmeldung
+  dev_off: Die Dev-Anmeldung ist aus.
+
+oidc:
+  disabled: Die Anmeldung ist nicht eingerichtet.
+  unreachable: authentik ist nicht erreichbar.
+  denied: Die Anmeldung wurde abgebrochen.
+  state: Die Anmeldung ist abgelaufen oder gehört zu einem anderen Browser. Bitte noch einmal anmelden.
+  failed: Die Anmeldung bei authentik ist fehlgeschlagen.
+  refused: Dieses Konto ist nicht zugelassen.
+
+session:
+  none: Nicht angemeldet.
+
+token:
+  unknown: Unbekanntes Token.
+  forbidden: Dem Token fehlt das Recht.
+
+error:
+  home: Zur Tafel
+  not_found: Diese Seite gibt es nicht.
+  forbidden: Kein Zugriff.
+  csrf: Die Anfrage gehört nicht zu dieser Sitzung. Seite neu laden und noch einmal versuchen.
+  bad_request: Die Anfrage ist unvollständig.
+  internal: Das hat nicht geklappt. Details stehen im Log.
+  busy: Der Job läuft oder wartet schon.
+  disabled: Der Job ist deaktiviert.
+  not_running: Dieser Lauf läuft nicht mehr.
+  no_key: MASTER_KEY fehlt. Ohne ihn lässt sich nichts speichern.
+  secret_name: Der Name muss mit einem Großbuchstaben beginnen und nur A-Z, 0-9 und _ enthalten.
+  secret_empty: Der Wert fehlt.
+  unavailable: Dieser Teil von Jidoka ist gerade nicht verfügbar.
+
+alert:
+  file_fixed_failing: "Datei wieder gültig, letzter Lauf fehlgeschlagen"
+  file_fixed: "Datei wieder gültig"
+
+board:
+  loaded: Jobs geladen
+  commit: Commit
+  not_loaded: Noch keine Jobs geladen.
+  reload: Jobs neu laden
+  count_bad: Fehler
+  count_missed: ausgeblieben
+  count_running: laufen
+  count_ok: ok
+  count_idle: ruht
+  filter: Filter
+  filter_all: Alle
+  filter_attn: Braucht dich
+  filter_jobs: Jobs
+  filter_watches: Wächter
+  filter_tags: Tags
+  nothing: Nichts in diesem Filter.
+  invalid_job: "Job nicht geladen: {job}"
+  invalid_settings: jidoka.toml nicht geladen, die letzte gültige Fassung gilt
+  invalid_repo: Jobs-Repo nicht geholt, der zuletzt geholte Stand gilt
+  invalid_repo_hint: JOBS_REPO, JOBS_REPO_TOKEN und die Erreichbarkeit von Gitea prüfen; das nächste Neuladen versucht es erneut.
+  invalid_hint: Datei im Jobs-Repo korrigieren; nach dem Push lädt Komodo die Jobs neu, oder hier „Jobs neu laden“.
+  channel_down: "Kanal {channel} ist gestört"
+  channel_since: "Seit {since}; Meldungen warten, bis er wieder geht"
+  watch: Wächter
+  expect: "erwartet je {every}"
+  no_schedule: kein Zeitplan
+  acked: bestätigt, keine Erinnerung
+  muted: stumm
+  no_ping: "Kein Ping seit {age}"
+  paused_by: "Pausiert von {who}"
+  disabled: Deaktiviert in der Job-Datei
+  never: Noch kein Lauf
+  due_since: "fällig seit {due}"
+  since: "seit {since}, {count} Läufe in Folge"
+  since_singular: "seit {since}, {count} Lauf"
+  last: zuletzt
+  next: nächster
+  due: fällig
+  overdue: überfällig
+  legend: Legende der Striche
+  legend_lead: "Striche: letzte Läufe, neu rechts"
+  legend_miss: ausgeblieben
+  empty_title: Keine Jobs
+  empty: Im Jobs-Ordner liegt noch kein gültiger Job.
+  removed: Entfernt
+  removed_hint: Jobs, die nicht mehr im Ordner liegen. Ihre Läufe bleiben, bis die Aufbewahrungszeit endet.
+  removed_job: Job
+  removed_runs: Läufe
+
+access:
+  lead: Die Programmierschnittstelle kennt nur Token. Jedes Token hat Rechte; sein Wert erscheint genau einmal.
+  tokens: Token
+  count: "{count} Tokens"
+  count_singular: "{count} Token"
+  none: Noch kein Token.
+  name: Name
+  name_hint: Wofür das Token ist, etwa „Andon“ oder „Komodo“.
+  name_needed: Der Name fehlt oder ist zu lang.
+  rights: Rechte
+  rights_needed: Mindestens ein Recht wählen.
+  right_read: Lesen
+  right_run: Starten
+  right_reload: Neu laden
+  right_hint_read: Jobs und Läufe abfragen
+  right_hint_run: Jobs starten
+  right_hint_reload: Jobs aus dem Ordner neu laden
+  created: Angelegt
+  last_used: Zuletzt benutzt
+  never: nie
+  create: Neues Token
+  create_submit: Token anlegen
+  new_title: "Token „{name}“ angelegt"
+  new_once: Kopiere den Wert jetzt. Er wird nicht noch einmal angezeigt.
+
+channel:
+  apprise: Apprise
+  mail: Mail
+
+diff:
+  added: "{count} neu"
+  changed: "{count} geändert"
+  removed: "{count} entfernt"
+  invalid: "{count} ungültig"
+  none: keine Änderung
+
+time:
+  yesterday: gestern
+  tomorrow: morgen
+
+unit:
+  ms: ms
+  s: s
+  min: min
+  h: h
+
+strip:
+  label: Verlauf der letzten Läufe
+  miss: "ausgeblieben: erwartet bis {until}"
+
+state:
+  ok: ok
+  fail: Fehler
+  timeout: Zeitüberschreitung
+  missed: ausgeblieben
+  running: läuft
+  paused: pausiert
+  disabled: deaktiviert
+  never: neu
+  invalid: ungültig
+
+run:
+  ok: ok
+  fail: Fehler
+  timeout: Zeitüberschreitung
+  running: läuft
+  aborted: abgebrochen
+  skipped: übersprungen
+  title: "Lauf #{id}"
+  older: älter
+  newer: neuer
+  output: Ausgabe
+  no_output: Keine Ausgabe.
+  redacted: Werte von Geheimnissen erscheinen als ***.
+  facts: Angaben
+  start: Start
+  length: Dauer
+  exit: Exit-Code
+  trigger: Ausgelöst
+  attempt: Versuch
+  summary: Zusammenfassung
+  error: Fehler
+  commit: Commit
+  state: Zustand
+  deliveries: Meldungen
+  no_deliveries: Keine Meldung zu diesem Lauf.
+
+trigger:
+  schedule: Zeitplan
+  manual: von Hand
+  catchup: Nachholen
+  retry: Wiederholung
+  dry: Probelauf
+  ping: Ping
+
+event:
+  fail: Fehler
+  timeout: Zeitüberschreitung
+  missed: Ausbleiben
+  recover: Erholung
+  success: Erfolg
+  invalid: ungültig
+  reload: Neuladen
+  change: Änderung
+  start: Start
+  slow: zu langsam
+  test: Test
+
+rule:
+  at_once: sofort
+  after: "ab dem {n}. Fehler in Folge"
+  remind: "Erinnerung je {every}"
+  digest: "gesammelt: {when}"
+  urgent: hoch, durchbricht die Ruhezeit
+  attach: ganze Ausgabe als Anhang
+
+plan:
+  day: Tag
+  yesterday: Gestern
+  today: Heute
+  tomorrow: Morgen
+  legend: Legende des Fahrplans
+  planned: geplant
+  overdue: überfällig
+  overdue_tip: "überfällig seit {since}"
+  dense_tip: "geplant, dicht, ab {from}"
+  paused: pausiert
+  removed: entfernt
+  now: "jetzt {time}"
+  axis: "Uhrzeit ({zone}) · {day}"
+  aria: Läufe je Job über den Tag
+  hint: Darüberfahren zeigt Zeit, Dauer und Ergebnis; Klick auf eine Marke öffnet den Lauf, auf einen Namen den Job.
+  empty_title: Keine Jobs
+  empty: Im Jobs-Ordner liegt noch kein gültiger Job.
+
+job:
+  removed: entfernt
+  removed_hint: Der Job liegt nicht mehr im Ordner. Seine Läufe bleiben, bis die Aufbewahrungszeit endet.
+  until: bis
+  length: Dauer je Lauf
+  gap: Abstand zwischen Pings
+  gap_tip: "{gap} seit dem Ping davor"
+  legend: Farben der Balken
+  runs_axis: Läufe →
+  runs: Läufe
+  no_runs: Noch kein Lauf.
+  older: Ältere
+  newest: Neueste
+  settings: Einstellung
+  schedule: Zeitplan
+  expect: Erwartet
+  timeout: Timeout
+  retries: Wiederholen
+  jitter: Streuung
+  up_to: bis
+  lock: Sperre
+  slow: Zu langsam ab
+  link: Ziel
+  tags: Tags
+  none: keine
+  manage: verwalten
+  file: Datei
+  edit_hint: Ändern im Jobs-Repo, nicht hier.
+  rules: Meldungen
+  rules_job: "aus {file}"
+  rules_profile: "Profil „{profile}“ aus jidoka.toml"
+  no_rules: "Keine Regel, dieser Job meldet nichts."
+  test_rule: Testmeldung für diese Regel
+  ping: Ping-Adresse
+  ping_hint: "Erfolg: POST …/ping/<token>, Start: …/start, Fehler: …/fail (Text im Body wird zur Ausgabe)."
+  renew: Adresse erneuern
+
+channels:
+  lead: Eingestellt in jidoka.toml; Passwörter und Schlüssel stehen unter Geheimnisse.
+  off: nicht eingerichtet
+  up: erreichbar
+  down: "gestört seit {since}"
+  last: Zuletzt gesendet
+  days30: 30 Tage
+  counts: "{ok} gesendet, {failed} fehlgeschlagen"
+  subs: Unterkanäle (Tags)
+  test: Testmeldung senden
+  sent: gesendet
+  failed: fehlgeschlagen
+  profiles: Profile und Ruhezeit
+  quiet: "Ruhezeit {from}–{to}: Meldungen warten und gehen danach gebündelt raus; Priorität „hoch“ sofort."
+  no_quiet: Keine Ruhezeit eingestellt.
+  no_profiles: Keine Profile in jidoka.toml.
+  recent: Letzte Meldungen
+  no_recent: Noch keine Meldung gesendet.
+  time: Zeit
+  job: Job
+  event: Anlass
+  channel: Kanal
+  result: Ergebnis
+  outbox: Wartende Meldungen
+  no_outbox: Nichts wartet.
+  outbox_hint: Diese Meldungen sind noch nicht gesendet (Ruhezeit, Sammelmeldung oder Kanal gestört).
+  due: Fällig
+  attempts: Versuche
+
+secrets:
+  lead: Verschlüsselt mit einem Schlüssel aus MASTER_KEY. Werte lassen sich setzen und ersetzen, aber nie wieder anzeigen. Jobs bekommen nur, was sie in job.toml unter secrets nennen.
+  missing: "Fehlt: {name}"
+  missing_by: "Genannt von"
+  missing_own: "Gebraucht für {part}; ohne ihn geht dort nichts raus."
+  missing_short: fehlt
+  set: gesetzt
+  set_now: Jetzt setzen
+  new: Neues Geheimnis
+  name: Name
+  name_hint: Großbuchstaben, Ziffern und _, mit einem Buchstaben am Anfang.
+  value: Wert
+  save: Speichern
+  stored: Gespeichert
+  used_by: Genutzt von
+  changed: Geändert
+  replace: Ersetzen
+  unused: von keinem Job genannt
+  none: Noch kein Geheimnis.
+  audit: Protokoll
+  no_audit: Noch keine Änderung.
+  audit_hint: Das Protokoll nennt nie Werte.
+  action: Aktion
+  target: Name
+  actor: Wer
+  own_apprise: Kanal Apprise
+  own_mail: Kanal Mail
+  own_heartbeat: Herzschlag
+  own_andon: Andon
+
+audit:
+  ack: bestätigt
+  unmute: Stumm aufgehoben
+  mute-1h: stumm 1 h
+  mute-1d: stumm 1 Tag
+  mute-recover: stumm bis Erholung
+  reload: Jobs neu geladen
+  cancel: Lauf abgebrochen
+  renew-token: Ping-Adresse erneuert
+  set: gesetzt
+  replace: ersetzt
+  delete: gelöscht
+  rotate-key: Schlüssel gewechselt
+  pause: pausiert
+  resume: fortgesetzt
+  run: von Hand gestartet
+  dry: Probelauf gestartet
+
+conf:
+  syntax: "Syntaxfehler: {detail}"
+  type: "Falscher Typ: {detail}"
+  unknown_key: 'Unbekannter Schlüssel "{key}"'
+  io: "Datei nicht lesbar: {detail}"
+  other: "{detail}"
+  no_standard: "[[profiles.standard]] fehlt: Meldungen ohne eigene Regeln nutzen es"
+  repo: "Jobs-Repo konnte nicht geholt werden: {detail}"
+  folder: 'Ordnername "{name}" muss [a-z0-9-]+ entsprechen'
+  both_files: job.toml und watch.toml im selben Ordner
+  zone: 'Unbekannte Zeitzone "{zone}"'
+  locale: 'locale muss "de" oder "en" sein'
+  keep_positive: keep muss eine positive Dauer sein
+  min_one: "{key} muss mindestens 1 sein"
+  url: "{key} muss eine http(s)-Adresse sein"
+  url_required: url fehlt
+  smtp_required: smtp fehlt (Host:Port)
+  from_required: from fehlt
+  unknown_profile: 'Unbekanntes Profil "{profile}"'
+  positive: "{key} muss positiv sein"
+  schedule_invalid: "Ungültiger Zeitplan: {detail}"
+  schedule_required: schedule fehlt
+  retries_negative: retries darf nicht negativ sein
+  secret_name: 'Geheimnisname "{name}" muss [A-Z][A-Z0-9_]* entsprechen'
+  run_required: run fehlt
+  run_outside: 'run "{run}" muss im Job-Ordner bleiben'
+  run_missing: 'Datei "{run}" aus run nicht gefunden'
+  grace_required: grace fehlt
+  period_or_schedule: period oder schedule fehlt
+  period_and_schedule: period oder schedule setzen, nicht beides
+  on_required: "on: mindestens ein Ereignis nötig"
+  event_unknown: 'Unbekanntes Ereignis "{name}"'
+  channels_required: "channels: mindestens ein Kanal nötig"
+  after_negative: after darf nicht negativ sein
+  tail_negative: tail darf nicht negativ sein
+  digest_events: digest nur mit success, recover, change, reload erlaubt
+  remind_positive: 'remind muss positiv oder "never" sein'
+  duration: 'Ungültige Dauer "{text}" (5m, 26h, 365d)'
+  duration_negative: 'Dauer "{text}" ist negativ'
+  window: 'Ungültiges Zeitfenster "{text}" (HH:MM-HH:MM)'
+  window_empty: 'Zeitfenster "{text}" ist leer'
+  time: 'Ungültige Uhrzeit "{text}" (HH:MM)'
+  weekday: 'Ungültiger Wochentag "{day}" (Mon..Sun)'
+  digest: 'Ungültiger digest "{text}" ("daily HH:MM" oder "weekly Mon HH:MM")'
+  channel: 'Unbekannter Kanal "{channel}" (apprise, apprise:<Tag>, mail)'
+  tag_undefined: 'Apprise-Tag "{tag}" ist in jidoka.toml nicht definiert'
+
+cron:
+  field:
+    minute: Minute
+    hour: Stunde
+    dom: Tag des Monats
+    month: Monat
+    dow: Wochentag
+  fields: "{want} Felder nötig (Minute Stunde Tag Monat Wochentag), {got} gefunden"
+  step: '{field}: ungültige Schrittweite "{step}"'
+  backwards: '{field}: Bereich "{range}" läuft rückwärts'
+  value: '{field}: ungültiger Wert "{value}"'
+  range: "{field}: Wert {value} außerhalb von {min}-{max}"
+  every_min: jede Minute
+  every_n_min: alle {n} Minuten
+  hourly: stündlich um :{min}
+  daily: täglich um {times}
+  weekdays: werktags um {times}
+  weekly: wöchentlich {days} um {times}
+  monthly: monatlich am {day}. um {times}
+  dow:
+    '0': So
+    '1': Mo
+    '2': Di
+    '3': Mi
+    '4': Do
+    '5': Fr
+    '6': Sa

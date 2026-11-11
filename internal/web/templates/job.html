@@ -1,0 +1,178 @@
+{{/* One job or watch (O3). The page reads, the buttons post (routes_actions.go). */}}
+{{define "title"}}{{.Data.Tile.Job.Name}}{{end}}
+{{define "main"}}
+{{with .Data}}
+{{$id := .Tile.Job.ID}}
+{{$watch := eq .Tile.Job.Kind "watch"}}
+<main>
+  <nav class="crumbs" aria-label="{{t "nav.crumbs"}}"><a href="/">{{t "nav.board"}}</a><span aria-current="page">{{.Tile.Job.Name}}</span></nav>
+
+  <div class="page-head head-line">
+    <h1>{{.Tile.Job.Name}}</h1>
+    {{if .Removed}}<span class="pill" data-state="off">{{t "job.removed"}}</span>{{else}}{{template "jobpill" .Tile.State}}{{end}}
+    {{if $watch}}<span class="chip">{{t "board.watch"}}</span>{{end}}
+  </div>
+  {{if .Tile.Job.Description}}<p class="muted">{{.Tile.Job.Description}}</p>{{end}}
+  {{if .Removed}}<p class="muted">{{t "job.removed_hint"}}</p>{{end}}
+
+  {{if .Tile.State.Broken}}
+  <section class="callout {{if eq .Tile.State "missed"}}callout-warn{{else}}callout-danger{{end}}" role="alert">
+    <p><strong>{{if eq .Tile.State "missed"}}{{t "board.no_ping" "age" (dur (quiet .Tile))}}{{else if eq .Tile.State "invalid"}}{{if .Tile.Load}}{{loadMsg .Tile.Load}}{{end}}{{else if .Tile.Summary}}{{.Tile.Summary}}{{else}}{{t (print "state." .Tile.State)}}{{end}}</strong></p>
+    {{if not .Tile.Since.IsZero}}<p class="mono small">{{if eq .Tile.State "missed"}}{{t "board.due_since" "due" (when .Tile.Since)}}{{else}}{{t "board.since" "since" (when .Tile.Since) "count" .Tile.Streak}}{{end}}{{tzMark}}</p>{{end}}
+    {{if .Tile.Load}}<p class="mono small">{{.Tile.Load.File}}{{if .Tile.Load.Line}}:{{.Tile.Load.Line}}{{end}}</p>{{end}}
+  </section>
+  {{end}}
+
+  {{if or .Removed (eq .Tile.State "invalid")}}{{else}}
+  <div class="btn-row job-actions">
+    {{if not $watch}}
+    <form method="post" action="/jobs/{{$id}}/run">{{template "csrf" $.CSRF}}
+      <button class="btn btn-accent btn-sm" type="submit"{{if or .Tile.Busy (eq .Tile.State "running")}} disabled{{end}}>{{t "action.run_now"}}</button></form>
+    <form method="post" action="/jobs/{{$id}}/dry">{{template "csrf" $.CSRF}}
+      <button class="btn btn-outline btn-sm" type="submit"{{if .Tile.Busy}} disabled{{end}}>{{t "action.dry"}}</button></form>
+    {{end}}
+    {{if .Tile.Paused}}
+    <form method="post" action="/jobs/{{$id}}/resume">{{template "csrf" $.CSRF}}<button class="btn btn-outline btn-sm" type="submit">{{t "action.resume"}}</button></form>
+    {{else}}
+    <form method="post" action="/jobs/{{$id}}/pause">{{template "csrf" $.CSRF}}<button class="btn btn-outline btn-sm" type="submit">{{t "action.pause"}}</button></form>
+    {{end}}
+    {{if and .Tile.State.Broken (not .Tile.Acked)}}
+    <form method="post" action="/jobs/{{$id}}/ack">{{template "csrf" $.CSRF}}<button class="btn btn-outline btn-sm" type="submit">{{t "action.ack"}}</button></form>
+    {{end}}
+    {{if .Tile.Muted}}
+    <form method="post" action="/jobs/{{$id}}/unmute">{{template "csrf" $.CSRF}}<button class="btn btn-outline btn-sm" type="submit">{{t "action.unmute"}}</button></form>
+    {{else}}
+    <span class="small muted">{{t "action.mute"}}</span>
+    <form method="post" action="/jobs/{{$id}}/mute">{{template "csrf" $.CSRF}}<input type="hidden" name="span" value="1h"><button class="btn btn-quiet btn-sm" type="submit">{{t "action.mute_hour"}}</button></form>
+    <form method="post" action="/jobs/{{$id}}/mute">{{template "csrf" $.CSRF}}<input type="hidden" name="span" value="1d"><button class="btn btn-quiet btn-sm" type="submit">{{t "action.mute_day"}}</button></form>
+    <form method="post" action="/jobs/{{$id}}/mute">{{template "csrf" $.CSRF}}<input type="hidden" name="span" value="recover"><button class="btn btn-quiet btn-sm" type="submit">{{t "action.mute_recover"}}</button></form>
+    {{end}}
+  </div>
+  {{if or .Tile.Acked .Tile.Muted}}
+  <p class="small muted">{{if .Tile.Acked}}✓ {{t "board.acked"}}{{end}}{{if and .Tile.Acked .Tile.Muted}} · {{end}}{{if .Tile.Muted}}{{t "board.muted"}}{{if .Tile.Flags.MutedUntil}} {{t "job.until"}} {{when .Tile.Flags.MutedUntil}}{{tzMark}}{{end}}{{end}}</p>
+  {{end}}
+  {{end}}
+
+  <div class="detail-body">
+    <div class="detail-main">
+      {{with durs .JobPage}}{{if .Bars}}
+      <section class="detail-block">
+        <div class="detail-label">
+          <h2 class="h-label">{{if .Watch}}{{t "job.gap"}}{{else}}{{t "job.length"}}{{end}}</h2>
+          <ul class="legend is-bars" aria-label="{{t "job.legend"}}">
+            <li><i data-state="ok"></i>{{t "run.ok"}}</li>
+            <li><i data-state="bad"></i>{{t "run.fail"}} / {{t "run.timeout"}}</li>
+            <li><i data-state="run"></i>{{t "run.running"}}</li>
+          </ul>
+        </div>
+        <div class="chart-frame">
+          <div class="chart-axis" aria-hidden="true"><span class="unit">{{.Unit}}</span>{{range .Axis}}<span>{{.}}</span>{{end}}</div>
+          <div class="chart-wrap" data-readout>
+            <svg class="chart" viewBox="0 0 {{.N}} {{.H}}" preserveAspectRatio="none" role="img" aria-label="{{if .Watch}}{{t "job.gap"}}{{else}}{{t "job.length"}}{{end}}">
+              <line class="grid" x1="0" x2="{{.N}}" y1="0" y2="0"/><line class="grid" x1="0" x2="{{.N}}" y1="50" y2="50"/><line class="grid" x1="0" x2="{{.N}}" y1="100" y2="100"/>
+              {{range .Bars}}<a href="{{.Href}}" data-tip="{{.Tip}}"><rect class="ev is-bar" data-state="{{.State}}" x="{{.X}}" y="{{.Y}}" width=".8" height="{{.H}}"/></a>{{end}}
+            </svg>
+            <div class="readout"></div>
+          </div>
+          <div class="detail-ticks"><span>{{.From}}{{tzMark}}</span><span>{{t "job.runs_axis"}}</span><span>{{.To}}{{tzMark}}</span></div>
+        </div>
+      </section>
+      {{end}}{{end}}
+
+      <section class="detail-block">
+        <h2 class="h-label">{{t "job.runs"}}</h2>
+        {{if .Runs}}
+        <div class="table-wrap"><table class="table cards-sm">
+          <thead><tr><th>#</th><th>{{t "run.start"}}</th><th>{{t "run.state"}}</th><th>{{t "run.length"}}</th><th>{{t "run.summary"}}</th></tr></thead>
+          <tbody>
+          {{range .Runs}}
+            <tr>
+              <td data-label="#"><a href="/runs/{{.ID}}">#{{.ID}}</a></td>
+              <td data-label="{{t "run.start"}}">{{when .Started}}{{tzMark}}</td>
+              <td data-label="{{t "run.state"}}">{{template "runpill" .State}}</td>
+              <td data-label="{{t "run.length"}}" class="num">{{dur (.Duration now)}}</td>
+              <td data-label="{{t "run.summary"}}">{{.Summary}}</td>
+            </tr>
+          {{end}}
+          </tbody>
+        </table></div>
+        <div class="btn-row">
+          {{if .Paged}}<a class="btn btn-outline btn-sm" href="/jobs/{{$id}}">{{t "job.newest"}}</a>{{end}}
+          {{if .NextBefore}}<a class="btn btn-outline btn-sm" href="/jobs/{{$id}}?before={{.NextBefore}}">{{t "job.older"}}</a>{{end}}
+        </div>
+        {{else}}
+        <p class="muted">{{t "job.no_runs"}}</p>
+        {{end}}
+      </section>
+    </div>
+
+    <aside class="detail-side is-end">
+      {{if not .Removed}}
+      <section>
+        <h2 class="h-label">{{t "job.settings"}}</h2>
+        <dl class="kv">
+          {{if $watch}}
+          <dt>{{t "job.expect"}}</dt><dd>{{dur .Tile.Job.Expect}}</dd>
+          {{if not .Tile.Due.IsZero}}<dt>{{t "board.due"}}</dt><dd>{{when .Tile.Due}}{{tzMark}}</dd>{{end}}
+          {{else}}
+          <dt>{{t "job.schedule"}}</dt><dd><span title="{{.Tile.Job.Schedule}}">{{words .Tile.Job.Schedule}}</span>{{if .Tile.Job.Zone}} · {{.Tile.Job.Zone}}{{end}}</dd>
+          <dt>{{t "board.next"}}</dt><dd>{{if .Tile.Paused}}{{t "state.paused"}}{{else if .Tile.Next.IsZero}}—{{else}}{{when .Tile.Next}}{{tzMark}}{{end}}</dd>
+          {{if .Tile.Job.Timeout}}<dt>{{t "job.timeout"}}</dt><dd>{{dur .Tile.Job.Timeout}}</dd>{{end}}
+          {{if .Tile.Job.Expect}}<dt>{{t "job.expect"}}</dt><dd>{{dur .Tile.Job.Expect}}</dd>{{end}}
+          {{if .Tile.Job.Retries}}<dt>{{t "job.retries"}}</dt><dd>{{.Tile.Job.Retries}} × {{dur .Tile.Job.RetryGap}}</dd>{{end}}
+          {{if .Tile.Job.Jitter}}<dt>{{t "job.jitter"}}</dt><dd>{{t "job.up_to"}} {{dur .Tile.Job.Jitter}}</dd>{{end}}
+          {{if .Tile.Job.Lock}}<dt>{{t "job.lock"}}</dt><dd>{{.Tile.Job.Lock}}</dd>{{end}}
+          {{if .Tile.Job.Slow}}<dt>{{t "job.slow"}}</dt><dd>{{dur .Tile.Job.Slow}}</dd>{{end}}
+          {{end}}
+          {{if .Tile.Job.Link}}<dt>{{t "job.link"}}</dt><dd><a href="{{.Tile.Job.Link}}" rel="noopener">{{.Tile.Job.Link}}</a></dd>{{end}}
+          {{if .Tile.Job.Tags}}<dt>{{t "job.tags"}}</dt><dd>{{join .Tile.Job.Tags ", "}}</dd>{{end}}
+          <dt>{{t "nav.secrets"}}</dt>
+          <dd>
+            {{range .Secrets}}<span class="mono">{{.Name}}</span> <span class="pill" data-state="{{if .Present}}ok{{else}}bad{{end}}">{{if .Present}}{{t "secrets.set"}}{{else}}{{t "secrets.missing_short"}}{{end}}</span><br>{{else}}{{t "job.none"}}{{end}}
+            <a href="/secrets">{{t "job.manage"}}</a>
+          </dd>
+          <dt>{{t "job.file"}}</dt><dd class="mono">{{.Tile.Job.File}}</dd>
+        </dl>
+        <p class="small muted">{{t "job.edit_hint"}}</p>
+      </section>
+
+      <section>
+        <h2 class="h-label">{{t "job.rules"}}</h2>
+        <p class="small muted">{{if eq .Rules.From "job"}}{{t "job.rules_job" "file" .Rules.File}}{{else}}{{t "job.rules_profile" "profile" .Rules.Profile}}{{end}}</p>
+        {{range $i, $r := .Rules.List}}
+        <div class="rule">
+          <div class="rule-events">{{range $r.On}}{{template "eventpill" .}}{{end}}</div>
+          <p class="mono small">→ {{join $r.Channels ", "}}{{if $r.To}} ({{join $r.To ", "}}){{end}}</p>
+          <p class="small muted">{{ruleText $r}}</p>
+          <form method="post" action="/jobs/{{$id}}/rules/{{$i}}/test">{{template "csrf" $.CSRF}}
+            <button class="btn btn-quiet btn-sm" type="submit">{{t "job.test_rule"}}</button></form>
+        </div>
+        {{else}}
+        <p class="muted">{{t "job.no_rules"}}</p>
+        {{end}}
+      </section>
+
+      {{if .Ping}}
+      <section>
+        <h2 class="h-label">{{t "job.ping"}}</h2>
+        {{if .Ping.NeedsKey}}
+        <p class="callout callout-warn">{{t "error.no_key"}}</p>
+        {{else}}
+        <div class="cmd-row is-plain">
+          <div class="cmd-box">{{.Ping.URL}}</div>
+          <button class="copy-btn" type="button" title="{{t "action.copy"}}" aria-label="{{t "action.copy"}}">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          </button>
+        </div>
+        <p class="small muted">{{t "job.ping_hint"}}</p>
+        <form method="post" action="/jobs/{{$id}}/renew-token">{{template "csrf" $.CSRF}}
+          <button class="btn btn-outline btn-sm" type="submit">{{t "job.renew"}}</button></form>
+        {{end}}
+      </section>
+      {{end}}
+      {{end}}
+    </aside>
+  </div>
+</main>
+{{end}}
+{{end}}

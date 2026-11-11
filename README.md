@@ -2,7 +2,7 @@
 
 Führt kleine Skripte nach Zeitplan aus, zeigt ihren Stand auf einer Seite
 und meldet über Apprise und E-Mail, wenn ein Lauf scheitert, gelingt oder
-ausbleibt. Geschwister von [Andon](https://git.arianw.de/shrippen/andon):
+ausbleibt. Geschwister von [Andon](https://github.com/shrippen/andon):
 Andon zeigt den Zustand, Jidoka hält an und meldet (自働化, Toyota-
 Produktionssystem). Jidoka meldet selbst und braucht Andon nicht; Andon
 liest Jidoka über eine API.
@@ -164,7 +164,7 @@ Geheimnis.
 
 | Name | Standard | Zweck |
 |---|---|---|
-| `MASTER_KEY` | – | Hauptschlüssel der Verschlüsselung (Argon2id mit dem Salt neben der Datenbank). Ohne ihn startet Jidoka mit einer Warnung; Jobs mit Geheimnissen scheitern, Kanäle mit Geheimnis (Apprise-Schlüssel, SMTP-Passwort), Herzschlag und Andon-Hook gehen nicht. Beim ersten Start mit Schlüssel entsteht der Salt. |
+| `MASTER_KEY` | – | Hauptschlüssel der Verschlüsselung (Argon2id mit dem Salt neben der Datenbank). Ohne ihn startet Jidoka mit einer Warnung; Jobs mit Geheimnissen scheitern, Kanäle mit Geheimnis (Apprise-Schlüssel, SMTP-Passwort), Herzschlag und Andon-Hook gehen nicht, neue Wächter bekommen keine Ping-Adresse. Beim ersten Start mit Schlüssel entsteht der Salt. |
 | `NEW_MASTER_KEY` | – | Nur für `jidoka rotate-key` (siehe [Schlüssel wechseln](#11-schlüssel-wechseln)). |
 | `DATA_DIR` | `/data` | Ordner für Datenbank, Salt, Checkout, Zustand. |
 | `LISTEN` | `:8080` | Adresse des Webservers. Auch `jidoka healthcheck` liest sie. |
@@ -318,7 +318,7 @@ max_parallel = 2                # gleichzeitige Läufe; Standard 2, mindestens 1
 keep      = "180d"              # Aufbewahrung der Läufe; Standard 180d
 keep_runs = 500                 # höchstens so viele Läufe je Job; Standard 500
 base_url  = "https://jidoka.intern.arianw.de"   # Links in Meldungen; BASE_URL gewinnt
-andon_url = "https://andon.intern.arianw.de"    # Link „Andon“ im Kopf der Seiten
+andon_url = "https://andon.example.org"         # Link „Andon“ im Kopf der Seiten
 
 [channels.apprise]
 url  = "http://apprise:8000/notify"             # Pflicht; der Schlüssel ist das Geheimnis APPRISE_KEY
@@ -524,7 +524,7 @@ Zeilen der Tabelle gewinnen:
 | `HOME` | `/data/home/<id>` |
 | `TZ` | Zone des Jobs |
 | `LANG` | `C.UTF-8` |
-| `TMPDIR` | `/data/tmp/run-<lauf>`, leer, danach gelöscht |
+| `UV_PYTHON_DOWNLOADS` | `never`: `uv` nimmt das Python des Images |
 | Einträge aus `[env]` | wie angegeben |
 | genannte Geheimnisse | je Name eine Variable |
 | `JIDOKA_JOB` | Id des Jobs |
@@ -534,6 +534,7 @@ Zeilen der Tabelle gewinnen:
 | `JIDOKA_STATE` | `/data/state/<id>`: bleibt über Läufe, z. B. für ETag oder Hash |
 | `JIDOKA_SUMMARY` | **Pfad** einer Datei: die erste Zeile (bis 200 Zeichen) wird die Zusammenfassung in Tafel und Meldung |
 | `JIDOKA_NOTIFY` | **Pfad** einer Datei: Text bis 4 KiB. Ist er nach einem erfolgreichen Lauf nicht leer, gilt der Auslöser `change` |
+| `TMPDIR` | `/data/tmp/run-<lauf>`, leer, danach gelöscht; nicht überschreibbar |
 
 `JIDOKA_SUMMARY` und `JIDOKA_NOTIFY` sind Dateipfade: Das Skript
 schreibt hinein (`echo … > "$JIDOKA_SUMMARY"`).
@@ -743,12 +744,12 @@ Argumenten.
 
 ```sh
 jidoka run -secrets .secrets.local jidoka-jobs shinkiryu
-jidoka run -dry jidoka-jobs shinkiryu
+jidoka run -secrets .secrets.local -dry jidoka-jobs shinkiryu
 ```
 
 - `-secrets datei`: `NAME=WERT` je Zeile, Leerzeilen und `#`-Zeilen werden
   übersprungen. Nicht einchecken (in `.gitignore` aufnehmen).
-- `-dry`: setzt `JIDOKA_TRIGGER=dry`; ohne die Option ist es `manual`.
+- `-dry`: setzt `JIDOKA_TRIGGER=dry`; ohne die Option ist es `manual`. Auch ein Probelauf braucht die Geheimnisse, die der Job nennt.
 - Die Ausgabe des Skripts geht auf stdout; Zustand, Dauer, Zusammenfassung
   und Fehler auf stderr. Exit-Code 0 nur bei `ok`.
 - `jidoka.toml` ist nicht nötig.

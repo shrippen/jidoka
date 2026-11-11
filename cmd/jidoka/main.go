@@ -13,6 +13,7 @@ const (
 	exitInvalid  = 1
 	exitUsage    = 2
 	validateName = "validate"
+	serveName    = "serve"
 )
 
 func main() {
@@ -38,7 +39,9 @@ func run(args []string) int {
 			return exitUsage
 		}
 		return validate(args[1], os.Stdout, os.Stderr)
-	case "serve", "run", "rotate-key", "healthcheck":
+	case serveName:
+		return serve()
+	case "run", "rotate-key", "healthcheck":
 		fmt.Fprintf(os.Stderr, "jidoka %s: not implemented\n", args[0])
 		return exitUsage
 	}

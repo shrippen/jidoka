@@ -164,7 +164,7 @@ Geheimnis.
 
 | Name | Standard | Zweck |
 |---|---|---|
-| `MASTER_KEY` | – | Hauptschlüssel der Verschlüsselung (Argon2id mit dem Salt neben der Datenbank). Ohne ihn startet Jidoka mit einer Warnung; Jobs mit Geheimnissen scheitern, Kanäle mit Geheimnis (Apprise-Schlüssel, SMTP-Passwort), Herzschlag und Andon-Hook gehen nicht, neue Wächter bekommen keine Ping-Adresse. Beim ersten Start mit Schlüssel entsteht der Salt. |
+| `MASTER_KEY` | – | Hauptschlüssel der Verschlüsselung (Argon2id mit dem Salt neben der Datenbank). Ohne ihn startet Jidoka mit einer Warnung; Jobs mit Geheimnissen scheitern, Kanäle mit Geheimnis (Apprise-Schlüssel, SMTP-Passwort), Herzschlag und Andon-Hook gehen nicht, Wächter zeigen keine Ping-Adresse (vorhandene Adressen nehmen weiter Pings an). Beim ersten Start mit Schlüssel entsteht der Salt. |
 | `NEW_MASTER_KEY` | – | Nur für `jidoka rotate-key` (siehe [Schlüssel wechseln](#11-schlüssel-wechseln)). |
 | `DATA_DIR` | `/data` | Ordner für Datenbank, Salt, Checkout, Zustand. |
 | `LISTEN` | `:8080` | Adresse des Webservers. Auch `jidoka healthcheck` liest sie. |
@@ -683,8 +683,9 @@ notify_profile = "leise"
 ```
 
 - Mit `period` gilt: kein erfolgreicher Ping seit `period` + `grace`.
-- Mit `schedule`: Auf den jüngsten Termin muss binnen `grace` ein Ping
-  folgen.
+- Mit `schedule`: Jeder Termin braucht einen erfolgreichen Ping, frühestens
+  `grace` vor dem Termin, spätestens `grace` danach. Ein Ping zählt für den
+  nächstliegenden Termin. `/start` und `/fail` beantworten keinen Termin.
 - Pause und `enabled = false` lassen das Fenster ruhen.
 
 ### Ping-Adresse

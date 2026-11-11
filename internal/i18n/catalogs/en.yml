@@ -295,6 +295,8 @@ channels:
   lead: Set in jidoka.toml; passwords and keys are under Secrets.
   off: not set up
   up: reachable
+  unchecked: not checked
+  lastfailed: last attempt failed
   down: "down since {since}"
   last: Last sent
   days30: 30 days

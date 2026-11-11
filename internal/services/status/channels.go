@@ -12,12 +12,25 @@ import (
 	"jidoka/internal/services/alerts"
 )
 
+// ChanState is what the channels page says about one channel.
+type ChanState string
+
+const (
+	ChanOff       ChanState = "off"        // not set up
+	ChanUnchecked ChanState = "unchecked"  // set up, nothing sent or tested yet
+	ChanUp        ChanState = "up"         // the newest send or test went through
+	ChanFailed    ChanState = "lastfailed" // the newest send or test failed, not down yet
+	ChanDown      ChanState = "down"       // see alerts.ChannelHealth
+)
+
 // ChannelRow is one channel kind on the channels page (O8).
 type ChannelRow struct {
 	// Kind is alerts.ChanApprise or alerts.ChanMail.
 	Kind       string
 	Configured bool
-	Health     alerts.ChannelHealth
+	// State is derived: reachable is unknown until a send or test succeeded.
+	State  ChanState
+	Health alerts.ChannelHealth
 	// Subs are the Apprise tags usable as "apprise:<tag>"; empty for mail.
 	Subs []string
 	// Last is the newest message over this kind, nil if none yet.
@@ -160,5 +173,32 @@ func channelRow(set model.Set, kind string, health []alerts.ChannelHealth,
 			row.Failed30 += c.Failed
 		}
 	}
+	row.State = stateOf(row)
 	return row
+}
+
+// stateOf takes the newest evidence: the latest delivery (also a test,
+// kept after a restart) or a success the alerts service saw since start.
+//
+//	ok 10:00 (memory), test failed 10:01 (delivery) → failed
+//	failed 10:00 (delivery), ok 10:01 (memory)      → up
+func stateOf(row ChannelRow) ChanState {
+	switch {
+	case !row.Configured:
+		return ChanOff
+	case row.Health.Down:
+		return ChanDown
+	}
+
+	okAt := row.Health.LastOK
+	if row.Last != nil && row.Last.At.After(okAt) {
+		if row.Last.OK {
+			return ChanUp
+		}
+		return ChanFailed
+	}
+	if !okAt.IsZero() {
+		return ChanUp
+	}
+	return ChanUnchecked
 }

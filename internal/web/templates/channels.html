@@ -18,9 +18,9 @@
 
   <div class="tiles channel-grid">
     {{range .Rows}}
-    <article class="status" data-state="{{if not .Configured}}off{{else if .Health.Down}}bad{{else}}ok{{end}}">
+    <article class="status" data-state="{{if eq .State "down"}}bad{{else if eq .State "lastfailed"}}warn{{else if eq .State "up"}}ok{{else}}off{{end}}">
       <span class="name">{{t (print "channel." .Kind)}}</span>
-      <div class="row">{{if not .Configured}}{{t "channels.off"}}{{else if .Health.Down}}{{t "channels.down" "since" (when .Health.Since)}}{{tzMark}}{{else}}{{t "channels.up"}}{{end}}</div>
+      <div class="row">{{if eq .State "down"}}{{t "channels.down" "since" (when .Health.Since)}}{{tzMark}}{{else}}{{t (print "channels." .State)}}{{end}}</div>
       {{if .Health.Down}}{{if .Health.LastError}}<p class="small error">{{.Health.LastError}}</p>{{end}}{{end}}
       <dl class="kv">
         <dt>{{t "channels.last"}}</dt>

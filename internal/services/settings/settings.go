@@ -59,6 +59,7 @@ const (
 // Reloader checks every job against the settings in force.
 type Reloader interface {
 	Revalidate() (jobs.Diff, error)
+	Current() model.Set
 }
 
 // Config wires the service.
@@ -118,7 +119,7 @@ type Errors map[string]model.LoadError
 type View struct {
 	Form      Form
 	SecretSet map[string]bool
-	// Profiles are shown, not edited.
+	// Profiles are shown here; the profile editor changes them.
 	Profiles map[string][]model.Rule
 	// BaseURLEnv is BASE_URL when set; the field is then read-only.
 	BaseURLEnv string

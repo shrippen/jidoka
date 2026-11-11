@@ -21,9 +21,12 @@ const (
 	defaultKeepDays = 180
 	defaultKeepRuns = 500
 	defaultParallel = 2
-	defaultProfile  = "standard"
+	defaultProfile  = StandardProfile
 	defaultRemind   = "24h"
 )
+
+// StandardProfile is the profile every fallback goes through; it must exist.
+const StandardProfile = "standard"
 
 // DraftApprise is the Apprise channel as written in the settings document.
 type DraftApprise struct {
@@ -39,9 +42,11 @@ type DraftMail struct {
 	To   []string `toml:"to,omitempty"`
 }
 
+// DraftRule is one rule of a profile as written in the settings document.
+type DraftRule = rawRule
+
 // Draft is the settings document (TOML) in editable form: what the
 // settings page changes before CheckDraft turns it into model.Settings.
-// Profiles pass through untouched until their own editor exists.
 type Draft struct {
 	Zone        string `toml:"zone,omitempty"`
 	Locale      string `toml:"locale,omitempty"`
@@ -56,7 +61,7 @@ type Draft struct {
 		Apprise *DraftApprise `toml:"apprise,omitempty"`
 		Mail    *DraftMail    `toml:"mail,omitempty"`
 	} `toml:"channels"`
-	Profiles map[string][]rawRule `toml:"profiles,omitempty"`
+	Profiles map[string][]DraftRule `toml:"profiles,omitempty"`
 }
 
 // defaults is what no stored settings leave.
@@ -129,7 +134,7 @@ func ParseSettings(src []byte) (model.Settings, *model.LoadError) {
 // DefaultDraft is the document of a fresh install: the defaults and the
 // standard profile every fallback goes through (B8).
 func DefaultDraft() Draft {
-	d := Draft{Profiles: map[string][]rawRule{
+	d := Draft{Profiles: map[string][]DraftRule{
 		defaultProfile: {{
 			On:       []string{"fail", "timeout", "missed", "invalid"},
 			Channels: []string{chApprise, chMail},
@@ -204,13 +209,13 @@ func buildSettings(is *issues, raw Draft) model.Settings {
 	}
 	s.Profiles = map[string][]model.Rule{}
 	for name, rules := range raw.Profiles {
-		s.Profiles[name] = buildRules(is, "profiles."+name, rules, tags, CheckFull)
+		s.Profiles[name] = buildRules(is, profilesSect+"."+name, rules, tags, CheckFull)
 	}
 
 	// Every fallback (a job without [[notify]], reload, invalid, a failed
 	// repo fetch) goes through the standard profile (B8).
 	if len(s.Profiles[defaultProfile]) == 0 {
-		is.at("profiles", anyIdx, defaultProfile, i18n.M("conf.no_standard"))
+		is.at(profilesSect, anyIdx, defaultProfile, i18n.M("conf.no_standard"))
 	}
 
 	return s

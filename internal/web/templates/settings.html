@@ -2,7 +2,6 @@
      are written here and never shown again: the page knows only whether
      one is set. */}}
 {{define "title"}}{{t "nav.settings"}}{{end}}
-{{define "fielderr"}}{{if .Msg}}<span class="field-hint is-error" role="alert">{{loadMsg .}}</span>{{end}}{{end}}
 {{define "secretfield"}}
       <div class="field">
         <label for="secret-{{.Name}}">{{t (print "settings.secret_" .Key)}}</label>
@@ -12,10 +11,10 @@
       </div>
 {{end}}
 {{define "tagrow"}}
-      <div class="btn-row" data-row>
+      <div class="panel-grid" data-row>
         <input class="input" name="tag_name" value="{{.Name}}" aria-label="{{t "settings.tag_name"}}" placeholder="{{t "settings.tag_name"}}" autocomplete="off">
         <input class="input" name="tag_tag" value="{{.Tag}}" aria-label="{{t "settings.tag_tag"}}" placeholder="{{t "settings.tag_tag"}}" autocomplete="off">
-        <button class="btn btn-outline btn-sm" type="button" data-remove-row>{{t "settings.tag_remove"}}</button>
+        <div class="btn-row"><button class="btn btn-outline btn-sm" type="button" data-remove-row>{{t "settings.tag_remove"}}</button></div>
       </div>
 {{end}}
 {{define "main"}}
@@ -157,6 +156,7 @@
   <section>
     <h2>{{t "channels.profiles"}}</h2>
     <p class="muted">{{t "settings.profiles_hint"}}</p>
+    <div class="btn-row"><a class="btn btn-outline btn-sm" href="/settings/profiles">{{t "profiles.edit"}}</a></div>
     {{range $name, $rules := .Profiles}}
     <div class="rule">
       <h3>{{$name}}</h3>

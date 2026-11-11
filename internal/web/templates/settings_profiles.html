@@ -1,0 +1,135 @@
+{{/* Profile editor (M4): a form per rule. The buttons that add or delete a
+     row are submit buttons named act; they work without script and change
+     only the form. The first submit button is Save: it answers Enter. */}}
+{{define "title"}}{{t "profiles.title"}}{{end}}
+{{define "tick"}}<svg viewBox="0 0 14 14" aria-hidden="true"><path d="M2.5 7.5l3 3 6-6.5"/></svg>{{end}}
+{{define "main"}}
+{{with .Data}}{{$d := .}}
+<main>
+  <nav class="crumbs" aria-label="{{t "nav.crumbs"}}"><a href="/settings">{{t "profiles.crumb_settings"}}</a><span aria-current="page">{{t "profiles.title"}}</span></nav>
+  <div class="page-head"><h1>{{t "profiles.title"}}</h1></div>
+  <p class="muted">{{t "profiles.lead"}}</p>
+
+  {{if .Saved}}
+  <section class="callout callout-ok" role="status"><p><strong>{{t "profiles.saved"}}</strong></p></section>
+  {{end}}
+  {{if .Unsaved}}
+  <section class="callout callout-warn" role="status"><p><strong>{{t "profiles.unsaved"}}</strong></p></section>
+  {{end}}
+  {{if not .View.Channels}}
+  <section class="callout callout-warn" role="alert"><p><strong>! {{t "profiles.no_channel"}}</strong></p></section>
+  {{end}}
+  {{with .View.Broken}}
+  <section class="callout callout-danger" role="alert">
+    <p><strong>✕ {{t "profiles.broken"}}</strong></p>
+    <p>{{loadMsg .}}</p>
+  </section>
+  {{end}}
+  {{if .Errors}}
+  <section class="callout callout-danger" role="alert">
+    <p><strong>✕ {{t "profiles.not_saved"}}</strong></p>
+    {{range .Rest}}<p>{{loadMsg .}}</p>{{end}}
+  </section>
+  {{end}}
+
+  <form class="form" method="post" action="/settings/profiles" autocomplete="off">
+    {{template "csrf" $.CSRF}}
+    <div class="btn-row"><button class="btn btn-accent" type="submit">{{t "profiles.save"}}</button></div>
+
+    {{range $p := .Rows}}
+    <section id="p{{$p.Idx}}">
+      <input type="hidden" name="profile" value="{{$p.Idx}}">
+      <h2>{{t "profiles.profile"}}{{if $p.Name}} <span class="mono">{{$p.Name}}</span>{{end}}</h2>
+      <div class="field">
+        <label for="p{{$p.Idx}}-name">{{t "profiles.name"}}</label>
+        <input class="input" id="p{{$p.Idx}}-name" name="p{{$p.Idx}}_name" value="{{$p.Name}}" {{$p.Bad}}>
+        <span class="field-hint">{{t "profiles.name_hint"}}{{if $p.Standard}} {{t "profiles.standard_note"}}{{end}}</span>
+        {{template "fielderr" $p.Err}}
+        {{template "fielderr" $p.NoRule}}
+      </div>
+
+      {{range $r := $p.Rules}}
+      <div class="rule">
+        <input type="hidden" name="p{{$p.Idx}}_rule" value="{{$r.Idx}}">
+        <h3>{{t "profiles.rule" "n" $r.N}}</h3>
+
+        <div class="field">
+          <span class="field-label">{{t "profiles.on"}}</span>
+          <div class="btn-row">
+            {{range $d.View.Events}}
+            <label class="check"><input type="checkbox" name="p{{$p.Idx}}_r{{$r.Idx}}_on" value="{{.}}"{{if $r.Has $r.Form.On .}} checked{{end}}><span class="check-box">{{template "tick"}}</span> {{t (print "event." .)}}</label>
+            {{end}}
+          </div>
+          <span class="field-hint">{{t "profiles.on_hint"}}</span>
+          {{template "fielderr" ($r.Err "on")}}
+        </div>
+
+        <div class="field">
+          <span class="field-label">{{t "profiles.channels"}}</span>
+          <div class="btn-row">
+            {{range $r.Channels}}
+            <label class="check"><input type="checkbox" name="p{{$p.Idx}}_r{{$r.Idx}}_channels" value="{{.}}"{{if $r.Has $r.Form.Channels .}} checked{{end}}><span class="check-box">{{template "tick"}}</span> <span class="mono">{{.}}</span></label>
+            {{end}}
+          </div>
+          <span class="field-hint">{{t "profiles.channels_hint"}}</span>
+          {{template "fielderr" ($r.Err "channels")}}
+        </div>
+
+        <div class="panel-grid">
+          <div class="field">
+            <label for="p{{$p.Idx}}-r{{$r.Idx}}-after">{{t "profiles.after"}}</label>
+            <input class="input" id="p{{$p.Idx}}-r{{$r.Idx}}-after" name="p{{$p.Idx}}_r{{$r.Idx}}_after" inputmode="numeric" value="{{$r.Form.After}}" placeholder="1" {{$r.Bad "after"}}>
+            <span class="field-hint">{{t "profiles.after_hint"}}</span>
+            {{template "fielderr" ($r.Err "after")}}
+          </div>
+          <div class="field">
+            <label for="p{{$p.Idx}}-r{{$r.Idx}}-remind">{{t "profiles.remind"}}</label>
+            <input class="input" id="p{{$p.Idx}}-r{{$r.Idx}}-remind" name="p{{$p.Idx}}_r{{$r.Idx}}_remind" value="{{$r.Form.Remind}}" placeholder="24h" {{$r.Bad "remind"}}>
+            <span class="field-hint">{{t "profiles.remind_hint"}}</span>
+            {{template "fielderr" ($r.Err "remind")}}
+          </div>
+          <div class="field">
+            <label for="p{{$p.Idx}}-r{{$r.Idx}}-tail">{{t "profiles.tail"}}</label>
+            <input class="input" id="p{{$p.Idx}}-r{{$r.Idx}}-tail" name="p{{$p.Idx}}_r{{$r.Idx}}_tail" inputmode="numeric" value="{{$r.Form.Tail}}" placeholder="20" {{$r.Bad "tail"}}>
+            <span class="field-hint">{{t "profiles.tail_hint"}}</span>
+            {{template "fielderr" ($r.Err "tail")}}
+          </div>
+          <div class="field">
+            <label for="p{{$p.Idx}}-r{{$r.Idx}}-digest">{{t "profiles.digest"}}</label>
+            <input class="input" id="p{{$p.Idx}}-r{{$r.Idx}}-digest" name="p{{$p.Idx}}_r{{$r.Idx}}_digest" value="{{$r.Form.Digest}}" placeholder="daily 08:00" {{$r.Bad "digest"}}>
+            <span class="field-hint">{{t "profiles.digest_hint"}}</span>
+            {{template "fielderr" ($r.Err "digest")}}
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="p{{$p.Idx}}-r{{$r.Idx}}-to">{{t "profiles.to"}}</label>
+          <textarea class="input" id="p{{$p.Idx}}-r{{$r.Idx}}-to" name="p{{$p.Idx}}_r{{$r.Idx}}_to" rows="2" placeholder="me@example.org">{{$r.Form.To}}</textarea>
+          <span class="field-hint">{{t "profiles.to_hint"}}</span>
+          {{template "fielderr" ($r.Err "to")}}
+        </div>
+
+        <div class="btn-row">
+          <label class="check"><input type="checkbox" name="p{{$p.Idx}}_r{{$r.Idx}}_urgent" value="1"{{if $r.Form.Urgent}} checked{{end}}><span class="check-box">{{template "tick"}}</span> {{t "profiles.urgent"}} <span class="field-hint">{{t "profiles.urgent_hint"}}</span></label>
+          <label class="check"><input type="checkbox" name="p{{$p.Idx}}_r{{$r.Idx}}_attach" value="1"{{if $r.Form.Attach}} checked{{end}}><span class="check-box">{{template "tick"}}</span> {{t "profiles.attach"}} <span class="field-hint">{{t "profiles.attach_hint"}}</span></label>
+        </div>
+
+        <div class="btn-row"><button class="btn btn-outline btn-sm" type="submit" name="act" value="del_rule:{{$p.Idx}}:{{$r.Idx}}" formaction="/settings/profiles#p{{$p.Idx}}">{{t "profiles.del_rule"}}</button></div>
+      </div>
+      {{end}}
+
+      <div class="btn-row">
+        <button class="btn btn-outline btn-sm" type="submit" name="act" value="add_rule:{{$p.Idx}}" formaction="/settings/profiles#p{{$p.Idx}}">{{t "profiles.add_rule"}}</button>
+        {{if not $p.Standard}}<button class="btn btn-outline btn-sm" type="submit" name="act" value="del_profile:{{$p.Idx}}" formaction="/settings/profiles#p{{$p.Idx}}">{{t "profiles.del_profile"}}</button>{{end}}
+      </div>
+    </section>
+    {{end}}
+
+    <div class="btn-row">
+      <button class="btn btn-outline" type="submit" name="act" value="add_profile" formaction="/settings/profiles#p{{.Next}}">{{t "profiles.add_profile"}}</button>
+      <button class="btn btn-accent" type="submit">{{t "profiles.save"}}</button>
+    </div>
+  </form>
+</main>
+{{end}}
+{{end}}

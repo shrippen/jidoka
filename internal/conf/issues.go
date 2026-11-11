@@ -2,6 +2,7 @@ package conf
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 
 	"jidoka/internal/i18n"
@@ -10,6 +11,9 @@ import (
 
 // anyIdx matches any occurrence of an array table such as [[notify]].
 const anyIdx = -1
+
+// profilesSect is the section of the profiles in the settings document.
+const profilesSect = "profiles"
 
 // issues collects the errors of one file and finds their line numbers.
 type issues struct {
@@ -27,7 +31,17 @@ func newIssues(job, file, src string) *issues {
 // occurrence of an array table ([[notify]] #2 is idx 1), or anyIdx.
 func (is *issues) at(sect string, idx int, key string, msg i18n.Msg) {
 	is.atLine(findLine(is.lines, sect, idx, key), msg)
-	is.list[len(is.list)-1].Field = joinKey(sect, key)
+	is.list[len(is.list)-1].Field = fieldOf(sect, idx, key)
+}
+
+// fieldOf names the key of an error. A rule of a profile also names its
+// position, as the profile editor needs it: "profiles.leise.1.after".
+func fieldOf(sect string, idx int, key string) string {
+	if idx == anyIdx || !strings.HasPrefix(sect, profilesSect+".") {
+		return joinKey(sect, key)
+	}
+
+	return joinKey(sect+"."+strconv.Itoa(idx), key)
 }
 
 // atLine records an error with a known line (TOML syntax errors).

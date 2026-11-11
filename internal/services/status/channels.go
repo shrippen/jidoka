@@ -16,10 +16,11 @@ import (
 type ChanState string
 
 const (
-	ChanOff       ChanState = "off"       // not set up
-	ChanUnchecked ChanState = "unchecked" // set up, nothing sent or tested yet
-	ChanUp        ChanState = "up"        // the latest send or test went through
-	ChanDown      ChanState = "down"      // see alerts.ChannelHealth
+	ChanOff       ChanState = "off"        // not set up
+	ChanUnchecked ChanState = "unchecked"  // set up, nothing sent or tested yet
+	ChanUp        ChanState = "up"         // the newest send or test went through
+	ChanFailed    ChanState = "lastfailed" // the newest send or test failed, not down yet
+	ChanDown      ChanState = "down"       // see alerts.ChannelHealth
 )
 
 // ChannelRow is one channel kind on the channels page (O8).
@@ -176,15 +177,27 @@ func channelRow(set model.Set, kind string, health []alerts.ChannelHealth,
 	return row
 }
 
-// stateOf: a failed try that is not yet "down" proves nothing either, so
-// only a successful latest delivery (or an in-memory success) says up.
+// stateOf takes the newest evidence: the latest delivery (also a test,
+// kept after a restart) or a success the alerts service saw since start.
+//
+//	ok 10:00 (memory), test failed 10:01 (delivery) → failed
+//	failed 10:00 (delivery), ok 10:01 (memory)      → up
 func stateOf(row ChannelRow) ChanState {
 	switch {
 	case !row.Configured:
 		return ChanOff
 	case row.Health.Down:
 		return ChanDown
-	case row.Last != nil && row.Last.OK, !row.Health.LastOK.IsZero():
+	}
+
+	okAt := row.Health.LastOK
+	if row.Last != nil && row.Last.At.After(okAt) {
+		if row.Last.OK {
+			return ChanUp
+		}
+		return ChanFailed
+	}
+	if !okAt.IsZero() {
 		return ChanUp
 	}
 	return ChanUnchecked

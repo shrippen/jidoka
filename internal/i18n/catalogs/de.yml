@@ -296,6 +296,7 @@ channels:
   off: nicht eingerichtet
   up: erreichbar
   unchecked: nicht geprüft
+  lastfailed: zuletzt fehlgeschlagen
   down: "gestört seit {since}"
   last: Zuletzt gesendet
   days30: 30 Tage

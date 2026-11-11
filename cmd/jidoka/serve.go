@@ -16,6 +16,7 @@ import (
 	"jidoka/internal/crypto"
 	"jidoka/internal/db"
 	"jidoka/internal/model"
+	"jidoka/internal/redact"
 	"jidoka/internal/services/alerts"
 	"jidoka/internal/services/andon"
 	"jidoka/internal/services/beat"
@@ -127,7 +128,7 @@ func build() (*app, error) {
 	a.secrets = secrets.New(d)
 	a.jobs = jobs.New(d, envOr(envJobs, defJobs))
 	a.runs = runs.New(d, a.secrets, runs.Config{DataDir: dataDir, Shim: os.Getenv(envShim), UID: uid, GID: uid})
-	a.watch = watch.New(watch.Config{DB: d})
+	a.watch = watch.New(watch.Config{DB: d, Mask: a.mask})
 	a.alerts = alerts.New(alerts.Config{
 		Store:   alerts.NewDBStore(d),
 		Set:     a.jobs.Current,
@@ -275,10 +276,9 @@ func (a *app) reloaded(d jobs.Diff, set model.Set) {
 	a.watch.Apply(set)
 	a.reportInvalid(set)
 
-	if d.Empty() {
-		return
-	}
-
+	// Also with an empty diff: a repaired jidoka.toml changes no job but
+	// ends its disturbance. The engine sends "jobs changed" only when
+	// jobs changed.
 	r := alerts.Reload{Added: d.Added, Changed: d.Changed, Removed: d.Removed, Fixed: fixed(set)}
 	logErr("alert reload", a.alerts.Reloaded(r))
 }
@@ -337,8 +337,21 @@ func (a *app) shutdown() {
 	ctx, cancel := context.WithTimeout(context.Background(), stopWait)
 	defer cancel()
 
+	// Halt the planner first, so no queued run starts after the cancel
+	// and misses its SIGTERM.
+	a.plan.Halt()
 	a.runs.CancelAll()
 	logErr("stop planner", a.plan.Stop(ctx))
+}
+
+// mask hides every secret value in a ping body (J7); without the key
+// nothing can be read, so nothing is masked.
+func (a *app) mask(text string) string {
+	values, err := a.secrets.Values()
+	if err != nil {
+		return text
+	}
+	return redact.New(values).String(text)
 }
 
 // secretMap gives the alerts engine Jidoka's own secrets (Z5).

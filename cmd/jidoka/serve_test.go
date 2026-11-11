@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"jidoka/internal/crypto"
+	"jidoka/internal/services/alerts"
 )
 
 // The first start writes the salt next to the database; without it every
@@ -36,5 +37,44 @@ func TestInitKeyWritesSalt(t *testing.T) {
 	}
 	if got, err := crypto.Decrypt(sealed, crypto.PurposeSecret); err != nil || got != "wert" {
 		t.Fatalf("second start: %q, %v", got, err)
+	}
+}
+
+// Repairing only jidoka.toml changes no job, so the reload diff is
+// empty; the disturbance of the broken file must still close (B8, O9).
+func TestSettingsRepairCloses(t *testing.T) {
+	data, jobsDir := t.TempDir(), t.TempDir()
+	t.Setenv(envData, data)
+	t.Setenv(envJobs, jobsDir)
+	t.Setenv(envKey, "")
+
+	settings := filepath.Join(jobsDir, "jidoka.toml")
+	if err := os.WriteFile(settings, []byte("zone = \n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	a, err := build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.db.Close()
+	if err := a.start(); err != nil {
+		t.Fatal(err)
+	}
+
+	store := alerts.NewDBStore(a.db)
+	if d, _ := store.Disturbance(alerts.KeyGlobal); d == nil {
+		t.Fatal("broken jidoka.toml opened no disturbance")
+	}
+
+	if err := os.WriteFile(settings, []byte("zone = \"Europe/Berlin\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.jobs.Reload(); err != nil {
+		t.Fatal(err)
+	}
+
+	if d, _ := store.Disturbance(alerts.KeyGlobal); d != nil {
+		t.Fatalf("still disturbed after the repair: %+v", d)
 	}
 }

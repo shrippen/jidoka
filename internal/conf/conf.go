@@ -59,12 +59,12 @@ func LoadWith(dir string, prev *model.Settings, need Need) model.Set {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		// One error for the folder; its settings file is no second one.
-		set.Settings = fallbackSettings(prev)
+		set.Settings, set.SettingsFrom = fallbackSettings(prev)
 		set.Invalid = append(set.Invalid, loadError("", ".", 0, i18n.M("conf.io", "detail", err.Error())))
 		return set
 	}
 
-	set.Settings, set.SettingsErr = loadSettings(dir, prev, need)
+	set.Settings, set.SettingsErr, set.SettingsFrom = loadSettings(dir, prev, need)
 
 	ctx := loadCtx{dir: dir, set: &set, now: set.LoadedAt}
 	for _, e := range entries {
@@ -85,37 +85,38 @@ func LoadWith(dir string, prev *model.Settings, need Need) model.Set {
 }
 
 // loadSettings reads jidoka.toml; on any error it returns the fallback.
-func loadSettings(dir string, prev *model.Settings, need Need) (model.Settings, *model.LoadError) {
-	fallback := fallbackSettings(prev)
+func loadSettings(dir string, prev *model.Settings, need Need) (model.Settings, *model.LoadError, model.SettingsSource) {
+	fallback, from := fallbackSettings(prev)
 
 	src, err := os.ReadFile(filepath.Join(dir, settingsFile))
 	if errors.Is(err, os.ErrNotExist) && need == SettingsOptional {
-		return fallback, nil
+		return fallback, nil, from
 	}
 	if errors.Is(err, os.ErrNotExist) {
 		le := loadError("", settingsFile, 0, i18n.M("conf.no_settings"))
-		return fallback, &le
+		return fallback, &le, from
 	}
 	if err != nil {
 		le := loadError("", settingsFile, 0, i18n.M("conf.io", "detail", err.Error()))
-		return fallback, &le
+		return fallback, &le, from
 	}
 
 	s, lerr := ParseSettings(src)
 	if lerr != nil {
-		return fallback, lerr
+		return fallback, lerr, from
 	}
 
-	return s, nil
+	return s, nil, model.SettingsFile
 }
 
-// fallbackSettings is what stays in force when jidoka.toml does not load.
-func fallbackSettings(prev *model.Settings) model.Settings {
+// fallbackSettings is what stays in force when jidoka.toml does not load:
+// the last valid copy, else the defaults.
+func fallbackSettings(prev *model.Settings) (model.Settings, model.SettingsSource) {
 	if prev != nil {
-		return *prev
+		return *prev, model.SettingsSaved
 	}
 
-	return defaults()
+	return defaults(), model.SettingsDefaults
 }
 
 // ParseSettings parses the content of a jidoka.toml. Callers keep the

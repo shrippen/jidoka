@@ -84,6 +84,7 @@ board:
   nothing: Nothing in this filter.
   invalid_job: "Job not loaded: {job}"
   invalid_settings: jidoka.toml not loaded, the last valid copy applies
+  invalid_settings_none: "jidoka.toml not loaded and no valid copy exists: no channels, no messages"
   invalid_repo: Jobs repo not fetched, the last fetched state applies
   invalid_repo_hint: Check JOBS_REPO, JOBS_REPO_TOKEN and whether Gitea is reachable; the next reload tries again.
   invalid_hint: Fix the file in the jobs repo; Komodo reloads the jobs after the push, or use "Reload jobs" here.
@@ -370,7 +371,7 @@ conf:
   unknown_key: 'unknown key "{key}"'
   io: "Cannot read file: {detail}"
   other: "{detail}"
-  no_settings: "jidoka.toml is missing"
+  no_settings: "file is missing"
   no_standard: "[[profiles.standard]] required: messages without own rules use it"
   repo: "Fetching the jobs repo failed: {detail}"
   folder: 'folder name "{name}" must match [a-z0-9-]+'

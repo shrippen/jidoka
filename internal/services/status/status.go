@@ -123,6 +123,18 @@ func (s *Service) Status() Status {
 	return st
 }
 
+// settingsText is the catalog key of the banner for a jidoka.toml that did
+// not load: the saved copy applies, or there is none; "" if it loaded.
+func settingsText(set model.Set) string {
+	switch {
+	case set.SettingsErr == nil:
+		return ""
+	case set.SettingsFrom == model.SettingsDefaults:
+		return "board.invalid_settings_none"
+	}
+	return "board.invalid_settings"
+}
+
 // loadErrors lists every file that did not load: the repo fetch, then jidoka.toml (O9).
 func loadErrors(set model.Set) []model.LoadError {
 	out := []model.LoadError{}

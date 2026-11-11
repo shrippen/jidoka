@@ -203,6 +203,8 @@ func TestJobErrors(t *testing.T) {
 		{"unknown tag", head + "[[notify]]\non = [\"fail\"]\nchannels = [\"apprise:zzz\"]\n", 5, `tag "zzz"`},
 		{"bad remind", head + "[[notify]]\non = [\"fail\"]\nchannels = [\"mail\"]\nremind = \"x\"\n", 6, "invalid duration"},
 		{"digest on failure", head + "[[notify]]\non = [\"fail\", \"success\"]\nchannels = [\"mail\"]\ndigest = \"daily 08:00\"\n", 6, "digest only allowed"},
+		{"digest on change", head + "[[notify]]\non = [\"success\", \"change\"]\nchannels = [\"mail\"]\ndigest = \"daily 08:00\"\n", 6, "digest only allowed"},
+		{"digest on reload", head + "[[notify]]\non = [\"reload\"]\nchannels = [\"mail\"]\ndigest = \"daily 08:00\"\n", 6, "digest only allowed"},
 		{"bad digest", head + "[[notify]]\non = [\"success\"]\nchannels = [\"mail\"]\ndigest = \"hourly\"\n", 6, "invalid digest"},
 		{"bad weekday", head + "[[notify]]\non = [\"success\"]\nchannels = [\"mail\"]\ndigest = \"weekly Foo 08:00\"\n", 6, "invalid weekday"},
 		{"wrong type", head + "timeout = 5\n", 3, "incompatible"},

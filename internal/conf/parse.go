@@ -34,11 +34,6 @@ var (
 		model.EvSuccess: true, model.EvInvalid: true, model.EvReload: true, model.EvChange: true,
 		model.EvStart: true, model.EvSlow: true,
 	}
-
-	// Events a digest may carry (M7).
-	digestEvents = map[model.Event]bool{
-		model.EvSuccess: true, model.EvRecover: true, model.EvChange: true, model.EvReload: true,
-	}
 )
 
 // parseDur reads Go durations plus whole days: "5m", "26h", "365d".

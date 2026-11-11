@@ -18,7 +18,7 @@ fi
 #   /data/tmp        10001 0711   /data/tmp/run-<id>  <job uid> 0700
 mkdir -p "$DATA_DIR/state" "$DATA_DIR/tmp" "$DATA_DIR/home"
 rm -rf "$DATA_DIR/uv-cache"
-find "$DATA_DIR" -mindepth 1 -maxdepth 1 ! -user 10001 -exec chown 10001:10001 {} +
+find "$DATA_DIR" -maxdepth 1 ! -user 10001 -exec chown 10001:10001 {} +
 chmod 711 "$DATA_DIR" "$DATA_DIR/state" "$DATA_DIR/home" "$DATA_DIR/tmp"
 
 # Jidoka creates its own files 0600.

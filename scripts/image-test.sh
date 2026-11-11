@@ -12,7 +12,28 @@ fi
 
 name=jidoka-image-test-$$
 db=$(mktemp -d)
-trap 'docker rm -f "$name" "$name-cache" >/dev/null 2>&1; rm -rf "$db"' EXIT
+trap 'docker rm -f "$name" "$name-cache" "$name-root" >/dev/null 2>&1; docker volume rm "$name-root" >/dev/null 2>&1; rm -rf "$db"' EXIT
+rootfail=0
+
+# B1: a bind mount Docker created belongs to root (a non-empty volume
+# keeps its owner, an empty one takes the image's); the entrypoint hands
+# it to Jidoka, else the server cannot create its database.
+docker volume create "$name-root" >/dev/null
+docker run --rm -v "$name-root:/data" alpine:3.24 sh -c "mkdir /data/state && chown 0:0 /data"
+docker run -d --name "$name-root" -e MASTER_KEY=image-test-only \
+	-v "$name-root:/data" -v "$PWD/testdata/image:/jobs:ro" "$image" >/dev/null
+for _ in $(seq 1 20); do
+	sleep 1
+	docker exec "$name-root" test -f /data/jidoka.db 2>/dev/null && break
+done
+if docker exec "$name-root" test -f /data/jidoka.db 2>/dev/null; then
+	echo "rootdata=ok"
+else
+	echo "FAIL: server did not start on a root-owned /data"
+	docker logs "$name-root" 2>&1 | tail -3
+	rootfail=1
+fi
+docker rm -f "$name-root" >/dev/null
 
 docker run -d --name "$name" -e MASTER_KEY=image-test-only \
 	-v "$PWD/testdata/image:/jobs:ro" "$image" >/dev/null
@@ -37,7 +58,7 @@ PY
 )
 echo "$out"
 
-fail=0
+fail=$rootfail
 expect_re() {
 	if ! printf '%s\n' "$out" | grep -qxE "$1"; then
 		echo "FAIL: expected $1"

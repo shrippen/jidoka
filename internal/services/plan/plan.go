@@ -36,6 +36,9 @@ const (
 	tickEvery       = time.Second
 	defaultParallel = 2
 
+	// abortedLookback is how many runs redoAborted reads to find the last slot's.
+	abortedLookback = 20
+
 	// Skip reasons, stored in Run.Error of a skipped run.
 	reasonRunning = "skip.running"
 	reasonQueue   = "skip.queue"
@@ -203,10 +206,11 @@ func (p *Planner) LastTick() time.Time {
 	return time.Unix(0, n)
 }
 
-// Stop stops ticking and starting runs, drops the queue and waits for
-// running runs until ctx ends. Cancelling them is the runs service's job.
-// Dropped slots of catchup jobs come back after the next start (J10).
-func (p *Planner) Stop(ctx context.Context) error {
+// Halt stops ticking and starting runs and drops the queue; running runs
+// go on. It returns at once and may be called repeatedly. Dropped slots
+// come back after the next start for catchup jobs (J10): a run the stop
+// aborts is redone, a queued one is lost without catchup.
+func (p *Planner) Halt() {
 	p.quitOnce.Do(func() { close(p.quit) })
 
 	p.mu.Lock()
@@ -216,6 +220,12 @@ func (p *Planner) Stop(ctx context.Context) error {
 	}
 	p.items = nil
 	p.unlock()
+}
+
+// Stop halts the planner and waits for running runs until ctx ends.
+// Cancelling them is the runs service's job.
+func (p *Planner) Stop(ctx context.Context) error {
+	p.Halt()
 
 	done := make(chan struct{})
 	go func() {
@@ -398,6 +408,7 @@ func (p *Planner) plan(e *entry, now time.Time) {
 func (p *Planner) catchup(e *entry, now time.Time) {
 	last := e.sched.Last(now)
 	if last.IsZero() || !last.After(e.last) {
+		p.redoAborted(e, now)
 		return
 	}
 	if !p.setLast(e, last) {
@@ -407,6 +418,31 @@ func (p *Planner) catchup(e *entry, now time.Time) {
 		return
 	}
 	p.enqueue(e, last, model.TrigCatchup, now)
+}
+
+// redoAborted runs the stored slot again if a container stop cut off its
+// last run (J23, J10): last_slot is written before a start, so without
+// this the slot would be lost. The slot's newest run must be aborted;
+// once any other run followed, nothing repeats.
+func (p *Planner) redoAborted(e *entry, now time.Time) {
+	if !e.job.Catchup || e.last.IsZero() {
+		return
+	}
+
+	runs, err := repos.ListRuns(p.cfg.DB, e.job.ID, abortedLookback, 0)
+	if err != nil {
+		slog.Error("plan: runs", "job", e.job.ID, "err", err)
+		return
+	}
+	for _, r := range runs {
+		if !r.Slot.Equal(e.last) {
+			continue
+		}
+		if r.State == model.RunAborted {
+			p.enqueue(e, e.last, model.TrigCatchup, now)
+		}
+		return
+	}
 }
 
 // enqueue turns a due slot into an item, or records it as skipped when
@@ -495,7 +531,7 @@ func (p *Planner) expire(now time.Time) {
 	for _, it := range p.items {
 		e := p.entries[it.job]
 		switch {
-		case e == nil || !e.active():
+		case e == nil || !p.mayRun(e, it):
 			p.drop(it)
 		case p.tooLate(e, it, now):
 			p.skip(e.job, it.trig, it.slot, it.attempt, now, reasonQueue)
@@ -505,6 +541,15 @@ func (p *Planner) expire(now time.Time) {
 		}
 	}
 	p.items = kept
+}
+
+// mayRun: scheduled items need an active job; a run by hand only needs an
+// enabled one, so a paused job can still be started from the page (J9).
+func (p *Planner) mayRun(e *entry, it item) bool {
+	if it.trig == model.TrigManual || it.trig == model.TrigDry {
+		return e.job.Enabled
+	}
+	return e.active()
 }
 
 // tooLate reports whether it waited longer than its slot is away from the next.

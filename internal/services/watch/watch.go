@@ -59,6 +59,8 @@ type Config struct {
 	DB *sql.DB
 	// Now is the clock; nil means time.Now.
 	Now func() time.Time
+	// Mask hides secret values in a ping body (J7); nil leaves it as is.
+	Mask func(string) string
 }
 
 // state is what the watch remembers of one job between ticks.
@@ -365,7 +367,7 @@ func (w *Watch) Ping(token string, kind PingKind, body, from string) error {
 		return ErrUnknown
 	}
 
-	run, err := w.store(job, commit, kind, clip(body, bodyMax))
+	run, err := w.store(job, commit, kind, clip(w.mask(body), bodyMax))
 	if err != nil {
 		return err
 	}
@@ -377,6 +379,14 @@ func (w *Watch) Ping(token string, kind PingKind, body, from string) error {
 		fn(job, run)
 	}
 	return nil
+}
+
+// mask hides secrets before the cap, so a cut cannot leave half a secret.
+func (w *Watch) mask(body string) string {
+	if w.cfg.Mask == nil {
+		return body
+	}
+	return w.cfg.Mask(body)
 }
 
 // store writes the run of one ping: /start opens a running run, ok and

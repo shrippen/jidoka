@@ -388,3 +388,18 @@ func TestRateLimit(t *testing.T) {
 		t.Fatal("no refill")
 	}
 }
+
+func TestPingBodyMasked(t *testing.T) {
+	useKey(t)
+	e := newEnv(t, watchJob("w"))
+	e.w.cfg.Mask = func(s string) string { return strings.ReplaceAll(s, "hunter22", "***") }
+	token, _ := e.w.Token("w")
+
+	must(t, e.w.Ping(token, PingFail, "login hunter22 failed", "x"))
+	runs, _ := repos.ListRuns(e.d, "w", 1, 0)
+	full, err := repos.GetRun(e.d, runs[0].ID)
+	must(t, err)
+	if full.Output != "login *** failed" {
+		t.Fatalf("output = %q", full.Output)
+	}
+}

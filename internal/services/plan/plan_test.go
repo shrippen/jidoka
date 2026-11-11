@@ -643,3 +643,95 @@ func TestLastTick(t *testing.T) {
 		t.Fatalf("LastTick = %v", e.p.LastTick())
 	}
 }
+
+// A run cut off by a container stop is marked aborted by the runs service;
+// after the restart J10 must run its slot again.
+func TestCatchupAfterAbortedRun(t *testing.T) {
+	d := newDB(t)
+	job := jobOf("a", "0 * * * *", func(j *model.Job) { j.Catchup = true })
+
+	a := newEnv(t, d, t0)
+	g := a.exec.gate("a")
+	a.p.Apply(setOf(2, job))
+	slot := t0.Add(time.Hour)
+	a.at(slot)
+	waitFor(t, func() bool { return len(a.exec.list()) == 1 })
+
+	// What runs does on stop: the run ends aborted.
+	r := model.Run{Job: "a", Trigger: model.TrigSchedule, State: model.RunRunning, Slot: slot, Attempt: 1, Started: slot}
+	id, err := repos.InsertRun(d, r)
+	must(t, err)
+	r.ID, r.State, r.Ended = id, model.RunAborted, slot.Add(time.Minute)
+	must(t, repos.FinishRun(d, r))
+	close(g)
+	a.settle()
+
+	later := slot.Add(5 * time.Minute)
+	b := newEnv(t, d, later)
+	b.p.Apply(setOf(2, job))
+	b.at(later)
+	b.at(later.Add(time.Second))
+	b.settle()
+
+	calls := b.exec.list()
+	if len(calls) != 1 || calls[0].trig != model.TrigCatchup || !calls[0].slot.Equal(slot) {
+		t.Fatalf("calls = %+v, want one catchup at %v", calls, slot)
+	}
+
+	// The catchup ended ok: a third start must not repeat it.
+	r2 := model.Run{Job: "a", Trigger: model.TrigCatchup, State: model.RunOK, Slot: slot, Attempt: 1, Started: later}
+	id, err = repos.InsertRun(d, r2)
+	must(t, err)
+	r2.ID, r2.Ended = id, later
+	must(t, repos.FinishRun(d, r2))
+
+	c := newEnv(t, d, later.Add(time.Minute))
+	c.p.Apply(setOf(2, job))
+	c.at(later.Add(time.Minute))
+	c.settle()
+	if n := len(c.exec.list()); n != 0 {
+		t.Fatalf("repeated: %d calls", n)
+	}
+}
+
+func TestManualRunOnPausedJob(t *testing.T) {
+	e := newEnv(t, newDB(t), t0)
+	e.p.Apply(setOf(2, jobOf("a", "0 * * * *", nil)))
+	must(t, e.p.Pause("a", "me"))
+
+	must(t, e.p.RunNow("a", "me"))
+	waitFor(t, func() bool { return len(e.exec.list()) == 1 })
+	e.settle()
+	must(t, e.p.DryRun("a", "me"))
+	waitFor(t, func() bool { return len(e.exec.list()) == 2 })
+	e.settle()
+}
+
+func TestManualRunOnDisabledJob(t *testing.T) {
+	e := newEnv(t, newDB(t), t0)
+	e.p.Apply(setOf(2, jobOf("a", "0 * * * *", func(j *model.Job) { j.Enabled = false })))
+	if err := e.p.RunNow("a", "me"); err != ErrDisabled {
+		t.Fatalf("RunNow = %v", err)
+	}
+}
+
+func TestHaltKeepsQueueDropped(t *testing.T) {
+	e := newEnv(t, newDB(t), t0)
+	g := e.exec.gate("blocker")
+	e.p.Apply(setOf(1, jobOf("blocker", "0 0 1 1 *", nil), jobOf("x", "* * * * *", nil)))
+	must(t, e.p.RunNow("blocker", "t"))
+	waitFor(t, func() bool { return len(e.exec.list()) == 1 })
+	e.at(t0.Add(time.Minute)) // x waits in the queue
+	if len(e.p.Queue()) != 1 {
+		t.Fatalf("queue = %+v", e.p.Queue())
+	}
+
+	e.p.Halt()
+	e.p.Halt() // idempotent
+	close(g)
+	e.settle()
+
+	if n := len(e.exec.list()); n != 1 || len(e.p.Queue()) != 0 {
+		t.Fatalf("calls = %d, queue = %+v", n, e.p.Queue())
+	}
+}

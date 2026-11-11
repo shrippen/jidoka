@@ -248,3 +248,64 @@ func TestBaseURLOverride(t *testing.T) {
 		t.Errorf("BaseURL %q", got)
 	}
 }
+
+const savedSettings = `
+[channels.apprise]
+url = "http://apprise:8000/notify"
+
+[[profiles.standard]]
+on = ["fail"]
+channels = ["apprise"]
+`
+
+// B8: the last valid settings outlive a restart. Whether the file is gone
+// or broken afterwards, the new process uses the saved copy (channels and
+// profiles), and says so in SettingsFrom.
+func TestSavedSettingsSurviveRestart(t *testing.T) {
+	for name, after := range map[string]func(dir string){
+		"missing": func(dir string) { _ = os.Remove(filepath.Join(dir, "jidoka.toml")) },
+		"broken":  func(dir string) { put(t, dir, "jidoka.toml", "zone = [\n") },
+	} {
+		dir := t.TempDir()
+		d := open(t)
+		putJob(t, dir, "a", "echo\n")
+		put(t, dir, "jidoka.toml", savedSettings)
+
+		first := New(d, dir)
+		if err := first.Load(); err != nil {
+			t.Fatal(err)
+		}
+		if first.Current().SettingsFrom != model.SettingsFile {
+			t.Fatalf("%s: from %q", name, first.Current().SettingsFrom)
+		}
+
+		after(dir)
+
+		second := New(d, dir)
+		if err := second.Load(); err != nil {
+			t.Fatal(err)
+		}
+		cur := second.Current()
+		if cur.SettingsErr == nil || cur.Settings.Apprise == nil || len(cur.Settings.Profiles["standard"]) != 1 {
+			t.Errorf("%s: err %v settings %+v", name, cur.SettingsErr, cur.Settings)
+		}
+		if cur.SettingsFrom != model.SettingsSaved {
+			t.Errorf("%s: from %q, want saved", name, cur.SettingsFrom)
+		}
+	}
+}
+
+// Never a valid file: defaults, and the set says so.
+func TestNoSavedSettingsMeansDefaults(t *testing.T) {
+	dir := t.TempDir()
+	putJob(t, dir, "a", "echo\n")
+
+	s := New(open(t), dir)
+	if err := s.Load(); err != nil {
+		t.Fatal(err)
+	}
+	cur := s.Current()
+	if cur.SettingsErr == nil || cur.SettingsFrom != model.SettingsDefaults {
+		t.Errorf("err %v from %q", cur.SettingsErr, cur.SettingsFrom)
+	}
+}

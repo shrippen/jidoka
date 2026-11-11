@@ -598,3 +598,52 @@ func TestStatus(t *testing.T) {
 		t.Errorf("status: %+v", st)
 	}
 }
+
+// The banner of a missing jidoka.toml says whether a saved copy applies.
+func TestSettingsBannerText(t *testing.T) {
+	e := newEnv(t)
+	e.job("a", "")
+	e.start()
+	if b, _ := e.svc.Board(); b.SettingsText != "" {
+		t.Errorf("valid file: text %q", b.SettingsText)
+	}
+
+	if err := os.Remove(filepath.Join(e.dir, "jidoka.toml")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.jobs.Reload(); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := e.svc.Board()
+	if b.SettingsText != "board.invalid_settings" {
+		t.Errorf("saved copy: text %q", b.SettingsText)
+	}
+	if c, _ := e.svc.Channels(); c.SettingsText != "board.invalid_settings" {
+		t.Errorf("channels: text %q", c.SettingsText)
+	}
+
+	// A second process on the same folder, but a fresh database: no copy.
+	f := newEnv(t)
+	f.dir = e.dir
+	f.jobs = jobs.New(f.d, e.dir)
+	f.svc = New(Deps{DB: f.d, Jobs: f.jobs, Plan: f.plan, Watch: f.w, Secrets: f.sec, Now: f.clk.Now, Version: "test"})
+	f.start()
+	if b, _ := f.svc.Board(); b.SettingsText != "board.invalid_settings_none" {
+		t.Errorf("no copy: text %q", b.SettingsText)
+	}
+}
+
+// An unreadable jobs folder without a saved jidoka.toml leaves Jidoka
+// without channels: the board must say so (B8), also with no SettingsErr.
+func TestUnreadableDirBannerText(t *testing.T) {
+	e := newEnv(t)
+	e.dir = filepath.Join(e.dir, "missing")
+	e.jobs = jobs.New(e.d, e.dir)
+	e.svc = New(Deps{DB: e.d, Jobs: e.jobs, Plan: e.plan, Watch: e.w, Secrets: e.sec, Now: e.clk.Now, Version: "test"})
+	e.start()
+
+	b, _ := e.svc.Board()
+	if b.SettingsText != "board.invalid_settings_none" {
+		t.Errorf("unreadable folder, no copy: text %q", b.SettingsText)
+	}
+}

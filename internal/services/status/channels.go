@@ -58,8 +58,10 @@ type ChannelsPage struct {
 	// Recent are the newest 50 deliveries, newest first.
 	Recent []model.Delivery
 	Outbox []OutboxRow
-	// SettingsErr: jidoka.toml did not load; the last valid copy is in use (B8).
+	// SettingsErr: jidoka.toml did not load; the saved copy or the defaults are in use (B8).
 	SettingsErr *model.LoadError
+	// SettingsText is the catalog key of its banner.
+	SettingsText string
 }
 
 // Channels returns the channels page.
@@ -72,7 +74,8 @@ func (s *Service) Channels() (ChannelsPage, error) {
 		counts map[string]repos.DeliveryCount
 		outbox []repos.OutboxItem
 		p      = ChannelsPage{Rows: []ChannelRow{}, Profiles: []Profile{}, Outbox: []OutboxRow{},
-			Quiet: set.Settings.Quiet, Zone: set.Settings.Zone, SettingsErr: set.SettingsErr}
+			Quiet: set.Settings.Quiet, Zone: set.Settings.Zone, SettingsErr: set.SettingsErr,
+			SettingsText: settingsText(set)}
 	)
 	err := db.WithRead(s.d.DB, func(tx *sql.Tx) error {
 		var err error

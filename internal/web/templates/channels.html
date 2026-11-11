@@ -6,11 +6,13 @@
   <div class="page-head"><h1>{{t "nav.channels"}}</h1></div>
   <p class="muted">{{t "channels.lead"}}</p>
 
-  {{if .SettingsErr}}
+  {{if .SettingsText}}
   <section class="callout callout-danger" role="alert">
-    <p><strong>✕ {{t "board.invalid_settings"}}</strong></p>
-    <p class="mono small">{{.SettingsErr.File}}{{if .SettingsErr.Line}}:{{.SettingsErr.Line}}{{end}}</p>
-    <p>{{loadMsg .SettingsErr}}</p>
+    <p><strong>✕ {{t .SettingsText}}</strong></p>
+    {{with .SettingsErr}}
+    <p class="mono small">{{.File}}{{if .Line}}:{{.Line}}{{end}}</p>
+    <p>{{loadMsg .}}</p>
+    {{end}}
   </section>
   {{end}}
 

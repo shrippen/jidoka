@@ -22,7 +22,7 @@ Davis-Kalender schreiben.
 ```
  ploetze (neben Andon)                        eredin
  ┌──────────────────── Container jidoka ──────────────┐   ┌────────────────┐
- │ /jobs (nur lesen)    Planer ─► Läufer ─► Skript     │   │ Apprise, SMTP  │
+ │ /data/jobs (Git)     Planer ─► Läufer ─► Skript     │   │ Apprise, SMTP  │
  │  jidoka.toml ─Laden─►  │        │  (eigene UID)    │──►│ Uptime Kuma ◄──┼─ Herzschlag
  │  shinkiryu/            │        ▼                  │   │ Komodo         │
  │   job.toml, main.py    │     Läufe (SQLite, /data) │   └────────────────┘
@@ -34,7 +34,7 @@ Davis-Kalender schreiben.
  │ API (Token)        ◄── Andon, Komodo (Neuladen)    │
  │ /ping/<token>      ◄── externe Wächter (Borg …)    │
  └────────────────────────────────────────────────────┘
-       ▲ Anmeldung: Authentik (OIDC), nur ein Konto
+       ▲ Anmeldung: Authentik (OIDC), Zugriff regelt Authentik
 ```
 
 ## 3. Begriffe
@@ -57,7 +57,7 @@ Priorität: **M** muss, **S** soll, **K** kann.
 
 | Nr. | Prio | Anforderung |
 |---|---|---|
-| J1 | M | Jobs sind Ordner eines privaten Git-Repos auf Gitea (`jidoka-jobs`). Jidoka holt es selbst, beim Start und bei jedem Neuladen (J20): Adresse, Branch und Zugangs-Token kommen als Umgebungsvariablen (`JOBS_REPO`, `JOBS_BRANCH`, `JOBS_REPO_TOKEN`). Ohne `JOBS_REPO` liest Jidoka einen eingebundenen Ordner `/jobs` (Entwicklung). |
+| J1 | M | Jobs sind Ordner eines privaten Git-Repos auf Gitea (`jidoka-jobs`). Jidoka holt es selbst, beim Start und bei jedem Neuladen (J20): Adresse, Branch und Zugangs-Token kommen als Umgebungsvariablen (`JOBS_REPO`, `JOBS_BRANCH`, `JOBS_REPO_TOKEN`). Der Checkout liegt in `/data/jobs`; ohne `JOBS_REPO` liest Jidoka einen eingebundenen Ordner `/jobs` (Entwicklung). Der Token liegt nie im Checkout (nicht in `.git/config`, nicht in der URL) und nirgends, wo Jobs lesen können. Scheitert das Holen (Gitea nicht erreichbar, Token abgelaufen), gilt der zuletzt geholte Stand in `/data/jobs` weiter, der Fehler steht oben (O9) und geht als Meldung raus (Profil `standard`); beim nächsten Neuladen wird es erneut versucht. |
 | J2 | M | Ein fehlerhafter Job verhindert weder Start noch Neuladen. Er wird `ungültig`, mit Fehlertext auf der Seite und Meldung (`invalid`). Eine ältere gültige Fassung läuft nicht weiter, damit Laufzeit und Neustart gleich ausgehen. |
 | J3 | M | Zeitplan als Cron-Ausdruck (5 Felder) in der Zone des Jobs, Standard `Europe/Berlin`. Sommerzeit: Ein Termin in der fehlenden Stunde (02:30 im März) läuft um 03:00; in der doppelten Stunde im Oktober läuft er nur beim ersten Mal. Die Zonendaten liegen im Binary. |
 | J4 | M | Erfolg heißt Exit-Code 0, alles andere `fehler`. Beim Timeout (Standard 10 min) bekommt die Prozessgruppe SIGTERM, nach 10 s SIGKILL; Zustand `zeitüberschreitung`. Ein Shim je Lauf ist Subreaper und beendet auch Kinder, die sich lösen (`setsid`, Double-Fork); ein Init-Prozess im Container sammelt Zombies ein. |
@@ -67,7 +67,7 @@ Priorität: **M** muss, **S** soll, **K** kann.
 | J8 | S | Ein Skript kann eine Zeile Zusammenfassung in `$JIDOKA_SUMMARY` schreiben, z. B. „11 Lehrgänge, 2 neu, 0 entfernt“. Sie steht in Übersicht und Meldung. |
 | J9 | S | Jobs von Hand starten, pausieren und einen laufenden Lauf abbrechen, über die Seite. Pause überlebt den Neustart. |
 | J10 | S | `catchup = true`: Ein Termin, der verpasst wurde, weil der Container aus war, wird nach dem Start einmal nachgeholt. |
-| J11 | S | Laufzeit im Image: `sh`, `bash`, `curl`, `jq`, Python 3 mit `uv`. Abhängigkeiten im Skriptkopf (PEP 723) mit Lockdatei je Skript (`uv lock --script`); `uv` lädt kein Python nach. Paket-Cache unter `/data`, auf 2 GB begrenzt. |
+| J11 | S | Laufzeit im Image: `sh`, `bash`, `curl`, `jq`, Python 3 mit `uv`. Abhängigkeiten im Skriptkopf (PEP 723) mit Lockdatei je Skript (`uv lock --script`); `uv` lädt kein Python nach. Paket-Cache je Job (Z3: kein Job schreibt in den Cache eines anderen), zusammen auf 2 GB begrenzt. |
 | J12 | S | Aufbewahrung: Läufe 180 Tage, höchstens 500 je Job; danach gelöscht. |
 | J13 | S | Wiederholung nach Fehler (`retries`, `retry_delay`). Ein Termin mit allen Wiederholungen zählt als **ein** Ergebnis; gemeldet wird nach dem letzten Versuch. |
 | J14 | S | `jitter`: zufällige Verzögerung bis zur angegebenen Dauer, damit Jobs fremde Server nicht immer zur selben Sekunde treffen. |
@@ -76,7 +76,7 @@ Priorität: **M** muss, **S** soll, **K** kann.
 | J17 | S | `description`, `link`, `tags`: Beschreibung und Ziel-Link auf der Job-Seite, Filter nach Tags auf der Tafel. |
 | J18 | S | `keep` je Job: Aufbewahrung abweichend vom Standard. |
 | J19 | S | `enabled = false`: Job bleibt sichtbar als `deaktiviert`, läuft nicht, sein Wächter ruht. |
-| J20 | M | Neuladen zur Laufzeit, ohne Neustart: Knopf „Jobs neu laden“ und `POST /api/v1/reload` (Token mit Recht `reload`). Jidoka liest alle Jobs, prüft sie und tauscht erst dann aus; laufende Läufe enden mit der alten Fassung. Das Ergebnis steht auf der Seite: neu, geändert, entfernt, ungültig, dazu der Commit aus `/jobs/.git/HEAD`. Ein Neuladen, das Jobs ändert, löst eine Meldung aus (Auslöser `reload`). |
+| J20 | M | Neuladen zur Laufzeit, ohne Neustart: Knopf „Jobs neu laden“ und `POST /api/v1/reload` (Token mit Recht `reload`). Jidoka liest alle Jobs, prüft sie und tauscht erst dann aus; laufende Läufe enden mit der alten Fassung. Das Ergebnis steht auf der Seite: neu, geändert, entfernt, ungültig, dazu der geholte Commit. Ein Neuladen, das Jobs ändert, löst eine Meldung aus (Auslöser `reload`). |
 | J21 | M | Ein entfernter Job verschwindet von der Tafel; seine Läufe bleiben bis zum Ende der Aufbewahrung unter „Entfernt“ lesbar. Pause, Bestätigen und Stummschalten hängen an der Id und gelten wieder, wenn der Job zurückkommt. |
 | J22 | M | Zustandsordner je Job (`$JIDOKA_STATE` unter `/data/state/<id>`), bleibt über Läufe erhalten, z. B. für ETag oder Inhalts-Hash. Dazu ein leeres `$TMPDIR` je Lauf, danach gelöscht. |
 | J23 | M | Absturz und Stopp: Bei SIGTERM an den Container beendet Jidoka laufende Jobs wie J4 und vermerkt `abgebrochen`. Läufe, die beim Start noch `läuft` heißen, werden `abgebrochen`. Beides meldet keinen Fehler. Bei `catchup = true` wird ein so abgebrochener Termin nach dem Start einmal nachgeholt (wie J10). |
@@ -88,10 +88,9 @@ optional):
 ```toml
 name        = "Shinkiryu-Lehrgänge → Kalender"
 description = "Lehrgänge von shinkiryu.de in den Davis-Kalender Aikido"
-link        = "https://davis.arianw.de/calendars/aikido"  # Ziel, auf der Job-Seite verlinkt
+link        = "http://cal.arianw.de/dav/calendars/shinki/Lehrgaenge/"  # Ziel, auf der Job-Seite verlinkt
 tags        = ["aikido", "kalender"]
 run         = "main.py"
-args        = ["--kalender", "aikido"]
 schedule    = "0 6 * * *"
 zone        = "Europe/Berlin"
 jitter      = "5m"        # zufällige Verzögerung, schont fremde Server
@@ -108,7 +107,7 @@ quiet       = "22:00-07:00"
 secrets     = ["DAVIS_USER", "DAVIS_PASSWORD"]  # Namen; Werte nur in Jidoka
 
 [env]                     # Werte ohne Geheimnis
-DAVIS_URL = "https://davis.arianw.de/dav/"
+DAVIS_URL = "http://cal.arianw.de/dav/calendars/shinki/Lehrgaenge/"
 
 [[notify]]                # Störungen aufs Handy und per Mail
 on       = ["fail", "timeout", "missed"]
@@ -135,6 +134,7 @@ kann auch `notify_profile = "leise"` setzen:
 ```toml
 # /jobs/jidoka.toml (kein Geheimnis hier; Passwörter auf der Seite „Geheimnisse“)
 zone  = "Europe/Berlin"
+locale = "de"             # Sprache der Meldungen: de oder en
 quiet = "22:00-07:00"     # Ruhezeit in dieser Zone
 heartbeat = "5m"          # eigener Herzschlag an Uptime Kuma (URL als Geheimnis)
 
@@ -174,7 +174,7 @@ channels = ["mail"]
 
 | Nr. | Prio | Anforderung |
 |---|---|---|
-| M1 | M | Kanäle Apprise (Apprise-API auf eredin) und E-Mail (SMTP auf eredin), eingestellt in `/jobs/jidoka.toml`, Passwörter und Schlüssel als Geheimnisse (Z5). Apprise-Tags als Unterkanäle (`apprise:handy`), Mail mit eigenen Empfängern je Regel (`to`). |
+| M1 | M | Kanäle Apprise (Apprise-API auf eredin) und E-Mail (SMTP auf eredin), eingestellt in `/jobs/jidoka.toml`, Passwörter und Schlüssel als Geheimnisse (Z5). Apprise-Tags als Unterkanäle (`apprise:handy`), Mail mit eigenen Empfängern je Regel (`to`). Sprache der Meldungen per `locale` in `jidoka.toml` (`de`, `en`; Standard `de`). |
 | M2 | M | Auslöser: `fail`, `timeout`, `missed`, `recover` (erster Erfolg nach Störung), `success`, `invalid` (Job nicht geladen), `reload` (Jobs geändert), `change` (Skript hat in `$JIDOKA_NOTIFY` geschrieben). **S:** `start`, `slow` (Lauf länger als `slow`). |
 | M3 | M | Regeln je Job (`[[notify]]`): Auslöser, Kanäle, `after` (ab dem wievielten **Termin** in Folge mit Störung; Wiederholungen nach J13 zählen nicht extra), `remind` (oder `"never"`), `urgent` (durchbricht die Ruhezeit), `tail`. Der Apprise-Typ folgt aus dem Auslöser: Störung `failure`, `missed` `warning`, `recover`/`success` `success`, sonst `info`. Ohne Regeln gilt das Profil `standard`. |
 | M4 | M | Profile in `jidoka.toml`: benannte Regelsätze, die Jobs mit `notify_profile` übernehmen. Regeln im Job ersetzen das Profil ganz, mischen nicht. Ereignisse ohne lesbare Job-Regeln (`reload`, `invalid` eines Jobs, dessen `job.toml` nicht lädt, eine kaputte `jidoka.toml`) folgen immer dem Profil `standard` (bei kaputter `jidoka.toml` dem der letzten gültigen Fassung, B8). |
@@ -272,7 +272,11 @@ Repo, kein gemeinsames Go-Modul mit Andon. Was beide brauchen, wird
 ## 7. Erster Job: Shinkiryu-Kalender
 
 - Liest `https://www.shinkiryu.de/shinkiryu/de/Seminars.php`, schreibt
-  jeden Lehrgang per CalDAV in einen Kalender in Davis.
+  jeden Lehrgang per CalDAV in den Kalender
+  `http://cal.arianw.de/dav/calendars/shinki/Lehrgaenge` in Davis.
+- **Inhalt:** Titel „<Lehrgang> – <Ort>“, Ort, Infozeile; hat die Zeile
+  eine Ausschreibung, steht ihr Link im Feld `URL` und in der
+  Beschreibung.
 - **Datum:** Ganztagstermine, `DTEND` exklusiv (Tag nach dem letzten
   Lehrgangstag). Die Seite nennt das Jahr nicht immer und wechselt die
   Trenner („–“, „bis“); das Jahr folgt aus der Reihenfolge der Zeilen
@@ -314,7 +318,8 @@ Jeder Fall ist ein automatischer Test (Go) oder ein Schritt in `QA.md`.
 | `retries = 2`, `after = 2`, täglich | Meldung am 2. Tag mit Störung, nicht nach dem 2. Versuch. |
 | `job.toml` beim Neuladen kaputt | Job `ungültig`, Meldung, andere Jobs unberührt. |
 | `jidoka.toml` kaputt | Letzte gültige Fassung gilt, Fehler oben. |
-| Neuladen während `git pull` | Kein Job halb geladen. |
+| Neuladen, während ein Push ankommt | Kein Job halb geladen. |
+| Gitea beim Start nicht erreichbar | Letzter geholter Stand gilt, Fehler oben, Meldung. |
 | Ping mit unbekanntem Token, 100 Pings je Sekunde | 404, Drosselung greift. |
 | Andon-Kachel bei 0, 1 und 50 Jobs | Eine Anfrage an Jidoka je Abruf. |
 
@@ -349,4 +354,6 @@ Jeder Fall ist ein automatischer Test (Go) oder ein Schritt in `QA.md`.
 
 ## 10. Offene Fragen
 
-Keine.
+- Davis ist unter `http://cal.arianw.de` angegeben: Benutzer und
+  Passwort gingen per Basic-Auth unverschlüsselt über das Netz. Gibt es
+  eine `https`-Adresse, oder bleibt der Weg im LAN?

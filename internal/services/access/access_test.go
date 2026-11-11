@@ -70,6 +70,19 @@ func TestLoginOpensSession(t *testing.T) {
 	}
 }
 
+// OIDC_ISSUER may be the configuration URL Authentik shows
+// (…/.well-known/openid-configuration), not only the issuer.
+func TestIssuerAsConfigURL(t *testing.T) {
+	idp := accesstest.New(t)
+	cfg := Config{Issuer: idp.Issuer() + ".well-known/openid-configuration", ClientID: accesstest.ClientID, ClientSecret: accesstest.Secret}
+	s := New(testDB(t), cfg)
+	idp.Claims = map[string]any{"sub": "u-1"}
+
+	if _, err := login(t, s, idp, accesstest.GoodCode); err != nil {
+		t.Fatalf("login with the configuration URL: %v", err)
+	}
+}
+
 func TestOtherAccountRefused(t *testing.T) {
 	s, idp := setup(t, Config{AllowSub: "u-1"})
 	idp.Claims = map[string]any{"sub": "u-2", "name": "Fremd", "groups": []string{"jidoka"}}

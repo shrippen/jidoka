@@ -50,9 +50,11 @@ var (
 	discovered  = map[string]cachedProvider{}
 )
 
-// Discover reads (and caches for an hour) the issuer's configuration.
+// Discover reads (and caches for an hour) the issuer's configuration. The
+// issuer may also be given as its configuration URL, as Authentik shows it:
+// https://auth.example/application/o/jidoka/.well-known/openid-configuration
 func Discover(ctx context.Context, issuer string) (Provider, error) {
-	base := issuer
+	base := strings.TrimSuffix(issuer, discoveryPath)
 	if !strings.HasSuffix(base, "/") {
 		base += "/"
 	}

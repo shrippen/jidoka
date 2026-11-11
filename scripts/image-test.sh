@@ -76,6 +76,12 @@ if ! docker exec "$name" test -d "$cache"; then
 	fail=1
 fi
 docker stop "$name" >/dev/null
+# A crash leaves a TMPDIR of the job uid, with a read-only folder in it.
+uid=$(printf '%s\n' "$out" | sed -n 's/^uid=//p')
+docker run --rm --volumes-from "$name" alpine:3.24 sh -c "
+	mkdir -p /data/tmp/run-999/ro && touch /data/tmp/run-999/ro/f &&
+	chown -R $uid:$uid /data/tmp/run-999 && chmod 500 /data/tmp/run-999/ro &&
+	chmod 700 /data/tmp/run-999"
 mkdir "$db/nojobs"
 cp testdata/image/jidoka.toml "$db/nojobs/"
 chmod 755 "$db/nojobs"

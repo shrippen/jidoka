@@ -151,3 +151,35 @@ func TestRepoRetryClosesDisturbance(t *testing.T) {
 		t.Errorf("fetched while healthy: %d", repo.calls)
 	}
 }
+
+// A restart with the repo reachable again closes the disturbance the last
+// run left open; else a later outage would stay silent.
+func TestStartClosesRepoDisturbance(t *testing.T) {
+	t.Setenv(envData, t.TempDir())
+	t.Setenv(envJobs, t.TempDir())
+	t.Setenv(envKey, "")
+
+	boot := func(repo *fakeRepo) *app {
+		a, err := build()
+		if err != nil {
+			t.Fatal(err)
+		}
+		a.jobs.UseRepo(repo)
+		if err := a.start(); err != nil {
+			t.Fatal(err)
+		}
+		return a
+	}
+
+	a := boot(&fakeRepo{})
+	if d, _ := alerts.NewDBStore(a.db).Disturbance(alerts.KeyRepo); d == nil {
+		t.Fatal("failed fetch opened no disturbance")
+	}
+	a.db.Close()
+
+	a = boot(&fakeRepo{ok: true})
+	defer a.db.Close()
+	if d, _ := alerts.NewDBStore(a.db).Disturbance(alerts.KeyRepo); d != nil {
+		t.Errorf("still open after a good start: %+v", d)
+	}
+}

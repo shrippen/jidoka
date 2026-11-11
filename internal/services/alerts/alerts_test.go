@@ -867,6 +867,35 @@ func TestRepoErrorReportsAndRecovers(t *testing.T) {
 	}
 }
 
+// A reload names every loaded job as fixed; it closes only disturbances of
+// the invalid kind, never a failing job's.
+func TestReloadKeepsFailDisturbance(t *testing.T) {
+	h := newHarness(t)
+	h.set.Settings.Profiles["standard"][1].On = []model.Event{model.EvRecover}
+	a := h.job("a", nil)
+	h.done(a, model.RunFail, day(1), AttemptFinal, nil)
+	h.tick()
+	h.wantApprise(1)
+
+	_ = h.eng.Reloaded(Reload{Fixed: []string{"a", KeyGlobal, KeyRepo}})
+	h.tick()
+	h.wantApprise(1)
+	if d, _ := h.store.Disturbance("a"); d == nil {
+		t.Error("fail disturbance closed by a reload")
+	}
+
+	// An invalid disturbance of the same job is still closed by it.
+	_ = h.eng.Invalid(model.LoadError{Job: "b", File: "b/job.toml", Msg: "bad"})
+	h.tick()
+	h.wantApprise(2)
+	_ = h.eng.Reloaded(Reload{Fixed: []string{"b"}})
+	h.tick()
+	h.wantApprise(3)
+	if d, _ := h.store.Disturbance("b"); d != nil {
+		t.Error("invalid disturbance still open")
+	}
+}
+
 func TestTailAndAttach(t *testing.T) {
 	h := newHarness(t)
 	out := ""

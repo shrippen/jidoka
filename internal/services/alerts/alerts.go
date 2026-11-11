@@ -351,10 +351,11 @@ func (e *Engine) recoverable(id string) (open, announced bool, err error) {
 	return true, len(d.Sent) > 0, nil
 }
 
-// recoverOf closes a disturbance and sends recover (invalid file fixed).
+// recoverOf closes an invalid-file disturbance and sends recover. Any
+// other kind (a failing run) stays: only a good run ends it.
 func (e *Engine) recoverOf(set model.Set, sub subject, now time.Time, run *model.Run) error {
 	d, err := e.cfg.Store.Disturbance(sub.id)
-	if err != nil || d == nil {
+	if err != nil || d == nil || d.Event != model.EvInvalid {
 		return err
 	}
 

@@ -302,6 +302,9 @@ func (a *app) start() error {
 	a.watch.Apply(set)
 	a.reportInvalid(set)
 
+	// What broke before the stop and works now: close it, as a reload does.
+	logErr("alert reload", a.alerts.Reloaded(alerts.Reload{Fixed: fixed(set)}))
+
 	return nil
 }
 

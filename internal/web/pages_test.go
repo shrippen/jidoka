@@ -198,3 +198,21 @@ func TestDeliveryNoteShownNotRecovery(t *testing.T) {
 		}
 	}
 }
+
+// The board shows an invalid settings file and an invalid jobs folder
+// (B8); both read the settings source from the page data.
+func TestBoardShowsInvalidSettings(t *testing.T) {
+	b, s := seeded(t)
+	b.put("jidoka.toml", "[[profiles.standard]\n")
+	b.put("odd.toml", "")
+	if err := b.jobs.Load(); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, path := range []string{"/", "/board/tiles"} {
+		w := do(b.srv, "GET", path, nil, s.cookies, nil)
+		if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "callout-danger") {
+			t.Errorf("%s: %d, no error callout: %s", path, w.Code, w.Body)
+		}
+	}
+}

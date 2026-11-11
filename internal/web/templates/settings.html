@@ -135,6 +135,16 @@
       {{template "fielderr" (.Err "channels.mail.smtp")}}
     </div>
     <div class="field">
+      <label for="s-mail-security">{{t "settings.mail_security"}}</label>
+      <select class="select" id="s-mail-security" name="mail_security" {{.Bad "channels.mail.security"}}>
+        <option value=""{{if eq .Form.Security ""}} selected{{end}}>{{t "settings.mail_security_auto"}}</option>
+        <option value="starttls"{{if eq .Form.Security "starttls"}} selected{{end}}>{{t "settings.mail_security_starttls"}}</option>
+        <option value="tls"{{if eq .Form.Security "tls"}} selected{{end}}>{{t "settings.mail_security_tls"}}</option>
+      </select>
+      <span class="field-hint">{{t "settings.mail_security_hint"}}</span>
+      {{template "fielderr" (.Err "channels.mail.security")}}
+    </div>
+    <div class="field">
       <label for="s-mail-user">{{t "settings.mail_user"}}</label>
       <input class="input" id="s-mail-user" name="mail_user" value="{{.Form.User}}" autocomplete="off">
     </div>

@@ -143,6 +143,30 @@ func TestSaveStoresAndRevalidates(t *testing.T) {
 	}
 }
 
+// The mail security setting is stored, comes back in the form and is
+// refused when it is not one of the allowed values.
+func TestSaveMailSecurity(t *testing.T) {
+	r := newRig(t)
+
+	f := r.form()
+	f.SMTP, f.From, f.Security = "mail.example.org:465", "j@example.org", "tls"
+	if errs := r.save(f); len(errs) != 0 {
+		t.Fatalf("errors: %+v", errs)
+	}
+	if got := r.form().Security; got != "tls" {
+		t.Errorf("form security = %q", got)
+	}
+	if got := r.jobs.Current().Settings.Mail.Security; got != model.MailTLS {
+		t.Errorf("security in force = %q", got)
+	}
+
+	f.Security = "ssl"
+	errs := r.save(f)
+	if le, ok := errs["channels.mail.security"]; !ok || le.Key == "" {
+		t.Errorf("no error on security: %+v", errs)
+	}
+}
+
 // Errors come back by field and nothing is stored, not even the valid part.
 func TestSaveRefusesBadValues(t *testing.T) {
 	r := newRig(t)

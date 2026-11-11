@@ -164,12 +164,30 @@ type Apprise struct {
 	Tags map[string]string // sub channel → Apprise tag
 }
 
+// MailSecurity is how Jidoka secures the link to the SMTP server.
+type MailSecurity string
+
+const (
+	// MailAuto is the zero value: port 465 means TLS, any other STARTTLS.
+	MailAuto MailSecurity = ""
+	// MailSTARTTLS connects in plain text and upgrades when offered.
+	MailSTARTTLS MailSecurity = "starttls"
+	// MailTLS is implicit TLS from the first byte (SMTPS, RFC 8314).
+	MailTLS MailSecurity = "tls"
+)
+
+// Valid reports whether s is one of the three values.
+func (s MailSecurity) Valid() bool {
+	return s == MailAuto || s == MailSTARTTLS || s == MailTLS
+}
+
 // Mail is the SMTP channel (M1).
 type Mail struct {
-	SMTP string // host:port
-	User string // password is the secret SMTP_PASSWORD
-	From string
-	To   []string
+	SMTP     string // host:port
+	Security MailSecurity
+	User     string // password is the secret SMTP_PASSWORD
+	From     string
+	To       []string
 }
 
 // Settings are the global settings, kept in the database and edited on

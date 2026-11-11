@@ -36,10 +36,11 @@ type DraftApprise struct {
 
 // DraftMail is the mail channel as written in the settings document.
 type DraftMail struct {
-	SMTP string   `toml:"smtp"`
-	User string   `toml:"user,omitempty"`
-	From string   `toml:"from"`
-	To   []string `toml:"to,omitempty"`
+	SMTP     string   `toml:"smtp"`
+	Security string   `toml:"security,omitempty"` // "", "starttls" or "tls"
+	User     string   `toml:"user,omitempty"`
+	From     string   `toml:"from"`
+	To       []string `toml:"to,omitempty"`
 }
 
 // DraftRule is one rule of a profile as written in the settings document.
@@ -285,5 +286,10 @@ func buildMail(is *issues, raw *DraftMail) *model.Mail {
 		is.at(sect, 0, "from", i18n.M("conf.from_required"))
 	}
 
-	return &model.Mail{SMTP: raw.SMTP, User: raw.User, From: raw.From, To: raw.To}
+	sec := model.MailSecurity(raw.Security)
+	if !sec.Valid() {
+		is.at(sect, 0, "security", i18n.M("conf.mail_security"))
+	}
+
+	return &model.Mail{SMTP: raw.SMTP, Security: sec, User: raw.User, From: raw.From, To: raw.To}
 }

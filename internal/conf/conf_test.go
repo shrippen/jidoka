@@ -514,3 +514,32 @@ func TestSettingsNeedStandardProfile(t *testing.T) {
 		checkKey(t, *set.SettingsErr)
 	}
 }
+
+// B8: a missing jidoka.toml is an error like one without a standard
+// profile; the last valid copy stays. Local runs may do without it.
+func TestMissingSettingsIsError(t *testing.T) {
+	dir := write(t, map[string]string{"a/job.toml": "run = \"x.sh\"\nschedule = \"0 6 * * *\"\n", "a/x.sh": ""})
+
+	prev := defaults()
+	prev.MaxParallel = 7
+	set := Load(dir, &prev)
+	if set.SettingsErr == nil || set.SettingsErr.Key != "conf.no_settings" {
+		t.Fatalf("SettingsErr %+v", set.SettingsErr)
+	}
+	checkKey(t, *set.SettingsErr)
+	if set.Settings.MaxParallel != 7 || len(set.Jobs) != 1 {
+		t.Errorf("settings %+v, jobs %d", set.Settings, len(set.Jobs))
+	}
+
+	if local := LoadWith(dir, nil, SettingsOptional); local.SettingsErr != nil {
+		t.Errorf("optional: %+v", local.SettingsErr)
+	}
+}
+
+// An unreadable folder is one error, not also a missing file.
+func TestMissingDirIsOneError(t *testing.T) {
+	set := Load(filepath.Join(t.TempDir(), "gone"), nil)
+	if set.SettingsErr != nil || len(set.Invalid) != 1 {
+		t.Errorf("SettingsErr %+v, Invalid %+v", set.SettingsErr, set.Invalid)
+	}
+}

@@ -30,22 +30,41 @@ const (
 	watchFile    = "watch.toml"
 )
 
-// Load reads dir. prev is the last valid Settings, kept if jidoka.toml is
-// broken; nil means defaults.
+// Need says whether a missing jidoka.toml is an error.
+type Need int
+
+const (
+	// SettingsRequired: the server; without the file there are no channels
+	// and no messages (B8).
+	SettingsRequired Need = iota
+	// SettingsOptional: `jidoka run` tries single jobs without it.
+	SettingsOptional
+)
+
+// Load reads dir for the server: jidoka.toml is required. prev is the last
+// valid Settings, kept if jidoka.toml is broken or missing; nil means
+// defaults.
 func Load(dir string, prev *model.Settings) model.Set {
+	return LoadWith(dir, prev, SettingsRequired)
+}
+
+// LoadWith is Load with a choice about a missing jidoka.toml.
+func LoadWith(dir string, prev *model.Settings, need Need) model.Set {
 	set := model.Set{
 		Jobs:     map[string]*model.Job{},
 		Commit:   readCommit(dir),
 		LoadedAt: time.Now().UTC(),
 	}
 
-	set.Settings, set.SettingsErr = loadSettings(dir, prev)
-
 	entries, err := os.ReadDir(dir)
 	if err != nil {
+		// One error for the folder; its settings file is no second one.
+		set.Settings = fallbackSettings(prev)
 		set.Invalid = append(set.Invalid, loadError("", ".", 0, i18n.M("conf.io", "detail", err.Error())))
 		return set
 	}
+
+	set.Settings, set.SettingsErr = loadSettings(dir, prev, need)
 
 	ctx := loadCtx{dir: dir, set: &set, now: set.LoadedAt}
 	for _, e := range entries {
@@ -66,15 +85,16 @@ func Load(dir string, prev *model.Settings) model.Set {
 }
 
 // loadSettings reads jidoka.toml; on any error it returns the fallback.
-func loadSettings(dir string, prev *model.Settings) (model.Settings, *model.LoadError) {
-	fallback := defaults()
-	if prev != nil {
-		fallback = *prev
-	}
+func loadSettings(dir string, prev *model.Settings, need Need) (model.Settings, *model.LoadError) {
+	fallback := fallbackSettings(prev)
 
 	src, err := os.ReadFile(filepath.Join(dir, settingsFile))
-	if errors.Is(err, os.ErrNotExist) {
+	if errors.Is(err, os.ErrNotExist) && need == SettingsOptional {
 		return fallback, nil
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		le := loadError("", settingsFile, 0, i18n.M("conf.no_settings"))
+		return fallback, &le
 	}
 	if err != nil {
 		le := loadError("", settingsFile, 0, i18n.M("conf.io", "detail", err.Error()))
@@ -87,6 +107,15 @@ func loadSettings(dir string, prev *model.Settings) (model.Settings, *model.Load
 	}
 
 	return s, nil
+}
+
+// fallbackSettings is what stays in force when jidoka.toml does not load.
+func fallbackSettings(prev *model.Settings) model.Settings {
+	if prev != nil {
+		return *prev
+	}
+
+	return defaults()
 }
 
 // ParseSettings parses the content of a jidoka.toml. Callers keep the

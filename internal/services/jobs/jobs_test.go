@@ -52,6 +52,7 @@ func open(t *testing.T) *sql.DB {
 
 func TestReloadDiff(t *testing.T) {
 	dir := t.TempDir()
+	put(t, dir, "jidoka.toml", "[[profiles.standard]]\non = [\"fail\"]\nchannels = [\"mail\"]\n")
 	putJob(t, dir, "keep", "echo 1\n")
 	putJob(t, dir, "edit", "echo 1\n")
 	putJob(t, dir, "gone", "echo 1\n")

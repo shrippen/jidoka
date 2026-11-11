@@ -266,3 +266,42 @@ func TestUnreadableDirKeepsRunTrouble(t *testing.T) {
 		t.Error("closed by the reload; only a good run ends it")
 	}
 }
+
+// B8: a jobs folder without jidoka.toml starts, shows the error and
+// reports it over KeyGlobal.
+func TestStartWithoutSettingsReports(t *testing.T) {
+	t.Setenv(envData, t.TempDir())
+	t.Setenv(envJobs, t.TempDir())
+	t.Setenv(envKey, "")
+
+	a, err := build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.db.Close()
+	if err := a.start(); err != nil {
+		t.Fatal(err)
+	}
+
+	if a.jobs.Current().SettingsErr == nil {
+		t.Error("no settings error")
+	}
+	if d, _ := alerts.NewDBStore(a.db).Disturbance(alerts.KeyGlobal); d == nil {
+		t.Error("no disturbance under KeyGlobal")
+	}
+}
+
+// jidoka run tries single jobs; it needs no jidoka.toml.
+func TestRunLocalWithoutSettings(t *testing.T) {
+	dir := write(t, map[string]string{
+		"a/job.toml": "run = \"x.sh\"\nschedule = \"0 6 * * *\"\n",
+		"a/x.sh":     "#!/bin/sh\necho hello\n",
+	})
+	if err := os.Chmod(filepath.Join(dir, "a", "x.sh"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if code := runLocal([]string{dir, "a"}); code != exitOK {
+		t.Errorf("exit %d", code)
+	}
+}

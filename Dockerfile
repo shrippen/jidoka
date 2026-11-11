@@ -29,7 +29,7 @@ RUN apk add --no-cache tini su-exec libcap bash curl jq python3 uv tzdata ca-cer
  && addgroup -S -g 10001 jidoka && adduser -S -u 10001 -G jidoka -h /app jidoka \
  && addgroup -S -g 10002 jobs && adduser -S -u 10002 -G jobs -h /data/home jobs \
  && mkdir -p /data /jobs && chown jidoka:jidoka /data
-ENV DATA_DIR=/data JOBS_DIR=/jobs JIDOKA_SHIM=/usr/local/bin/jidoka-shim UV_PYTHON_DOWNLOADS=never UV_CACHE_DIR=/data/uv-cache
+ENV DATA_DIR=/data JOBS_DIR=/jobs JIDOKA_SHIM=/usr/local/bin/jidoka-shim JIDOKA_JOB_UID=10002 UV_PYTHON_DOWNLOADS=never UV_CACHE_DIR=/data/uv-cache
 COPY --from=build /out/jidoka /out/jidoka-shim /usr/local/bin/
 # Only uid 10001 may run the capable server binary; jobs get the shim.
 RUN chown root:jidoka /usr/local/bin/jidoka && chmod 750 /usr/local/bin/jidoka \

@@ -1,0 +1,32 @@
+# Example for docker-compose-ploetze/jidoka/compose.yaml (B1, B2).
+# Values in ${…} come from Komodo (secrets), never from git.
+#
+#   /docker/appdata/jidoka/data  database, salt, state, uv cache (Borgmatic, B9)
+#   /docker/appdata/jidoka/jobs  checkout of jidoka-jobs by Komodo (B6), read only
+#
+# Do not set security_opt no-new-privileges: the server binary needs its
+# file capabilities to start jobs as uid 10002 (Dockerfile).
+services:
+  jidoka:
+    image: ghcr.io/shrippen/jidoka:edge
+    container_name: jidoka
+    hostname: jidoka
+    restart: unless-stopped
+    volumes:
+      - /docker/appdata/jidoka/data:/data
+      - /docker/appdata/jidoka/jobs:/jobs:ro
+    environment:
+      TZ: Europe/Berlin
+      MASTER_KEY: ${MASTER_KEY}
+      OIDC_ISSUER: ${OIDC_ISSUER}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET}
+      OIDC_ALLOW_SUB: ${OIDC_ALLOW_SUB}
+      # Caddy in front: X-Forwarded-For of pings is trusted only from it.
+      TRUSTED_PROXY: 172.16.0.0/12
+    networks:
+      - jidoka
+networks:
+  jidoka:
+    driver: bridge
+    name: jidoka

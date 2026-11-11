@@ -632,3 +632,18 @@ func TestSettingsBannerText(t *testing.T) {
 		t.Errorf("no copy: text %q", b.SettingsText)
 	}
 }
+
+// An unreadable jobs folder without a saved jidoka.toml leaves Jidoka
+// without channels: the board must say so (B8), also with no SettingsErr.
+func TestUnreadableDirBannerText(t *testing.T) {
+	e := newEnv(t)
+	e.dir = filepath.Join(e.dir, "missing")
+	e.jobs = jobs.New(e.d, e.dir)
+	e.svc = New(Deps{DB: e.d, Jobs: e.jobs, Plan: e.plan, Watch: e.w, Secrets: e.sec, Now: e.clk.Now, Version: "test"})
+	e.start()
+
+	b, _ := e.svc.Board()
+	if b.SettingsText != "board.invalid_settings_none" {
+		t.Errorf("unreadable folder, no copy: text %q", b.SettingsText)
+	}
+}

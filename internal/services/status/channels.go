@@ -58,7 +58,7 @@ type ChannelsPage struct {
 	// Recent are the newest 50 deliveries, newest first.
 	Recent []model.Delivery
 	Outbox []OutboxRow
-	// SettingsErr: jidoka.toml did not load; the last valid copy is in use (B8).
+	// SettingsErr: jidoka.toml did not load; the saved copy or the defaults are in use (B8).
 	SettingsErr *model.LoadError
 	// SettingsText is the catalog key of its banner.
 	SettingsText string

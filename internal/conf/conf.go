@@ -60,7 +60,7 @@ func LoadWith(dir string, prev *model.Settings, need Need) model.Set {
 	if err != nil {
 		// One error for the folder; its settings file is no second one.
 		set.Settings, set.SettingsFrom = fallbackSettings(prev)
-		set.Invalid = append(set.Invalid, loadError("", ".", 0, i18n.M("conf.io", "detail", err.Error())))
+		set.Invalid = append(set.Invalid, loadError("", model.DirFile, 0, i18n.M("conf.io", "detail", err.Error())))
 		return set
 	}
 

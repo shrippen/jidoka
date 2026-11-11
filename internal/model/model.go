@@ -198,6 +198,9 @@ type LoadError struct {
 // RepoFile is LoadError.File of a failed fetch of the jobs repo (J1).
 const RepoFile = "JOBS_REPO"
 
+// DirFile is LoadError.File when the jobs folder itself could not be read.
+const DirFile = "."
+
 // SettingsSource says where Set.Settings came from.
 type SettingsSource string
 
@@ -214,7 +217,8 @@ const (
 // Set is everything loaded from /jobs at one moment.
 type Set struct {
 	Settings Settings
-	// SettingsErr: jidoka.toml did not load; Settings is the last valid copy (B8).
+	// SettingsErr: jidoka.toml did not load; Settings is the saved copy, or
+	// the defaults without channels if there is none (SettingsFrom, B8).
 	SettingsErr *LoadError
 	// SettingsFrom: which copy of the settings is in force.
 	SettingsFrom SettingsSource

@@ -123,14 +123,15 @@ func (s *Service) Status() Status {
 	return st
 }
 
-// settingsText is the catalog key of the banner for a jidoka.toml that did
-// not load: the saved copy applies, or there is none; "" if it loaded.
+// settingsText is the catalog key of the banner for the settings in force:
+// none at all (no channels, also when only the jobs folder failed), the
+// saved copy of a jidoka.toml that did not load, or "" for the file.
 func settingsText(set model.Set) string {
 	switch {
-	case set.SettingsErr == nil:
-		return ""
 	case set.SettingsFrom == model.SettingsDefaults:
 		return "board.invalid_settings_none"
+	case set.SettingsErr == nil:
+		return ""
 	}
 	return "board.invalid_settings"
 }

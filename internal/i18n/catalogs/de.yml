@@ -85,6 +85,7 @@ board:
   invalid_job: "Job nicht geladen: {job}"
   invalid_settings: jidoka.toml nicht geladen, die letzte gültige Fassung gilt
   invalid_settings_none: "jidoka.toml nicht geladen und keine gültige Fassung vorhanden: keine Kanäle, keine Meldungen"
+  invalid_dir: Jobs-Ordner nicht lesbar
   invalid_repo: Jobs-Repo nicht geholt, der zuletzt geholte Stand gilt
   invalid_repo_hint: JOBS_REPO, JOBS_REPO_TOKEN und die Erreichbarkeit von Gitea prüfen; das nächste Neuladen versucht es erneut.
   invalid_hint: Datei im Jobs-Repo korrigieren; nach dem Push lädt Komodo die Jobs neu, oder hier „Jobs neu laden“.

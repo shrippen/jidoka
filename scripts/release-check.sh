@@ -5,6 +5,12 @@
 # Adapted from Andon's scripts/release-check.sh (468474a).
 set -eu
 bin="$1"
+
+# A bare name would be looked up in PATH, not here (CI passes jidoka-release).
+case "$bin" in
+*/*) ;;
+*) bin="./$bin" ;;
+esac
 world="$(dirname "$0")/../internal/demo/world.json"
 
 # Fixed markers plus every identifying name from the world.

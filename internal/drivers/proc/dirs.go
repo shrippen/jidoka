@@ -24,15 +24,13 @@ const (
 	modeSize   = "--du"
 	modeRemove = "--rm"
 
-	// statBlock is the unit of syscall.Stat_t.Blocks.
-	statBlock = 512
-
 	dirOwnerRWX = 0o700
 )
 
-// DirSize returns the disk use of dir in bytes, measured as uid (0 = no
-// user switch). A missing dir is 0. Symlinks are not followed; a file
-// with several links counts once.
+// DirSize returns the size of the files in dir in bytes, measured as uid
+// (0 = no user switch). File sizes, not blocks: compression and delayed
+// allocation (ZFS) make blocks vary. A missing dir is 0. Symlinks are
+// not followed; a file with several links counts once.
 func DirSize(shim string, uid uint32, dir string) (int64, error) {
 	out, err := asUser(shim, uid, modeSize, dir)
 	if err != nil {
@@ -117,7 +115,9 @@ func sizeOf(dir string) (int64, error) {
 			return nil
 		}
 		seen[key] = true
-		total += st.Blocks * statBlock
+		if info.Mode().IsRegular() {
+			total += info.Size()
+		}
 
 		return nil
 	})

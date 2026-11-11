@@ -135,3 +135,44 @@ func TestUnknownJobAndRun(t *testing.T) {
 		}
 	}
 }
+
+// TestScheduleAndLoadErrorInWords: a tile says its schedule in words with
+// the cron text in the title, and an invalid schedule reads in the
+// language of the request (D2, D3).
+func TestScheduleAndLoadErrorInWords(t *testing.T) {
+	b, s := seeded(t)
+	b.put("late/job.toml", "run = \"run.sh\"\nschedule = \"0 25 * * *\"\n")
+	b.put("late/run.sh", "#!/bin/sh\n")
+	if err := b.jobs.Load(); err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		lang string
+		want []string
+	}{
+		{"de", []string{"Ungültiger Zeitplan: Stunde: Wert 25 außerhalb von 0-23", `title="0 6 * * *">täglich um 06:00<`}},
+		{"en", []string{"invalid schedule: hour: value 25 out of range 0-23", `title="0 6 * * *">daily at 06:00<`}},
+	}
+
+	for _, tc := range tests {
+		for _, path := range []string{"/", "/jobs/hello"} {
+			w := do(b.srv, "GET", path, nil, s.cookies, map[string]string{"Accept-Language": tc.lang})
+			body := w.Body.String()
+			for _, sub := range tc.want {
+				if path == "/jobs/hello" && strings.Contains(sub, "Zeitplan:") || path == "/jobs/hello" && strings.Contains(sub, "invalid schedule") {
+					continue
+				}
+				if !strings.Contains(body, sub) {
+					t.Errorf("%s (%s) lacks %q", path, tc.lang, sub)
+				}
+			}
+		}
+	}
+
+	// The job page of the broken job shows the error too.
+	w := do(b.srv, "GET", "/jobs/late", nil, s.cookies, nil)
+	if !strings.Contains(w.Body.String(), "Ungültiger Zeitplan: Stunde") {
+		t.Errorf("job page lacks the German load error: %s", w.Body)
+	}
+}

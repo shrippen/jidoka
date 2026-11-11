@@ -34,6 +34,7 @@ const (
 	planBar       = 12
 	planDenseW    = 1.6
 	planDenseH    = 14
+	denseOKShare  = .55 // a dense lane draws ok at this share of the height
 	planMinRun    = 4
 	planOverdueH  = 20
 	planNowTop    = 12
@@ -205,7 +206,12 @@ func (u ui) runMark(tt status.Timetable, m status.Mark, y px, dense bool, x func
 
 	switch {
 	case dense:
-		mk.Shape, mk.X, mk.Y, mk.W, mk.H = shapeRect, x(m.Start)-planDenseW/2, y-planDenseH/2, planDenseW, planDenseH
+		// ok a short line, anything else the full height: told apart by length.
+		h := px(planDenseH)
+		if m.State == model.RunOK {
+			h = planDenseH * denseOKShare
+		}
+		mk.Shape, mk.X, mk.Y, mk.W, mk.H = shapeRect, x(m.Start)-planDenseW/2, y+planDenseH/2-h, planDenseW, h
 	case m.State == model.RunRunning:
 		mk.Shape, mk.X, mk.Y, mk.H = shapeRect, x(m.Start), y-planBar/2, planBar
 		mk.W = px(math.Max(planMinRun, float64(x(end)-x(m.Start))))

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"jidoka/internal/cron"
 	"jidoka/internal/i18n"
 	"jidoka/internal/model"
 	"jidoka/internal/services/jobs"
@@ -83,6 +84,8 @@ func (u ui) funcs() template.FuncMap {
 		"diff":     u.diff,
 		"quiet":    u.quiet,
 		"ruleText": u.ruleText,
+		"loadMsg":  u.loadMsg,
+		"words":    u.words,
 		"jobKey":   jobKey,
 		"runKey":   runKey,
 		"eventKey": eventKey,
@@ -90,6 +93,25 @@ func (u ui) funcs() template.FuncMap {
 		"zoneName": func() string { return zoneOf(u.zone).Name },
 		"hm":       quietClock,
 	}
+}
+
+// loadMsg is a load error in the reader's language; one made without a
+// catalog key keeps its English text.
+func (u ui) loadMsg(le model.LoadError) string {
+	if le.Key == "" {
+		return le.Msg
+	}
+	return i18n.T(le.Key, u.locale, le.Params)
+}
+
+// words is a cron expression in words ("daily at 06:00"); the form it
+// does not cover stays as written. The page puts the expression in a title.
+func (u ui) words(expr string) string {
+	text, ok := cron.Describe(expr, u.locale)
+	if !ok {
+		return expr
+	}
+	return text
 }
 
 // dur reads a length: "<1 s", "45 s", "2 min 05 s", "3 h 05 min".

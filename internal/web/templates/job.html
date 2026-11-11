@@ -17,7 +17,7 @@
 
   {{if .Tile.State.Broken}}
   <section class="callout {{if eq .Tile.State "missed"}}callout-warn{{else}}callout-danger{{end}}" role="alert">
-    <p><strong>{{if eq .Tile.State "missed"}}{{t "board.no_ping" "age" (dur (quiet .Tile))}}{{else if eq .Tile.State "invalid"}}{{if .Tile.Load}}{{.Tile.Load.Msg}}{{end}}{{else if .Tile.Summary}}{{.Tile.Summary}}{{else}}{{t (print "state." .Tile.State)}}{{end}}</strong></p>
+    <p><strong>{{if eq .Tile.State "missed"}}{{t "board.no_ping" "age" (dur (quiet .Tile))}}{{else if eq .Tile.State "invalid"}}{{if .Tile.Load}}{{loadMsg .Tile.Load}}{{end}}{{else if .Tile.Summary}}{{.Tile.Summary}}{{else}}{{t (print "state." .Tile.State)}}{{end}}</strong></p>
     {{if not .Tile.Since.IsZero}}<p class="mono small">{{if eq .Tile.State "missed"}}{{t "board.due_since" "due" (when .Tile.Since)}}{{else}}{{t "board.since" "since" (when .Tile.Since) "count" .Tile.Streak}}{{end}}{{tzMark}}</p>{{end}}
     {{if .Tile.Load}}<p class="mono small">{{.Tile.Load.File}}{{if .Tile.Load.Line}}:{{.Tile.Load.Line}}{{end}}</p>{{end}}
   </section>
@@ -69,7 +69,7 @@
           <div class="chart-axis" aria-hidden="true"><span class="unit">{{.Unit}}</span>{{range .Axis}}<span>{{.}}</span>{{end}}</div>
           <div class="chart-wrap" data-readout>
             <svg class="chart" viewBox="0 0 {{.N}} {{.H}}" preserveAspectRatio="none" role="img" aria-label="{{if .Watch}}{{t "job.gap"}}{{else}}{{t "job.length"}}{{end}}">
-              <defs><pattern id="k-stripe" width="10" height="10" patternUnits="userSpaceOnUse"><rect class="stripe-bar" width="10" height="5"/></pattern></defs><line class="grid" x1="0" x2="{{.N}}" y1="0" y2="0"/><line class="grid" x1="0" x2="{{.N}}" y1="50" y2="50"/><line class="grid" x1="0" x2="{{.N}}" y1="100" y2="100"/>
+              <defs><pattern id="k-stripe" width="10" height="6" patternUnits="userSpaceOnUse"><rect class="stripe-bar" width="10" height="6"/><rect class="stripe-gap" y="2" width="10" height="2.5"/></pattern></defs><line class="grid" x1="0" x2="{{.N}}" y1="0" y2="0"/><line class="grid" x1="0" x2="{{.N}}" y1="50" y2="50"/><line class="grid" x1="0" x2="{{.N}}" y1="100" y2="100"/>
               {{range .Bars}}<a href="{{.Href}}" data-tip="{{.Tip}}"><rect class="ev" data-state="{{.State}}" x="{{.X}}" y="{{.Y}}" width=".8" height="{{.H}}"/></a>{{end}}
             </svg>
             <div class="readout"></div>
@@ -115,7 +115,7 @@
           <dt>{{t "job.expect"}}</dt><dd>{{dur .Tile.Job.Expect}}</dd>
           {{if not .Tile.Due.IsZero}}<dt>{{t "board.due"}}</dt><dd>{{when .Tile.Due}}{{tzMark}}</dd>{{end}}
           {{else}}
-          <dt>{{t "job.schedule"}}</dt><dd class="mono">{{.Tile.Job.Schedule}}{{if .Tile.Job.Zone}} · {{.Tile.Job.Zone}}{{end}}</dd>
+          <dt>{{t "job.schedule"}}</dt><dd><span title="{{.Tile.Job.Schedule}}">{{words .Tile.Job.Schedule}}</span>{{if .Tile.Job.Zone}} · {{.Tile.Job.Zone}}{{end}}</dd>
           <dt>{{t "board.next"}}</dt><dd>{{if .Tile.Paused}}{{t "state.paused"}}{{else if .Tile.Next.IsZero}}—{{else}}{{when .Tile.Next}}{{tzMark}}{{end}}</dd>
           {{if .Tile.Job.Timeout}}<dt>{{t "job.timeout"}}</dt><dd>{{dur .Tile.Job.Timeout}}</dd>{{end}}
           {{if .Tile.Job.Expect}}<dt>{{t "job.expect"}}</dt><dd>{{dur .Tile.Job.Expect}}</dd>{{end}}

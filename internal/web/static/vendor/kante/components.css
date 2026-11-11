@@ -2180,8 +2180,8 @@ details.help.is-right>.help-text{left:auto;right:-.5rem}
 /* Kante 1.80: states of runs and the marks that show them. Colour, a sign and a word always go together.
    Not by colour alone. Strip: ok a short column (lower 55 %), bad a full column, warn hollow, run hollow dashed,
    miss hollow dotted. Marks and bars (.ev): ok a plain fill, bad horizontal stripes (a bar chart needs
-   <defs><pattern id="k-stripe" width="10" height="10" patternUnits="userSpaceOnUse"><rect class="stripe-bar" width="10" height="5"/></pattern></defs>
-   in its svg; without it bad is a plain fill; lane marks tell ok and bad by shape: circle, square), warn hollow, run hollow dashed.
+   <defs><pattern id="k-stripe" width="10" height="6" patternUnits="userSpaceOnUse"><rect class="stripe-bar" width="10" height="6"/><rect class="stripe-gap" y="2" width="10" height="2.5"/></pattern></defs>
+   in its svg: a solid base with a light cross stripe, so a bar is filled at any height and striped from about 4 units; without it bad is a plain fill; lane marks tell ok and bad by shape: circle, square), warn hollow, run hollow dashed.
    Legend: .legend.is-ticks shortens the ok mark, .legend.is-bars stripes the bad mark.
    Pill by the words of .status: <span class="pill" data-state="ok|warn|bad|run|off">ok</span>
    (✓ ok, ! warn, ✕ bad, ▶ run, – off; run breathes). */
@@ -2193,8 +2193,8 @@ details.help.is-right>.help-text{left:auto;right:-.5rem}
 .pill:is([data-state="ok"],[data-state="warn"],[data-state="bad"],[data-state="run"],[data-state="off"])::before{content:var(--sign);width:auto;height:auto;background:none;font-size:.75rem;line-height:1}
 .status[data-state="run"]{--k:var(--info)}
 /* Result strip: the last runs as columns, oldest left, one rect per run so each can carry a read-out
-   (data-tip="#12 · 14:20 · ok · 3 s", in a .chart-wrap[data-readout] with a .readout). A shorter rect
-   (y, height) marks a lesser failure; a miss is a hollow dashed column for a run that did not come:
+   (data-tip="#12 · 14:20 · ok · 3 s", in a .chart-wrap[data-readout] with a .readout). ok is a short
+   column (CSS y and height), bad a full one; a miss is a hollow dotted column for a run that did not come:
    <svg class="ticks" viewBox="0 0 16 1" preserveAspectRatio="none" role="img" aria-label="…">
    <rect data-state="ok|warn|bad|run|off|miss" x="0" width=".8" y="0" height="1" data-tip="…"/>…</svg> */
 .ticks{display:block;width:100%;height:1.1rem}
@@ -2209,7 +2209,7 @@ details.help.is-right>.help-text{left:auto;right:-.5rem}
 .legend i[data-state="ok"]{--c:var(--aqua)}.legend i[data-state="warn"]{--c:var(--warn)}.legend i[data-state="bad"]{--c:var(--danger)}
 .legend i[data-state="run"]{--c:var(--info)}.legend i[data-state="off"]{--c:var(--bg2)}
 .legend.is-ticks i[data-state="ok"]{height:5px;vertical-align:-1px}
-.legend.is-bars i[data-state="bad"]{background:repeating-linear-gradient(0deg,var(--danger) 0 2px,transparent 2px 4px)}
+.legend.is-bars i[data-state="bad"]{background:repeating-linear-gradient(0deg,var(--danger) 0 2px,color-mix(in srgb,var(--fg0) 40%,var(--danger)) 2px 4px)}
 .legend i[data-state="warn"]{background:none;border:2px solid var(--warn)}
 .legend i[data-state="run"]{background:none;border:2px dashed var(--info)}
 .legend i[data-state="miss"]{background:none;border:1px dotted var(--warn)}
@@ -2228,7 +2228,7 @@ details.help.is-right>.help-text{left:auto;right:-.5rem}
 .chart .ev.is-plan{fill:none;stroke:var(--fg3);stroke-width:1.5;vector-effect:non-scaling-stroke}
 .chart .ev.is-late{fill:none;stroke:var(--warn);stroke-width:1;stroke-dasharray:4 3;vector-effect:non-scaling-stroke}
 .chart a:hover .ev{opacity:.75}
-.chart .stripe-bar{fill:var(--danger)}
+.chart .stripe-bar{fill:var(--danger)}.chart .stripe-gap{fill:var(--fg0);fill-opacity:.4}
 .chart .lane-name{fill:var(--fg0);font-weight:700;letter-spacing:.02em}
 .chart a:hover .lane-name,.chart a:focus-visible .lane-name{text-decoration:underline}
 .chart a:focus-visible{outline:2px solid var(--focus);outline-offset:2px}

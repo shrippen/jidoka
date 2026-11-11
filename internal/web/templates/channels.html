@@ -10,7 +10,7 @@
   <section class="callout callout-danger" role="alert">
     <p><strong>✕ {{t "board.invalid_settings"}}</strong></p>
     <p class="mono small">{{.SettingsErr.File}}{{if .SettingsErr.Line}}:{{.SettingsErr.Line}}{{end}}</p>
-    <p>{{.SettingsErr.Msg}}</p>
+    <p>{{loadMsg .SettingsErr}}</p>
   </section>
   {{end}}
 

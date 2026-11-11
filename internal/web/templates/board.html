@@ -24,7 +24,7 @@
   <section class="callout callout-danger" role="alert">
     <p><strong>✕ {{if .Job}}{{t "board.invalid_job" "job" .Job}}{{else}}{{t "board.invalid_settings"}}{{end}}</strong></p>
     <p class="mono small">{{.File}}{{if .Line}}:{{.Line}}{{end}}</p>
-    <p>{{.Msg}}</p>
+    <p>{{loadMsg .}}</p>
     <p class="small muted">{{t "board.invalid_hint"}}</p>
   </section>
   {{end}}
@@ -66,7 +66,7 @@
       {{template "jobpill" .State}}
       <div class="row">
         {{if eq .Job.Kind "watch"}}{{t "board.watch"}}{{if .Job.Expect}} · {{t "board.expect" "every" (dur .Job.Expect)}}{{end}}
-        {{else if .Job.Schedule}}<span class="mono">{{.Job.Schedule}}</span>{{else}}{{t "board.no_schedule"}}{{end}}
+        {{else if .Job.Schedule}}<span title="{{.Job.Schedule}}">{{words .Job.Schedule}}</span>{{else}}{{t "board.no_schedule"}}{{end}}
       </div>
 
       {{if or .Acked .Muted}}
@@ -76,7 +76,7 @@
       <p class="tile-say">
         {{if eq .State "missed"}}{{t "board.no_ping" "age" (dur (quiet .))}}
         {{else if eq .State "paused"}}{{if .Flags.PausedBy}}{{t "board.paused_by" "who" .Flags.PausedBy}}{{else}}{{t "state.paused"}}{{end}}
-        {{else if eq .State "invalid"}}{{if .Load}}{{.Load.Msg}}{{end}}
+        {{else if eq .State "invalid"}}{{if .Load}}{{loadMsg .Load}}{{end}}
         {{else if eq .State "disabled"}}{{t "board.disabled"}}
         {{else if eq .State "never"}}{{t "board.never"}}
         {{else if .Summary}}{{.Summary}}

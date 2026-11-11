@@ -2178,8 +2178,11 @@ details.help.is-right>.help-text{left:auto;right:-.5rem}
 .goalbar>i.on{background:var(--primary)}
 
 /* Kante 1.80: states of runs and the marks that show them. Colour, a sign and a word always go together.
-   Not by colour alone: ok is a plain fill, bad a fill with a light outline, warn hollow with a solid outline,
-   run hollow with a dashed outline, miss hollow with a dotted outline (same in .ticks, .ev and the legend marks).
+   Not by colour alone. Strip: ok a short column (lower 55 %), bad a full column, warn hollow, run hollow dashed,
+   miss hollow dotted. Marks and bars (.ev): ok a plain fill, bad horizontal stripes (a bar chart needs
+   <defs><pattern id="k-stripe" width="10" height="10" patternUnits="userSpaceOnUse"><rect class="stripe-bar" width="10" height="5"/></pattern></defs>
+   in its svg; without it bad is a plain fill; lane marks tell ok and bad by shape: circle, square), warn hollow, run hollow dashed.
+   Legend: .legend.is-ticks shortens the ok mark, .legend.is-bars stripes the bad mark.
    Pill by the words of .status: <span class="pill" data-state="ok|warn|bad|run|off">ok</span>
    (✓ ok, ! warn, ✕ bad, ▶ run, – off; run breathes). */
 .pill[data-state="ok"]{--c:var(--aqua);--sign:"✓"}
@@ -2196,15 +2199,17 @@ details.help.is-right>.help-text{left:auto;right:-.5rem}
    <rect data-state="ok|warn|bad|run|off|miss" x="0" width=".8" y="0" height="1" data-tip="…"/>…</svg> */
 .ticks{display:block;width:100%;height:1.1rem}
 .ticks rect{fill:var(--aqua)}
-.ticks rect[data-state="bad"]{fill:var(--danger);stroke:var(--fg0);stroke-width:1.5}
+.ticks rect[data-state="ok"]{y:.45px;height:.55px}
+.ticks rect[data-state="bad"]{fill:var(--danger)}
 .ticks rect[data-state="warn"]{fill:none;stroke:var(--warn);stroke-width:2}
 .ticks rect[data-state="run"]{fill:none;stroke:var(--info);stroke-width:2;stroke-dasharray:3 2}
 .ticks rect[data-state="off"]{fill:var(--bg2)}
 .ticks rect[data-state="miss"]{fill:none;stroke:var(--warn);stroke-width:1;stroke-dasharray:1 2}
-.ticks rect:not([data-state="ok"],[data-state="off"]){vector-effect:non-scaling-stroke}
+.ticks rect:not([data-state="ok"],[data-state="bad"],[data-state="off"]){vector-effect:non-scaling-stroke}
 .legend i[data-state="ok"]{--c:var(--aqua)}.legend i[data-state="warn"]{--c:var(--warn)}.legend i[data-state="bad"]{--c:var(--danger)}
 .legend i[data-state="run"]{--c:var(--info)}.legend i[data-state="off"]{--c:var(--bg2)}
-.legend i[data-state="bad"]{border:1px solid var(--fg0)}
+.legend.is-ticks i[data-state="ok"]{height:5px;vertical-align:-1px}
+.legend.is-bars i[data-state="bad"]{background:repeating-linear-gradient(0deg,var(--danger) 0 2px,transparent 2px 4px)}
 .legend i[data-state="warn"]{background:none;border:2px solid var(--warn)}
 .legend i[data-state="run"]{background:none;border:2px dashed var(--info)}
 .legend i[data-state="miss"]{background:none;border:1px dotted var(--warn)}
@@ -2217,12 +2222,13 @@ details.help.is-right>.help-text{left:auto;right:-.5rem}
    <text class="lane-name"> the row's name (also inside an <a>), <text class="is-late"> a word in the warning colour, .grid the hours, .now the present.
    The same .ev colours the bars of a chart of single runs. */
 .chart .ev{fill:var(--aqua);stroke:none}
-.chart .ev[data-state="bad"]{fill:var(--danger);stroke:var(--fg0);stroke-width:1.5;vector-effect:non-scaling-stroke}
+.chart .ev[data-state="bad"]{fill:url(#k-stripe) var(--danger)}
 .chart .ev[data-state="warn"]{fill:none;stroke:var(--warn);stroke-width:2;vector-effect:non-scaling-stroke}
 .chart .ev[data-state="run"]{fill:none;stroke:var(--info);stroke-width:2;stroke-dasharray:4 2;vector-effect:non-scaling-stroke}
 .chart .ev.is-plan{fill:none;stroke:var(--fg3);stroke-width:1.5;vector-effect:non-scaling-stroke}
 .chart .ev.is-late{fill:none;stroke:var(--warn);stroke-width:1;stroke-dasharray:4 3;vector-effect:non-scaling-stroke}
-.chart a:hover .ev,.chart a:focus-visible .ev,.chart .ev:hover{stroke:var(--fg0);stroke-width:2;vector-effect:non-scaling-stroke}
+.chart a:hover .ev{opacity:.75}
+.chart .stripe-bar{fill:var(--danger)}
 .chart .lane-name{fill:var(--fg0);font-weight:700;letter-spacing:.02em}
 .chart a:hover .lane-name,.chart a:focus-visible .lane-name{text-decoration:underline}
 .chart a:focus-visible{outline:2px solid var(--focus);outline-offset:2px}

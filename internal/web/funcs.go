@@ -32,15 +32,17 @@ const (
 	// minsShown: below it minutes ("1 min 30 s"), above hours ("3 h 05 min").
 	minsShown = 2 * time.Hour
 
+	// okTickY and okTickH make a success a short column, as Kante's CSS
+	// does too: the strip tells ok from bad by height, not only by colour.
+	okTickY = ".45"
+	okTickH = ".55"
+
 	// tipSummaryMax cuts the summary in a read-out so it stays on a tile.
 	tipSummaryMax = 40
 	// stripShort and stripLong are the runs a tile's strip shows: a
 	// disturbed tile is wider (O1).
 	stripShort = 16
 	stripLong  = 30
-	// lowTickY and lowTickH draw a timeout lower than a failure.
-	lowTickY = ".4"
-	lowTickH = ".6"
 )
 
 // ui says times and states in the language and zone of one request. now
@@ -229,8 +231,8 @@ func (u ui) strip(t status.Tile) stripView {
 	v := stripView{N: n, Cells: []stripCell{}, Label: u.T("strip.label")}
 	for _, tk := range ticks {
 		c := stripCell{X: x, State: runKey(tk.State), Y: "0", H: "1", Tip: u.tickTip(tk)}
-		if tk.State == model.RunTimeout {
-			c.Y, c.H = lowTickY, lowTickH
+		if tk.State == model.RunOK {
+			c.Y, c.H = okTickY, okTickH
 		}
 		v.Cells = append(v.Cells, c)
 		x++

@@ -1,5 +1,5 @@
 Kante 1.80
 source: https://github.com/shrippen/Kante
 branch: jidoka-bausteine
-commit: 2e254639611b801dbec15e41582eac814bd728f6
+commit: 88fc61a10a0ebe8e61a995bfe6bad8a7f7c1e8b8
 files: tokens.css base.css components.css shrippen.js fonts/OFL.txt fonts/*.woff2 (Latin subsets, see tools/sync-design.sh)

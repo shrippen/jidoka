@@ -59,7 +59,7 @@
       <section class="detail-block">
         <div class="detail-label">
           <h2 class="h-label">{{if .Watch}}{{t "job.gap"}}{{else}}{{t "job.length"}}{{end}}</h2>
-          <ul class="legend" aria-label="{{t "job.legend"}}">
+          <ul class="legend is-bars" aria-label="{{t "job.legend"}}">
             <li><i data-state="ok"></i>{{t "run.ok"}}</li>
             <li><i data-state="bad"></i>{{t "run.fail"}} / {{t "run.timeout"}}</li>
             <li><i data-state="run"></i>{{t "run.running"}}</li>
@@ -69,7 +69,7 @@
           <div class="chart-axis" aria-hidden="true"><span class="unit">{{.Unit}}</span>{{range .Axis}}<span>{{.}}</span>{{end}}</div>
           <div class="chart-wrap" data-readout>
             <svg class="chart" viewBox="0 0 {{.N}} {{.H}}" preserveAspectRatio="none" role="img" aria-label="{{if .Watch}}{{t "job.gap"}}{{else}}{{t "job.length"}}{{end}}">
-              <line class="grid" x1="0" x2="{{.N}}" y1="0" y2="0"/><line class="grid" x1="0" x2="{{.N}}" y1="50" y2="50"/><line class="grid" x1="0" x2="{{.N}}" y1="100" y2="100"/>
+              <defs><pattern id="k-stripe" width="10" height="10" patternUnits="userSpaceOnUse"><rect class="stripe-bar" width="10" height="5"/></pattern></defs><line class="grid" x1="0" x2="{{.N}}" y1="0" y2="0"/><line class="grid" x1="0" x2="{{.N}}" y1="50" y2="50"/><line class="grid" x1="0" x2="{{.N}}" y1="100" y2="100"/>
               {{range .Bars}}<a href="{{.Href}}" data-tip="{{.Tip}}"><rect class="ev" data-state="{{.State}}" x="{{.X}}" y="{{.Y}}" width=".8" height="{{.H}}"/></a>{{end}}
             </svg>
             <div class="readout"></div>

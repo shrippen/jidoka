@@ -54,21 +54,21 @@ Priorität: **M** muss, **S** soll, **K** kann.
 
 ### 4.1 Jobs
 
-| Nr. | Prio | Anforderung |
-|---|---|---|
-| J1 | M | Jobs sind Ordner unter `/jobs` (Bind-Mount, nur lesen). Jidoka liest sie beim Start. Hinzufügen, Entfernen und Ändern wirken nach einem Neustart des Containers. |
-| J2 | M | Ein Job, dessen `job.toml` fehlerhaft ist, verhindert den Start nicht. Er erscheint als `ungültig` mit Fehlertext auf der Seite und löst eine Meldung aus. |
-| J3 | M | Zeitplan als Cron-Ausdruck (5 Felder) in der Zone des Jobs, Standard `Europe/Berlin`. Umstellung auf Sommer- und Winterzeit ohne doppelten oder fehlenden Lauf. |
-| J4 | M | Erfolg heißt Exit-Code 0, alles andere ist `fehler`. Nach dem Timeout (Standard 10 min) wird die ganze Prozessgruppe beendet, Zustand `zeitüberschreitung`. |
-| J5 | M | Ein Job läuft nie zweimal gleichzeitig. Fällt ein Termin in einen laufenden Lauf, entfällt er und wird vermerkt. |
-| J6 | M | Ausgabe (stdout und stderr, zeitlich verschränkt) wird je Lauf gespeichert, gekürzt auf 256 KB (Anfang und Ende bleiben). |
-| J7 | M | Geheimnisse kommen als Umgebungsvariablen aus einer Datei neben dem Job (`secrets.env`, nicht im Git). Ihre Werte werden in Ausgabe, Seite, API und Meldung durch `***` ersetzt. |
-| J8 | S | Ein Skript kann eine Zeile Zusammenfassung in `$JIDOKA_SUMMARY` schreiben, z. B. „41 Lehrgänge, 2 neu, 1 entfernt“. Sie steht in Übersicht und Meldung. |
-| J9 | S | Jobs von Hand starten und pausieren, über die Seite. Pause überlebt den Neustart. |
-| J10 | S | `catchup = true`: Ein Termin, der verpasst wurde, weil der Container aus war, wird nach dem Start einmal nachgeholt. |
-| J11 | S | Laufzeit im Image: `sh`, `bash`, Python 3, `curl`, `jq`. Python-Abhängigkeiten je Job über `requirements.txt`, beim Start in eine venv unter `/data` installiert und zwischengespeichert. *Annahme* |
-| J12 | S | Aufbewahrung: Läufe 90 Tage, höchstens 500 je Job; danach gelöscht. |
-| J13 | K | Wiederholung nach Fehler (`retries`, `retry_delay`), gemeldet wird erst nach dem letzten Versuch. |
+| Nr. | Prio | Anforderung                                                                                                                                                                                         |
+| --- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| J1  | M    | Jobs sind Ordner unter `/jobs` (Bind-Mount, nur lesen) aus dem Git-Repo `jidoka-jobs` auf Gitea. Jidoka liest sie beim Start. Hinzufügen, Entfernen und Ändern wirken nach einem Neustart des Containers.                                    |
+| J2  | M    | Ein Job, dessen `job.toml` fehlerhaft ist, verhindert den Start nicht. Er erscheint als `ungültig` mit Fehlertext auf der Seite und löst eine Meldung aus.                                          |
+| J3  | M    | Zeitplan als Cron-Ausdruck (5 Felder) in der Zone des Jobs, Standard `Europe/Berlin`. Umstellung auf Sommer- und Winterzeit ohne doppelten oder fehlenden Lauf.                                     |
+| J4  | M    | Erfolg heißt Exit-Code 0, alles andere ist `fehler`. Nach dem Timeout (Standard 10 min) wird die ganze Prozessgruppe beendet, Zustand `zeitüberschreitung`.                                         |
+| J5  | M    | Ein Job läuft nie zweimal gleichzeitig. Fällt ein Termin in einen laufenden Lauf, entfällt er und wird vermerkt.                                                                                    |
+| J6  | M    | Ausgabe (stdout und stderr, zeitlich verschränkt) wird je Lauf gespeichert, gekürzt auf 256 KB (Anfang und Ende bleiben).                                                                           |
+| J7  | M    | Geheimnisse kommen als Umgebungsvariablen aus `/secrets/<job>.env` (eigener Mount, nicht im Git). Ihre Werte werden in Ausgabe, Seite, API und Meldung durch `***` ersetzt.                    |
+| J8  | S    | Ein Skript kann eine Zeile Zusammenfassung in `$JIDOKA_SUMMARY` schreiben, z. B. „41 Lehrgänge, 2 neu, 1 entfernt“. Sie steht in Übersicht und Meldung.                                             |
+| J9  | S    | Jobs von Hand starten und pausieren, über die Seite. Pause überlebt den Neustart.                                                                                                                   |
+| J10 | S    | `catchup = true`: Ein Termin, der verpasst wurde, weil der Container aus war, wird nach dem Start einmal nachgeholt.                                                                                |
+| J11 | S    | Laufzeit im Image: `sh`, `bash`, Python 3, `curl`, `jq`. Python über `uv`: Abhängigkeiten im Skriptkopf (PEP 723), zwischengespeichert unter `/data`. *Annahme, Entscheidung offen* |
+| J12 | S    | Aufbewahrung: Läufe 180 Tage, höchstens 500 je Job; danach gelöscht.                                                                                                                                |
+| J13 | K    | Wiederholung nach Fehler (`retries`, `retry_delay`), gemeldet wird erst nach dem letzten Versuch.                                                                                                   |
 
 Beispiel `job.toml`:
 
@@ -87,7 +87,7 @@ channels = ["apprise", "mail"]
 | Nr. | Prio | Anforderung |
 |---|---|---|
 | W1 | M | `expect` je Job: Gab es im Zeitfenster keinen erfolgreichen Lauf, wird der Job `ausgeblieben`. Das deckt auch einen hängenden Planer oder einen Job ab, der still nichts tut. |
-| W2 | S | Externe Wächter für Arbeit außerhalb Jidokas (z. B. Borg, Snapshots auf TrueNAS): eine Datei `watch.toml` unter `/jobs`, Ping über `POST /ping/<token>` (und `/start`, `/fail`). *Annahme: nur im LAN erreichbar.* |
+| W2 | S | Externe Wächter für Arbeit außerhalb Jidokas (z. B. Borg, Snapshots auf TrueNAS): eine Datei `watch.toml` unter `/jobs`, Ping über `POST /ping/<token>` (und `/start`, `/fail`). Erreichbar im LAN und über Tailscale. *Annahme* |
 
 ### 4.3 Meldungen
 
@@ -117,7 +117,7 @@ channels = ["apprise", "mail"]
 
 | Nr. | Prio | Anforderung |
 |---|---|---|
-| Z1 | M | Nur über die Webseite. Anmeldung über Authentik (OIDC) wie Andon. *Annahme: ein Benutzer, keine Rollen.* |
+| Z1 | M | Nur über die Webseite. Anmeldung über Authentik (OIDC) wie Andon. Ein Benutzer, keine Rollen. |
 | Z2 | M | API nur mit Token (lesen, optional ausführen). Token werden gehasht gespeichert. |
 | Z3 | M | Jobs laufen als unprivilegierter Benutzer, ohne Docker-Socket. |
 
@@ -138,11 +138,12 @@ channels = ["apprise", "mail"]
 
 | Nr. | Prio | Anforderung |
 |---|---|---|
-| B1 | M | Ein Container, Image `ghcr.io/shrippen/jidoka`, gebaut von der CI auf dem GitHub-Spiegel wie bei Andon. Betrieb auf TrueNAS. |
-| B2 | M | Volumes: `/jobs` (nur lesen), `/data` (SQLite, venvs). Ein Port. Konfiguration: `/jobs/jidoka.toml` und Umgebungsvariablen für Geheimnisse. |
+| B1 | M | Ein Container, Image `ghcr.io/shrippen/jidoka`, gebaut von der CI auf dem GitHub-Spiegel wie bei Andon. Betrieb auf TrueNAS (regis). Die Compose-Datei liegt in `docker-compose-regis/jidoka/`, Komodo liefert sie aus. |
+| B2 | M | Volumes: `/jobs` und `/secrets` (nur lesen), `/data` (SQLite, Python-Pakete). Ein Port. Konfiguration: `/jobs/jidoka.toml` und Umgebungsvariablen für Geheimnisse. |
 | B3 | M | Zeit in UTC gespeichert. |
 | B4 | S | Leerlauf unter 30 MB RAM. Höchstens 2 Läufe gleichzeitig (einstellbar). |
 | B5 | S | `/healthz` für Docker und Andon. |
+| B6 | S | Komodo checkt `jidoka-jobs` auf regis aus (Repo-Ressource). Ein Push ins Jobs-Repo lässt Komodo das Repo aktualisieren und Jidoka neu starten. |
 
 ## 5. Technik (Vorschlag)
 
@@ -170,11 +171,15 @@ Repo, kein gemeinsames Go-Modul mit Andon. Was beide brauchen, wird
 - 0 gefundene Lehrgänge sind ein Fehler: dann wird nichts gelöscht.
 - Zusammenfassung: „41 Lehrgänge, 2 neu, 1 geändert, 0 entfernt“.
 
-## 8. Offene Fragen
+## 8. Entscheidungen
 
-1. Anmeldung über Authentik, ein Benutzer: einverstanden?
-2. Woher kommt `/jobs`: ein Git-Repo `jidoka-jobs` auf Gitea, auf
-   TrueNAS ausgecheckt (Vorschlag), oder ein Ordner im Dataset?
-3. Externe Wächter (W2): gebraucht, oder reicht Healthchecks dafür?
-4. Python als Hauptsprache für Jobs, Bash für Kleinkram: passt das?
-5. TrueNAS-Compose: in eines der Repos `docker-compose-*` oder ein neues?
+- Anmeldung über Authentik, ein Benutzer (11.11.2026).
+- `/jobs` kommt aus einem eigenen Git-Repo `jidoka-jobs` (11.11.2026).
+- Externe Wächter mit Ping-URL sind gewollt (11.11.2026).
+- Compose in `docker-compose-regis/jidoka/`, ausgeliefert von Komodo
+  (11.11.2026).
+
+## 9. Offene Fragen
+
+1. Sprachen für Jobs: Python mit `uv` und sh/bash (Vorschlag), dazu
+   Deno oder Go-Binärdateien?

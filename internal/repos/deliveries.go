@@ -7,7 +7,7 @@ import (
 	"jidoka/internal/model"
 )
 
-const deliveryCols = "id, job, run_id, event, channel, at, ok, error"
+const deliveryCols = "id, job, run_id, event, channel, at, ok, error, note"
 
 func scanDelivery(s scanner) (model.Delivery, error) {
 	var (
@@ -17,7 +17,7 @@ func scanDelivery(s scanner) (model.Delivery, error) {
 		at    string
 		ok    int
 	)
-	if err := s.Scan(&d.ID, &d.Job, &runID, &event, &d.Channel, &at, &ok, &d.Error); err != nil {
+	if err := s.Scan(&d.ID, &d.Job, &runID, &event, &d.Channel, &at, &ok, &d.Error, &d.Note); err != nil {
 		return d, err
 	}
 	d.Event, d.OK = model.Event(event), ok != 0
@@ -36,9 +36,9 @@ func AddDelivery(q db.Queryer, d model.Delivery) (int64, error) {
 	if d.RunID != nil {
 		runID = *d.RunID
 	}
-	res, err := q.Exec(`INSERT INTO deliveries (job, run_id, event, channel, at, ok, error)
-		VALUES (?, ?, ?, ?, ?, ?, ?)`, d.Job, runID, string(d.Event), d.Channel,
-		db.TimeStr(d.At), boolInt(d.OK), d.Error)
+	res, err := q.Exec(`INSERT INTO deliveries (job, run_id, event, channel, at, ok, error, note)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, d.Job, runID, string(d.Event), d.Channel,
+		db.TimeStr(d.At), boolInt(d.OK), d.Error, d.Note)
 	if err != nil {
 		return 0, err
 	}

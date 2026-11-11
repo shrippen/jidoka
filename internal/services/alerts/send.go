@@ -337,6 +337,12 @@ func (e *Engine) attempt(ctx context.Context, now time.Time, set model.Set, q *Q
 		d.Error = err.Error()
 	}
 
+	// A repaired-file message keeps its state word (not "recovery"), also
+	// when quiet hours merged it: the last item speaks, as in render.
+	if !p.Digest && len(p.Items) > 0 && p.Items[len(p.Items)-1].Note != "" {
+		d.Note = noteFileFixedState
+	}
+
 	// A lost log line must not turn a sent message into a failed one.
 	_ = e.cfg.Store.AddDelivery(d)
 	return err

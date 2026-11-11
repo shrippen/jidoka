@@ -284,4 +284,7 @@ type Delivery struct {
 	At      time.Time
 	OK      bool
 	Error   string
+	// Note is the catalog key of the state word that replaces the event
+	// word, e.g. a recover of a repaired file while the job still fails.
+	Note string
 }

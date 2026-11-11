@@ -64,7 +64,7 @@
         <tr>
           <td data-label="{{t "channels.time"}}">{{when .At}}{{tzMark}}</td>
           <td data-label="{{t "channels.job"}}">{{if .Job}}<a href="/jobs/{{.Job}}">{{.Job}}</a>{{else}}—{{end}}{{if .RunID}} <a href="/runs/{{.RunID}}">#{{.RunID}}</a>{{end}}</td>
-          <td data-label="{{t "channels.event"}}">{{template "eventpill" .Event}}</td>
+          <td data-label="{{t "channels.event"}}">{{template "deliverypill" .}}</td>
           <td data-label="{{t "channels.channel"}}" class="mono">{{.Channel}}</td>
           <td data-label="{{t "channels.result"}}">{{if .OK}}<span class="pill" data-state="ok">{{t "channels.sent"}}</span>{{else}}<span class="pill" data-state="bad">{{t "channels.failed"}}</span> <span class="small error">{{.Error}}</span>{{end}}</td>
         </tr>

@@ -1128,6 +1128,31 @@ func TestFileFixedNoteIsNotDigested(t *testing.T) {
 	}
 }
 
+// The delivery log keeps the Note, so pages do not show a plain recovery.
+func TestDeliveryRecordsNote(t *testing.T) {
+	h := newHarness(t)
+	a := h.job("a", func(j *model.Job) {
+		j.Rules = []model.Rule{{
+			On: []model.Event{model.EvInvalid, model.EvRecover}, Channels: []string{"apprise"}, Tail: -1,
+		}}
+	})
+	h.at(9, 0)
+	h.done(a, model.RunFail, day(1), AttemptFinal, nil)
+	_ = h.eng.Invalid(model.LoadError{Job: "a", File: "a/job.toml", Msg: "bad"})
+	_ = h.eng.Reloaded(Reload{Fixed: []string{"a"}})
+	h.tick()
+
+	var got []model.Delivery
+	for _, d := range h.store.deliv {
+		if d.Event == model.EvRecover {
+			got = append(got, d)
+		}
+	}
+	if len(got) != 1 || got[0].Note != noteFileFixedState {
+		t.Errorf("recover deliveries: %+v", got)
+	}
+}
+
 // In quiet hours the morning message lists the course; a repaired file of
 // a still failing job is no recovery there either.
 func TestQuietCourseShowsFileFixed(t *testing.T) {
@@ -1153,6 +1178,11 @@ func TestQuietCourseShowsFileFixed(t *testing.T) {
 	m := h.apprises[0].msg
 	if strings.Contains(m.Body, "erholt") || !strings.Contains(m.Body, "Datei wieder gültig 02:20") {
 		t.Errorf("body:\n%s", m.Body)
+	}
+
+	// The merged delivery keeps the note of its last item, as the message.
+	if n := len(h.store.deliv); n == 0 || h.store.deliv[n-1].Note != noteFileFixedState {
+		t.Errorf("merged delivery: %+v", h.store.deliv)
 	}
 }
 

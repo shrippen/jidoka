@@ -968,3 +968,75 @@ func TestNextDigest(t *testing.T) {
 		}
 	}
 }
+
+func TestOKClosesUnannouncedDisturbance(t *testing.T) {
+	h := newHarness(t)
+	j := h.job("a", func(j *model.Job) {
+		j.Rules = []model.Rule{{On: []model.Event{model.EvFail}, Channels: []string{"apprise"}, After: 2, Tail: -1}}
+	})
+	h.done(j, model.RunFail, day(1), AttemptFinal, nil)
+	h.done(j, model.RunOK, day(2), AttemptFinal, nil)
+	h.done(j, model.RunFail, day(3), AttemptFinal, nil)
+	h.tick()
+	h.wantApprise(0)
+}
+
+func TestMissedAfterFailReports(t *testing.T) {
+	h := newHarness(t)
+	j := h.job("a", func(j *model.Job) {
+		j.Rules = []model.Rule{{On: []model.Event{model.EvFail, model.EvMissed}, Channels: []string{"apprise"}, After: 2, Tail: -1}}
+	})
+	h.done(j, model.RunFail, day(1), AttemptFinal, nil)
+	h.tick()
+	h.wantApprise(0)
+
+	if err := h.eng.Missed(j, h.now); err != nil {
+		t.Fatal(err)
+	}
+	h.tick()
+	h.wantApprise(1)
+	if !strings.Contains(h.apprises[0].msg.Title, "ausgeblieben") {
+		t.Errorf("title = %q", h.apprises[0].msg.Title)
+	}
+
+	// A repeat of the same kind stays silent.
+	_ = h.eng.Missed(j, h.now)
+	h.tick()
+	h.wantApprise(1)
+}
+
+func TestInvalidAfterFailReports(t *testing.T) {
+	h := newHarness(t)
+	h.set.Settings.Profiles["standard"][0].On = []model.Event{model.EvFail, model.EvInvalid}
+	j := h.job("a", nil)
+	h.done(j, model.RunFail, day(1), AttemptFinal, nil)
+	h.tick()
+	h.wantApprise(1)
+
+	_ = h.eng.Invalid(model.LoadError{Job: "a", File: "a/job.toml", Msg: "bad"})
+	h.tick()
+	h.wantApprise(2)
+	if !strings.Contains(h.apprises[1].msg.Title, "ungültig") {
+		t.Errorf("title = %q", h.apprises[1].msg.Title)
+	}
+}
+
+func TestFixedGlobalClosesQuietly(t *testing.T) {
+	h := newHarness(t)
+	_ = h.eng.Invalid(model.LoadError{File: "jidoka.toml", Msg: "bad"})
+	h.tick()
+	h.wantApprise(1)
+
+	if err := h.eng.Reloaded(Reload{Fixed: []string{KeyGlobal}}); err != nil {
+		t.Fatal(err)
+	}
+	h.tick()
+	h.wantApprise(2)
+	m := h.apprises[1].msg
+	if !strings.Contains(m.Title, "erholt") || strings.Contains(m.Title, "neu geladen") {
+		t.Errorf("title = %q", m.Title)
+	}
+	if d, _ := h.store.Disturbance(KeyGlobal); d != nil {
+		t.Error("still open")
+	}
+}

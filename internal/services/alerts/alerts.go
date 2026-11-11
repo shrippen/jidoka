@@ -292,7 +292,7 @@ func (e *Engine) okRun(set model.Set, sub subject, run model.Run) error {
 	now := e.cfg.Now()
 
 	var evs []model.Event
-	recovered, err := e.recoverable(sub.id)
+	open, recovered, err := e.recoverable(sub.id)
 	if err != nil {
 		return err
 	}
@@ -331,7 +331,8 @@ func (e *Engine) okRun(set model.Set, sub subject, run model.Run) error {
 		}
 	}
 
-	if !recovered {
+	// Any ok run ends a disturbance, announced or not.
+	if !open {
 		return nil
 	}
 	if err := e.cfg.Store.CloseDisturbance(sub.id); err != nil {
@@ -340,14 +341,15 @@ func (e *Engine) okRun(set model.Set, sub subject, run model.Run) error {
 	return e.cfg.Store.ResetFlags(sub.id)
 }
 
-// recoverable: a disturbance is open and at least one rule announced it.
-// An unannounced one (after not reached, muted) is closed silently.
-func (e *Engine) recoverable(id string) (bool, error) {
+// recoverable reports whether a disturbance is open, and whether at least
+// one rule announced it. An unannounced one (after not reached, muted) is
+// closed silently.
+func (e *Engine) recoverable(id string) (open, announced bool, err error) {
 	d, err := e.cfg.Store.Disturbance(id)
 	if err != nil || d == nil {
-		return false, err
+		return false, false, err
 	}
-	return len(d.Sent) > 0, nil
+	return true, len(d.Sent) > 0, nil
 }
 
 // recoverOf closes a disturbance and sends recover (invalid file fixed).
@@ -439,10 +441,19 @@ func (e *Engine) disturb(set model.Set, sub subject, ev model.Event, run *model.
 		return err
 	}
 
-	// Missed and invalid are one slot long; a repeat adds nothing.
+	// Missed and invalid are one slot long; a repeat of the same kind adds
+	// nothing. A different kind is new trouble: the rules that listen to it
+	// speak again, the others keep their reminder clock.
 	oneShot := ev == model.EvMissed || ev == model.EvInvalid
-	if d != nil && oneShot {
+	if d != nil && oneShot && d.Event == ev {
 		return nil
+	}
+	if d != nil && d.Event != ev && (oneShot || d.Event == model.EvMissed || d.Event == model.EvInvalid) {
+		for i, r := range rulesOf(set, sub.job) {
+			if hasEvent(r, ev) {
+				delete(d.Sent, i)
+			}
+		}
 	}
 
 	if d == nil {

@@ -249,10 +249,9 @@ func (w *Watch) checkJob(job *model.Job, st *state, fl model.Flags, row repos.Sc
 	return &hit{job, deadline}
 }
 
-// dueOf is the deadline from the newest of last ok, first seen and resume.
+// dueOf is the deadline from last ok, first seen and resume.
 func dueOf(job *model.Job, st *state, firstSeen, lastOK time.Time) time.Time {
-	base, kind := BaseOf(latest(firstSeen, st.resumed), lastOK)
-	return Deadline(job, base, kind)
+	return WindowEnd(job, latest(firstSeen, st.resumed), lastOK)
 }
 
 // Base says what the window of a job starts from.
@@ -265,13 +264,22 @@ const (
 	BaseOK
 )
 
-// BaseOf picks the newer of start (first sight, resume) and the last ok
-// run, and says which it is.
-func BaseOf(start, lastOK time.Time) (time.Time, Base) {
-	if !lastOK.IsZero() && !lastOK.Before(start) {
-		return lastOK, BaseOK
+// WindowEnd is the deadline of a job from its start (first sight or
+// resume) and its last ok run: the later of the two windows. A start
+// answers no slot; an ok run may answer the next one, also when it came
+// just before a resume (pinged during a pause at 02:58, resumed 02:59,
+// slot 03:00 -> answered).
+func WindowEnd(job *model.Job, start, lastOK time.Time) time.Time {
+	end := Deadline(job, start, BaseStart)
+	if lastOK.IsZero() {
+		return end
 	}
-	return start, BaseStart
+
+	byOK := Deadline(job, lastOK, BaseOK)
+	if byOK.After(end) {
+		return byOK
+	}
+	return end
 }
 
 // Due is the deadline of a job as the alarm sees it, resume after a pause

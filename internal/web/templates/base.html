@@ -57,6 +57,8 @@
 {{/* A state in colour, sign and word (Kante .pill). */}}
 {{define "jobpill"}}<span class="pill" data-state="{{jobKey .}}">{{t (print "state." .)}}</span>{{end}}
 {{define "runpill"}}<span class="pill" data-state="{{runKey .}}">{{t (print "run." .)}}</span>{{end}}
+{{/* A delivery: its Note's state word in warn, else the event. */}}
+{{define "deliverypill"}}{{if .Note}}<span class="pill" data-state="warn">{{t .Note}}</span>{{else}}{{template "eventpill" .Event}}{{end}}{{end}}
 {{define "eventpill"}}<span class="pill" data-state="{{eventKey .}}">{{t (print "event." .)}}</span>{{end}}
 
 {{/* The last runs of a tile as a strip with a read-out per run. */}}

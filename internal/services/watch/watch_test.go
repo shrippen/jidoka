@@ -317,6 +317,21 @@ func TestDueAfterFirstSight(t *testing.T) {
 	}
 }
 
+// A ping during a pause, just before a slot, still answers that slot when
+// the watch is resumed right after it: no false missed.
+func TestDueEarlyPingBeforeResume(t *testing.T) {
+	job := &model.Job{ID: "w", Kind: model.KindWatch, Zone: time.UTC, Schedule: "0 3 * * *",
+		Grace: 2 * time.Hour, Expect: 26 * time.Hour}
+	w := New(Config{})
+	w.states["w"] = &state{resumed: time.Date(2026, 11, 12, 2, 59, 0, 0, time.UTC)}
+
+	ping := time.Date(2026, 11, 12, 2, 58, 0, 0, time.UTC)
+	want := time.Date(2026, 11, 13, 5, 0, 0, 0, time.UTC)
+	if got := w.Due(job, time.Time{}, ping); !got.Equal(want) {
+		t.Errorf("ping 02:58, resumed 02:59: Due = %v, want %v", got, want)
+	}
+}
+
 func TestWatchScheduleEarlyPing(t *testing.T) {
 	e := newEnv(t, &model.Job{ID: "w", Kind: model.KindWatch, Enabled: true, Zone: time.UTC,
 		Schedule: "0 3 * * *", Grace: 2 * time.Hour, Expect: 26 * time.Hour})

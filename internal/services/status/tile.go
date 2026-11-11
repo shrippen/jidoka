@@ -488,8 +488,7 @@ func sortTiles(tiles []Tile) {
 // due asks the watch, so board and alarm share one base (resume included).
 func (s *Service) due(job *model.Job, firstSeen, lastOK time.Time) time.Time {
 	if s.d.Watch == nil {
-		base, kind := watch.BaseOf(firstSeen, lastOK)
-		return watch.Deadline(job, base, kind)
+		return watch.WindowEnd(job, firstSeen, lastOK)
 	}
 	return s.d.Watch.Due(job, firstSeen, lastOK)
 }

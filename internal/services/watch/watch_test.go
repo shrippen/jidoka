@@ -223,6 +223,46 @@ func TestWatchSchedule(t *testing.T) {
 	}
 }
 
+// weeklyWatch has an uneven schedule: Expect (as conf sets it) is the longest
+// gap plus grace, yet a single missed slot must be reported at its own grace.
+func weeklyWatch() *model.Job {
+	return &model.Job{ID: "w", Kind: model.KindWatch, Enabled: true, Zone: time.UTC,
+		Schedule: "0 3 * * 4,5", Grace: 2 * time.Hour, Expect: 6*24*time.Hour + 2*time.Hour}
+}
+
+func TestWatchScheduleMissedSlot(t *testing.T) {
+	e := newEnv(t, weeklyWatch())
+
+	thu := time.Date(2026, 11, 12, 3, 10, 0, 0, time.UTC)
+	fri := time.Date(2026, 11, 13, 0, 0, 0, 0, time.UTC)
+	addOK(t, e.d, "w", thu)
+
+	e.tick(fri.Add(4*time.Hour + 30*time.Minute)) // slot 03:00, grace until 05:00
+	if len(e.events()) != 0 {
+		t.Fatal("missed inside the grace")
+	}
+	e.tick(fri.Add(5*time.Hour + 30*time.Minute))
+	ev := e.events()
+	if len(ev) != 1 || !ev[0].since.Equal(fri.Add(5*time.Hour)) {
+		t.Fatalf("events = %+v", ev)
+	}
+}
+
+func TestWatchScheduleNewWatch(t *testing.T) {
+	e := newEnv(t, weeklyWatch())
+
+	// Loaded Wed 10:00, no ping yet: the first slot is Thu 03:00.
+	e.tick(time.Date(2026, 11, 11, 20, 0, 0, 0, time.UTC))
+	e.tick(time.Date(2026, 11, 12, 4, 0, 0, 0, time.UTC))
+	if len(e.events()) != 0 {
+		t.Fatalf("missed before the first slot ran out: %+v", e.events())
+	}
+	e.tick(time.Date(2026, 11, 12, 5, 0, 0, 0, time.UTC))
+	if len(e.events()) != 1 {
+		t.Fatalf("events = %+v", e.events())
+	}
+}
+
 func useKey(t *testing.T) {
 	t.Helper()
 	crypto.Init([]byte("0123456789abcdef0123456789abcdef"))

@@ -11,6 +11,7 @@ import (
 	"jidoka/internal/repos"
 	"jidoka/internal/services/alerts"
 	"jidoka/internal/services/jobs"
+	"jidoka/internal/services/watch"
 )
 
 // Reason says why a job is disturbed, for the API (I1, I2).
@@ -441,7 +442,7 @@ func (t *Tile) fillWhen(s *Service, d *data, recent []model.Run, missed time.Tim
 		if t.LastOK != nil && t.LastOK.End.After(base) {
 			base = t.LastOK.End
 		}
-		t.Due = base.Add(job.Expect)
+		t.Due = watch.Deadline(job, base)
 	}
 
 	if s.d.Plan != nil && job.Kind == model.KindJob {

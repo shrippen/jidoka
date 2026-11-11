@@ -228,7 +228,7 @@ func (w *Watch) checkJob(job *model.Job, st *state, fl model.Flags, row repos.Sc
 		base = latest(base, endOf(ok))
 	}
 
-	deadline := w.deadline(job, base, now)
+	deadline := Deadline(job, base)
 	if deadline.IsZero() || now.Before(deadline) {
 		st.missed = time.Time{}
 		return nil
@@ -247,27 +247,32 @@ func (w *Watch) checkJob(job *model.Job, st *state, fl model.Flags, row repos.Sc
 	return &hit{job, deadline}
 }
 
-// deadline is the instant by which the job needed an ok run; zero if none
-// is due. base is the newest of last ok, first seen and resume.
-func (w *Watch) deadline(job *model.Job, base, now time.Time) time.Time {
+// Deadline is the end of the window of a job that last had an ok run (or
+// was first seen or resumed) at base; zero if it has none. The board shows
+// the same instant.
+//
+// A watch with a schedule: the first slot after base must be answered by
+// an ok run within the grace, e.g. slots Mon+Tue 03:00, grace 2 h, ok Mon
+// 03:10 -> missed Tue 05:00, not after the longest gap (Expect).
+func Deadline(job *model.Job, base time.Time) time.Time {
+	if job.Kind == model.KindWatch && job.Schedule != "" {
+		sched, err := cron.Parse(job.Schedule, job.Zone)
+		if err != nil {
+			return time.Time{}
+		}
+		slot := sched.Next(base)
+		if slot.IsZero() {
+			return time.Time{}
+		}
+		return slot.Add(job.Grace)
+	}
 	if job.Expect > 0 {
 		return base.Add(job.Expect)
 	}
 	if job.Period > 0 {
 		return base.Add(job.Period + job.Grace)
 	}
-
-	// A watch with a schedule: the newest slot after base must have been
-	// answered by an ok run within the grace.
-	sched, err := cron.Parse(job.Schedule, job.Zone)
-	if err != nil {
-		return time.Time{}
-	}
-	due := sched.Last(now)
-	if due.IsZero() || !due.After(base) {
-		return time.Time{}
-	}
-	return due.Add(job.Grace)
+	return time.Time{}
 }
 
 func latest(a, b time.Time) time.Time {

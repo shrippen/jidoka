@@ -54,6 +54,8 @@ const (
 	// noteFileFixed is the catalog key of the recover title when the file
 	// works again but the last run still failed.
 	noteFileFixed = "alert.file_fixed_failing"
+	// noteFileFixedState is its state line.
+	noteFileFixedState = "alert.file_fixed"
 
 	defaultProfile = "standard"
 	defaultTail    = 20
@@ -321,6 +323,11 @@ func (e *Engine) closeGone(known []string) error {
 			continue
 		}
 		if err := e.cfg.Store.CloseDisturbance(d.Job); err != nil {
+			return err
+		}
+		// Ack and mute-until-recovery go with the job; a mute for a
+		// period and the pause stay (ResetFlags leaves them).
+		if err := e.endFlags(jobOfKey(d.Job)); err != nil {
 			return err
 		}
 	}

@@ -1102,6 +1102,54 @@ func TestOkRunKeepsFlagsWhileFileBroken(t *testing.T) {
 	}
 }
 
+// The "file valid again, last run failed" message is no good news: it goes
+// out at once, in its own words and as a warning, never into a digest.
+func TestFileFixedNoteIsNotDigested(t *testing.T) {
+	h := newHarness(t)
+	a := h.job("a", func(j *model.Job) {
+		j.Rules = []model.Rule{{
+			On: []model.Event{model.EvInvalid, model.EvRecover}, Channels: []string{"apprise"},
+			Digest: "daily 08:00", Tail: -1,
+		}}
+	})
+	h.at(9, 0)
+	h.done(a, model.RunFail, day(1), AttemptFinal, nil)
+	_ = h.eng.Invalid(model.LoadError{Job: "a", File: "a/job.toml", Msg: "bad"})
+	_ = h.eng.Reloaded(Reload{Fixed: []string{"a"}})
+	h.tick()
+	h.wantApprise(2)
+
+	m := h.apprises[1].msg
+	if !strings.Contains(m.Title, "Datei wieder gültig") || strings.Contains(m.Title, "Sammelmeldung") {
+		t.Errorf("title %q", m.Title)
+	}
+	if !strings.Contains(m.Body, "Zustand: Datei wieder gültig") || m.Type != "warning" {
+		t.Errorf("type %q body:\n%s", m.Type, m.Body)
+	}
+}
+
+// A removed job takes its "until recovery" flags with it: when it comes
+// back, its next failure is reported.
+func TestRemovedJobResetsFlags(t *testing.T) {
+	h := newHarness(t)
+	a := h.job("a", nil)
+	h.done(a, model.RunFail, day(1), AttemptFinal, nil)
+	h.tick()
+	h.wantApprise(1)
+	h.store.flags["a"] = model.Flags{Job: "a", MuteRecover: true}
+
+	delete(h.set.Jobs, "a")
+	_ = h.eng.Reloaded(Reload{Removed: []string{"a"}, Known: []string{}})
+	if f := h.store.flags["a"]; f.MuteRecover {
+		t.Errorf("flags kept: %+v", f)
+	}
+
+	a = h.job("a", nil)
+	h.done(a, model.RunFail, day(2), AttemptFinal, nil)
+	h.tick()
+	h.wantApprise(2)
+}
+
 func TestTailAndAttach(t *testing.T) {
 	h := newHarness(t)
 	out := ""
@@ -1345,5 +1393,17 @@ func TestInvalidFollowsLocale(t *testing.T) {
 		if body := h.apprises[0].msg.Body; !strings.Contains(body, tc.want) {
 			t.Errorf("locale %q: body %q lacks %q", tc.locale, body, tc.want)
 		}
+	}
+}
+
+// An item with a Note that reaches a digest (an older outbox row) keeps its
+// own word there.
+func TestDigestShowsNote(t *testing.T) {
+	h := newHarness(t)
+	it := item{Name: "Job a", Event: model.EvRecover, Note: noteFileFixed, At: h.now, Zone: "UTC"}
+
+	r := h.eng.renderDigest(texts["de"], "de", []item{it})
+	if !strings.Contains(r.Body, "Job a: Datei wieder gültig") {
+		t.Errorf("body %q", r.Body)
 	}
 }

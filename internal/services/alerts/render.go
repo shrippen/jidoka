@@ -147,8 +147,13 @@ var texts = map[string]locale{
 }
 
 // appriseType maps an event to the Apprise type (M3).
-func appriseType(ev model.Event) apprise.Type {
-	switch ev {
+func appriseType(it item) apprise.Type {
+	// Recovered, but the job still fails: no good news.
+	if it.Note != "" {
+		return apprise.TypeWarning
+	}
+
+	switch it.Event {
 	case model.EvFail, model.EvTimeout, model.EvInvalid:
 		return apprise.TypeFailure
 	case model.EvMissed:
@@ -186,7 +191,7 @@ type rendered struct {
 func (e *Engine) render(set model.Set, p payload) rendered {
 	l := texts[localeOf(set)]
 	if p.Digest {
-		return e.renderDigest(l, p.Items)
+		return e.renderDigest(l, localeOf(set), p.Items)
 	}
 
 	last := p.Items[len(p.Items)-1]
@@ -204,7 +209,11 @@ func (e *Engine) render(set model.Set, p payload) rendered {
 			fmt.Fprintf(&b, "%s: %s\n", k, v)
 		}
 	}
-	line(l.state, l.events[last.Event])
+	state := l.events[last.Event]
+	if last.Note != "" {
+		state = i18n.T(noteFileFixedState, i18n.Locale(localeOf(set)), nil)
+	}
+	line(l.state, state)
 	line(l.at, last.local().Format("2006-01-02 15:04 MST"))
 	if last.Duration > 0 {
 		line(l.duration, shortDur(last.Duration))
@@ -224,7 +233,7 @@ func (e *Engine) render(set model.Set, p payload) rendered {
 		fmt.Fprintf(&b, "\n"+l.tail+":\n%s\n", n, last.Tail)
 	}
 
-	r := rendered{Title: title, Body: strings.TrimRight(b.String(), "\n"), Type: appriseType(last.Event)}
+	r := rendered{Title: title, Body: strings.TrimRight(b.String(), "\n"), Type: appriseType(last)}
 	if p.Attach && last.Output != "" {
 		r.Attach = &last
 	}
@@ -253,10 +262,14 @@ func (e *Engine) course(l locale, items []item) string {
 	return strings.Join(parts, ", ")
 }
 
-func (e *Engine) renderDigest(l locale, items []item) rendered {
+func (e *Engine) renderDigest(l locale, lang string, items []item) rendered {
 	var b strings.Builder
 	for _, it := range items {
-		fmt.Fprintf(&b, "%s %s: %s", it.local().Format("2006-01-02 15:04"), it.Name, l.events[it.Event])
+		word := l.events[it.Event]
+		if it.Note != "" {
+			word = i18n.T(noteFileFixedState, i18n.Locale(lang), nil)
+		}
+		fmt.Fprintf(&b, "%s %s: %s", it.local().Format("2006-01-02 15:04"), it.Name, word)
 		if it.Summary != "" {
 			b.WriteString(" - " + it.Summary)
 		}

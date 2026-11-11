@@ -63,6 +63,7 @@ error:
 
 alert:
   file_fixed_failing: "Datei wieder gültig, letzter Lauf fehlgeschlagen"
+  file_fixed: "Datei wieder gültig"
 
 board:
   loaded: Jobs geladen

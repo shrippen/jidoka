@@ -50,7 +50,7 @@ const (
 func (e *Engine) deliver(set model.Set, sub subject, rule model.Rule, it item, now time.Time) error {
 	route := routeKey(rule)
 
-	if rule.Digest != "" && digestable(it.Event) {
+	if rule.Digest != "" && digestable(it) {
 		if due, ok := nextDigest(rule.Digest, now, zoneOf(set)); ok {
 			key := rule.Digest + sepKey + route
 			return e.hold(key, "", due, rule, it, now, true)
@@ -67,10 +67,15 @@ func (e *Engine) deliver(set model.Set, sub subject, rule model.Rule, it item, n
 	return e.push("", sub.id, now, rule, it, now, false)
 }
 
-// digestable: M7, only these may wait for a digest. A reload or change
-// goes out at once (Z6).
-func digestable(ev model.Event) bool {
-	switch ev {
+// digestable: M7, only good news may wait for a digest. A reload or change
+// goes out at once (Z6), and so does a recover with a Note: the file works
+// again but the job still fails.
+func digestable(it item) bool {
+	if it.Note != "" {
+		return false
+	}
+
+	switch it.Event {
 	case model.EvSuccess, model.EvRecover:
 		return true
 	}

@@ -63,6 +63,7 @@ error:
 
 alert:
   file_fixed_failing: "file valid again, last run failed"
+  file_fixed: "file valid again"
 
 board:
   loaded: Jobs loaded

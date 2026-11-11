@@ -11,6 +11,7 @@ package jobs
 import (
 	"context"
 	"database/sql"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -189,6 +190,9 @@ func (s *Service) fetchRepo() *model.LoadError {
 	if err == nil {
 		return nil
 	}
+
+	// The git driver strips the token from err.
+	slog.Warn("jobs repo fetch", "err", err)
 
 	m := i18n.M("conf.repo", "detail", err.Error())
 	return &model.LoadError{File: model.RepoFile, Key: m.Key, Params: m.Params, Msg: m.Error()}

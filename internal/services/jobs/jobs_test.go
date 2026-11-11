@@ -1,9 +1,11 @@
 package jobs
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"errors"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"slices"
@@ -307,5 +309,24 @@ func TestNoSavedSettingsMeansDefaults(t *testing.T) {
 	cur := s.Current()
 	if cur.SettingsErr == nil || cur.SettingsFrom != model.SettingsDefaults {
 		t.Errorf("err %v from %q", cur.SettingsErr, cur.SettingsFrom)
+	}
+}
+
+// A failed fetch goes to the log too, not only to the board: on a server
+// nobody looks at, the log is where an admin finds it.
+func TestRepoFailureLogged(t *testing.T) {
+	var buf bytes.Buffer
+	old := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, nil)))
+	t.Cleanup(func() { slog.SetDefault(old) })
+
+	s := New(open(t), t.TempDir())
+	s.UseRepo(&fakeRepo{fail: errors.New("git fetch: exit status 128: 403")})
+	if err := s.Load(); err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(buf.String(), "level=WARN") || !strings.Contains(buf.String(), "403") {
+		t.Errorf("log lacks the fetch error: %q", buf.String())
 	}
 }

@@ -361,8 +361,10 @@ Knöpfe dafür ändern nur das Formular, erst „Speichern“ übernimmt es. Die
 Prüfung ist dieselbe wie bei den übrigen Einstellungen: Fehler stehen am
 Feld, solange einer offen ist, wird nichts gespeichert. Danach werden alle
 Jobs neu geprüft. `standard` lässt sich weder löschen noch umbenennen. Ein
-Profil, das ein Job in `notify_profile` nennt, wird nicht gelöscht oder
-umbenannt; die Meldung nennt die Jobs. Eine neue Installation beginnt mit
+Profil, das ein gültiger Job in `notify_profile` nennt, wird nicht gelöscht
+oder umbenannt; die Meldung nennt die Jobs. Ein Job, der gerade ungültig
+ist, zählt nicht mit: Fehlt sein Profil später, bleibt er nach der
+Reparatur ungültig, und die Tafel nennt das unbekannte Profil. Eine neue Installation beginnt mit
 dem Profil `standard` (Fehler, Timeout, Ausbleiben und ungültige Dateien an
 Apprise und Mail, Erinnerung nach 24 h).
 

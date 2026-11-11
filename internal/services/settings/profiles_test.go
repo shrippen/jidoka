@@ -1,8 +1,10 @@
 package settings
 
 import (
+	"fmt"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	"jidoka/internal/i18n"
@@ -311,5 +313,51 @@ func TestProfileKeysInCatalog(t *testing.T) {
 	}
 	if !strings.Contains(usedField(leise), leise) {
 		t.Error("used field")
+	}
+}
+
+// Saving settings and profiles at the same time keeps both: each save
+// reads and writes the one document, so the second must see the first.
+func TestConcurrentSavesKeepBoth(t *testing.T) {
+	r := newRig(t)
+	const rounds = 30
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		for i := range rounds {
+			f := r.form()
+			f.AndonURL = fmt.Sprintf("https://andon%d.test", i)
+			if _, err := r.svc.Save(f, "tester"); err != nil {
+				t.Error(err)
+			}
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		for i := range rounds {
+			v, err := r.svc.Profiles()
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			ps := append(v.Profiles, ProfileForm{Name: fmt.Sprintf("p%d", i),
+				Rules: []RuleForm{{On: []string{fail}, Channels: []string{mail}}}})
+			if _, err := r.svc.SaveProfiles(ps, "tester"); err != nil {
+				t.Error(err)
+			}
+		}
+	}()
+	wg.Wait()
+
+	doc := r.stored()
+	for i := range rounds {
+		if !strings.Contains(doc, fmt.Sprintf("[[profiles.p%d]]", i)) {
+			t.Errorf("profile p%d lost", i)
+		}
+	}
+	if !strings.Contains(doc, fmt.Sprintf("andon%d.test", rounds-1)) {
+		t.Errorf("last andon_url lost")
 	}
 }

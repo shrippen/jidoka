@@ -106,6 +106,9 @@ func (s *Service) Profiles() (ProfilesView, error) {
 // and standard stays. Afterwards every job is checked against the new
 // settings.
 func (s *Service) SaveProfiles(ps []ProfileForm, actor string) (Errors, error) {
+	s.saveMu.Lock()
+	defer s.saveMu.Unlock()
+
 	d, _, err := s.stored()
 	if err != nil {
 		return nil, err
@@ -167,7 +170,9 @@ func removedNames(stored map[string][]conf.DraftRule, ps []ProfileForm) []string
 	return out
 }
 
-// refuseUsed reports each removed profile that a job names, with the jobs.
+// refuseUsed reports each removed profile that a valid job names, with
+// the jobs. An invalid job is not loaded, so its profile is unknown here;
+// after its repair it names the missing profile (conf.unknown_profile).
 func (s *Service) refuseUsed(errs Errors, removed []string) {
 	jobs := s.cfg.Jobs.Current().Jobs
 

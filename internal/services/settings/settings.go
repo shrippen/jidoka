@@ -14,6 +14,7 @@ import (
 	"database/sql"
 	"errors"
 	"strings"
+	"sync"
 	"time"
 
 	"jidoka/internal/conf"
@@ -75,6 +76,11 @@ type Config struct {
 // Service is the settings service.
 type Service struct {
 	cfg Config
+
+	// saveMu serialises Save and SaveProfiles: both read the one
+	// document and write it back whole, so one would drop the other's
+	// change.
+	saveMu sync.Mutex
 }
 
 // New returns a service.
@@ -203,6 +209,9 @@ func (s *Service) Save(f Form, actor string) (Errors, error) {
 	if !crypto.Ready() && wantsSeal(f.Secrets) {
 		return nil, crypto.ErrMissingKey
 	}
+
+	s.saveMu.Lock()
+	defer s.saveMu.Unlock()
 
 	base, _, err := s.stored()
 	if err != nil {

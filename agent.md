@@ -16,9 +16,10 @@ Integration. Anforderungen: `LASTENHEFT.md`.
 - Geheimnisse nie in Log, Ausgabe, Seite oder API.
 - Uhrzeiten mit Zone, wo der Browser abweicht (wie Andon, `tzMark`).
 
-## Schichten
+## Aufbau
 Der Aufbau (Bausteine, Schichten, wo Neues hingehört) steht in `ARCHITECTURE.md`.
 
+## Konventionen
 - Zeiten in der Datenbank als UTC-Text (`db.TimeStr`), gelesen mit `db.ParseTime`.
 - Die Datenbank ist nicht als Datei verschlüsselt, nur Spalten `*_enc`:
   Jidoka startet auch ohne `MASTER_KEY` (Z7).

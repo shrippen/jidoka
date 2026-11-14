@@ -46,6 +46,8 @@ jobs:
         with:
           go-version: "1.26"
           check-latest: true
+      - name: Structure limits
+        run: pipx run tools/structure-check.py
       - run: gofmt -l . | (! grep .)
       - run: go vet ./...
       - run: go vet -tags release ./...

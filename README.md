@@ -883,7 +883,7 @@ bleiben gültig (sie hängen nicht am Schlüssel).
 ## 12. Entwicklung
 
 ```sh
-make check     # gofmt, go vet (mit und ohne -tags release), staticcheck, go test ./...
+make check     # structure limits, gofmt, go vet (mit und ohne -tags release), staticcheck, go test ./...
 go test ./...  # nur die Tests
 make build     # Release-Binary nach bin/jidoka
 scripts/image-test.sh [image]   # braucht Docker

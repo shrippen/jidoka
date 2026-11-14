@@ -1,6 +1,10 @@
-.PHONY: check lint test run build
+.PHONY: check structure lint test run build
 
-check: lint test
+check: structure lint test
+
+# Structure limits, as in CI.
+structure:
+	pipx run tools/structure-check.py
 
 # gofmt of go.mod's toolchain, as in CI.
 GOFMT = $(shell GOTOOLCHAIN=$$(awk '/^toolchain/ {print $$2}' go.mod) go env GOROOT)/bin/gofmt

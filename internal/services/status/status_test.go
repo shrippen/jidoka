@@ -607,8 +607,15 @@ func TestStatus(t *testing.T) {
 	}
 }
 
+// cronWatch writes a scheduled watch, first seen at the test clock. The
+// jobs service stamps first seen with the real clock; the row is stored
+// first, as EnsureSchedule keeps a known date.
 func (e *env) cronWatch(id string) {
 	e.t.Helper()
+
+	if err := repos.EnsureSchedule(e.d, id, e.clk.Now()); err != nil {
+		e.t.Fatal(err)
+	}
 	put(e.t, e.dir, id+"/watch.toml", "name = \""+id+"\"\nschedule = \"0 3 * * *\"\nzone = \"UTC\"\ngrace = \"2h\"\n")
 }
 

@@ -1,0 +1,30 @@
+# What is over a structure limit today (tools/structure-check.py). An entry may shrink,
+# never grow; a raised or new entry needs its reason in the PR. Rewrite with --update.
+# Lines: exclude<TAB>glob | path<TAB>function or - for the file<TAB>metric=value ...
+internal/conf/conf_test.go	TestLoadFull	ccn=56
+internal/conf/issues.go	findLine	ccn=17
+internal/cron/describe.go	Describe	ccn=22
+internal/demo/alerts.go	buildAlert	ccn=16
+internal/drivers/proc/proc.go	Run	ccn=21 length=131
+internal/drivers/proc/proc_test.go	TestDirSizeAndRemove	ccn=16
+internal/repos/alerts_test.go	TestAlerts	ccn=20
+internal/repos/flags_test.go	TestFlags	ccn=20
+internal/services/alerts/alerts.go	disturb	ccn=20
+internal/services/alerts/alerts_test.go	-	lines=1467
+internal/services/alerts/alerts_test.go	TestAppriseDownFallsBackToMail	ccn=18
+internal/services/alerts/alerts_test.go	TestEventsChangeSlowStartMissedInvalidReload	ccn=20
+internal/services/jobs/jobs_test.go	TestReloadDiff	ccn=16
+internal/services/ops/ops_test.go	TestAckAndMute	ccn=23
+internal/services/settings/profiles_test.go	TestProfileRuleRoundTrip	ccn=21
+internal/services/settings/settings_test.go	TestSaveStoresAndRevalidates	ccn=18
+internal/services/status/secrets.go	Secrets	ccn=19
+internal/services/status/status_test.go	TestChannelsPage	ccn=19
+internal/services/status/status_test.go	TestJobPage	ccn=29
+internal/services/status/status_test.go	TestSecretsPage	ccn=19
+internal/services/status/status_test.go	TestStatesAndOrder	ccn=28
+internal/services/watch/watch_test.go	TestPingLifecycle	ccn=18
+internal/web/backend_test.go	TestAPIShapes	ccn=37 length=87
+internal/web/backend_test.go	TestActions	ccn=18
+internal/web/backend_test.go	TestCancelRunningRun	ccn=16
+internal/web/backend_test.go	TestPing	ccn=16
+internal/web/static/jidoka.js	(anonymous)	length=128

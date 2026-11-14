@@ -43,7 +43,8 @@ Each layer talks only to its neighbour directly below.
       │
       ▼
  services/       jobs ─► plan ─► runs ─► alerts     status, ops, settings,
-      │            └───► watch ────────────┘        secrets, access, beat, andon
+      │            │       └───────────────┤        secrets, access, beat, andon
+      │            └───► watch ────────────┘
       ├──────────────────────┐
       ▼                      ▼
  repos/  (SQL per table)   drivers/  proc, git, apprise, smtp, oidc ─► processes, network

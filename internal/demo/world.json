@@ -13464,6 +13464,626 @@
    ]
   ]
  },
+ "klappe": {
+  "note": "Klappe's example project: scene 14 of Nachtwache (the Sendehaus Graufeld miniseries, see graufeld in story.json), shot in the disused Graufeld lighthouse. Field names, units and values follow Klappe's project format (FORMAT.md in the klappe repo): metres from the plan's top left corner (y grows downwards), seconds, degrees (0 = right, clockwise on screen), colours as roles. Differences: texts are {de, en}, `place` names a place of travel.json, a script item may carry an `id` that a link's `element` names instead of an index. Klappe's generator (crates/demo in the klappe repo) turns this into one project per language.",
+  "title": {
+   "de": "Nachtwache",
+   "en": "Nightwatch"
+  },
+  "title_page": [
+   [
+    "Title",
+    {
+     "de": "Nachtwache",
+     "en": "Nightwatch"
+    }
+   ],
+   [
+    "Contact",
+    "Studio Weber"
+   ]
+  ],
+  "characters": [
+   {
+    "id": "ilva",
+    "name": "Ilva Brandes",
+    "short": "IB",
+    "color": "purple",
+    "note": "The crime writer who vanishes in Graufeld, as a role of the series."
+   },
+   {
+    "id": "waerter",
+    "name": {
+     "de": "Wärter",
+     "en": "Keeper"
+    },
+    "short": {
+     "de": "W",
+     "en": "K"
+    },
+    "color": "orange",
+    "note": "The lighthouse keeper of the series, a role of its own."
+   }
+  ],
+  "locations": [
+   {
+    "id": "leuchtturm",
+    "name": {
+     "de": "Leuchtturm Graufeld",
+     "en": "Graufeld lighthouse"
+    },
+    "place": "graufeld-lighthouse",
+    "note": "The watch room under the lantern: an octagon of about 5 m across with thick walls, 6 m by 6 m on the plan. A door to the gallery in the east, windows north and west, the spiral stair in the south east.",
+    "set": {
+     "width_m": 6.0,
+     "depth_m": 6.0,
+     "walls": [
+      {
+       "from": {
+        "x_m": 1.9,
+        "y_m": 0.4
+       },
+       "to": {
+        "x_m": 4.1,
+        "y_m": 0.4
+       },
+       "thickness_m": 0.5,
+       "openings": [
+        {
+         "kind": "window",
+         "at_m": 1.1,
+         "width_m": 1.2
+        }
+       ]
+      },
+      {
+       "from": {
+        "x_m": 4.1,
+        "y_m": 0.4
+       },
+       "to": {
+        "x_m": 5.6,
+        "y_m": 1.9
+       },
+       "thickness_m": 0.5
+      },
+      {
+       "from": {
+        "x_m": 5.6,
+        "y_m": 1.9
+       },
+       "to": {
+        "x_m": 5.6,
+        "y_m": 4.1
+       },
+       "thickness_m": 0.5,
+       "openings": [
+        {
+         "kind": "door",
+         "at_m": 1.1,
+         "width_m": 0.9
+        }
+       ]
+      },
+      {
+       "from": {
+        "x_m": 5.6,
+        "y_m": 4.1
+       },
+       "to": {
+        "x_m": 4.1,
+        "y_m": 5.6
+       },
+       "thickness_m": 0.5
+      },
+      {
+       "from": {
+        "x_m": 4.1,
+        "y_m": 5.6
+       },
+       "to": {
+        "x_m": 1.9,
+        "y_m": 5.6
+       },
+       "thickness_m": 0.5
+      },
+      {
+       "from": {
+        "x_m": 1.9,
+        "y_m": 5.6
+       },
+       "to": {
+        "x_m": 0.4,
+        "y_m": 4.1
+       },
+       "thickness_m": 0.5
+      },
+      {
+       "from": {
+        "x_m": 0.4,
+        "y_m": 4.1
+       },
+       "to": {
+        "x_m": 0.4,
+        "y_m": 1.9
+       },
+       "thickness_m": 0.5,
+       "openings": [
+        {
+         "kind": "window",
+         "at_m": 1.1,
+         "width_m": 1.2
+        }
+       ]
+      },
+      {
+       "from": {
+        "x_m": 0.4,
+        "y_m": 1.9
+       },
+       "to": {
+        "x_m": 1.9,
+        "y_m": 0.4
+       },
+       "thickness_m": 0.5
+      }
+     ],
+     "objects": [
+      {
+       "id": "tisch",
+       "kind": "table",
+       "label": {
+        "de": "Tisch",
+        "en": "Table"
+       },
+       "at": {
+        "x_m": 2.6,
+        "y_m": 2.0
+       },
+       "width_m": 1.4,
+       "depth_m": 0.8,
+       "rotation_deg": 0.0,
+       "height_m": 0.75
+      },
+      {
+       "id": "stuhl",
+       "kind": "chair",
+       "label": {
+        "de": "Stuhl",
+        "en": "Chair"
+       },
+       "at": {
+        "x_m": 2.6,
+        "y_m": 2.9
+       },
+       "width_m": 0.45,
+       "depth_m": 0.45,
+       "rotation_deg": 90.0,
+       "height_m": 0.9
+      },
+      {
+       "id": "treppe",
+       "kind": "pillar",
+       "label": {
+        "de": "Wendeltreppe",
+        "en": "Spiral stair"
+       },
+       "at": {
+        "x_m": 4.3,
+        "y_m": 4.2
+       },
+       "width_m": 1.0,
+       "depth_m": 1.0,
+       "rotation_deg": 0.0,
+       "shape": "ellipse",
+       "height_m": 3.0
+      }
+     ],
+     "notes": [
+      {
+       "id": "n1",
+       "at": {
+        "x_m": 3.0,
+        "y_m": 5.0
+       },
+       "text": {
+        "de": "Nebelmaschine außen",
+        "en": "Fog machine outside"
+       }
+      }
+     ]
+    }
+   }
+  ],
+  "scenes": [
+   {
+    "id": "szene-014",
+    "number": "14",
+    "heading": {
+     "de": "INT. LEUCHTTURM GRAUFELD – WACHRAUM – NACHT",
+     "en": "INT. GRAUFELD LIGHTHOUSE – WATCH ROOM – NIGHT"
+    },
+    "location": "leuchtturm",
+    "note": "Ilva finds a page in her own hand that she never wrote (the manuscript page 19 of the hidden layer, quoted as it is in oddities). The light goes out for the count of seven, and she is gone. Fountain-ready: each `say` becomes a character cue, an optional `paren` and a dialogue.",
+    "script": [
+     {
+      "id": "auftakt",
+      "action": {
+       "de": "Nacht. Nebel drückt gegen die Scheiben. Eine Frau sitzt am Tisch, vor sich einen Stapel Seiten. Die Tür zur Galerie geht auf. Der Wärter tritt ein, Nebel an den Schultern.",
+       "en": "Night. Fog presses against the panes. A woman sits at the table, a stack of pages in front of her. The door to the gallery opens. The keeper steps in, fog on his shoulders."
+      }
+     },
+     {
+      "id": "verbot",
+      "say": "waerter",
+      "text": {
+       "de": "Hier oben darf nachts niemand sein.",
+       "en": "Nobody is allowed up here at night."
+      }
+     },
+     {
+      "id": "seite",
+      "say": "ilva",
+      "paren": {
+       "de": "ohne aufzusehen",
+       "en": "without looking up"
+      },
+      "text": {
+       "de": "Ich weiß. Diese Seite lag schon da. In meiner Schrift. Ich habe sie nie geschrieben.",
+       "en": "I know. This page was already here. In my handwriting. I never wrote it."
+      }
+     },
+     {
+      "say": "waerter",
+      "text": {
+       "de": "Was steht darauf?",
+       "en": "What does it say?"
+      }
+     },
+     {
+      "id": "vorlesen",
+      "say": "ilva",
+      "paren": {
+       "de": "liest",
+       "en": "reading"
+      },
+      "text": {
+       "de": "Wenn das Licht um 3:13 erlischt, zähl bis sieben.",
+       "en": "When the light goes out at 3:13, count to seven."
+      }
+     },
+     {
+      "say": "waerter",
+      "text": {
+       "de": "Das Feuer erlischt nie.",
+       "en": "The fire never goes out."
+      }
+     },
+     {
+      "id": "dunkel",
+      "action": {
+       "de": "Über ihnen wandert der Lichtkegel durch den Raum. Dann erlischt er. Niemand rührt sich.",
+       "en": "Above them the beam sweeps through the room. Then it goes out. Nobody moves."
+      }
+     },
+     {
+      "id": "zaehlen",
+      "say": "ilva",
+      "paren": {
+       "de": "flüsternd",
+       "en": "whispering"
+      },
+      "text": {
+       "de": "Eins. Zwei. Drei. Vier.",
+       "en": "One. Two. Three. Four."
+      }
+     },
+     {
+      "id": "leer",
+      "action": {
+       "de": "Das Licht kehrt zurück. Der Stuhl ist leer. Die Seite liegt noch auf dem Tisch.",
+       "en": "The light returns. The chair is empty. The page is still on the table."
+      }
+     }
+    ],
+    "plans": [
+     {
+      "id": "plan-a",
+      "name": {
+       "de": "Plan A",
+       "en": "Plan A"
+      },
+      "note": "About 40 s. The keeper enters at 3 s and crosses to Ilva; at 29 s the beacon goes out for seven seconds; Ilva leaves the plan at 34 s, in the dark.",
+      "figures": [
+       {
+        "character": "ilva",
+        "marks": [
+         {
+          "at_s": 0.0,
+          "at": {
+           "x_m": 2.6,
+           "y_m": 2.9
+          },
+          "facing_deg": 270.0,
+          "pose": "sitting",
+          "hold_s": 34.0,
+          "departure": "leave"
+         }
+        ]
+       },
+       {
+        "character": "waerter",
+        "marks": [
+         {
+          "at_s": 3.0,
+          "at": {
+           "x_m": 5.2,
+           "y_m": 3.0
+          },
+          "facing_deg": 180.0,
+          "pose": "standing",
+          "hold_s": 0.0,
+          "arrival": "appear"
+         },
+         {
+          "at_s": 8.0,
+          "at": {
+           "x_m": 4.0,
+           "y_m": 3.5
+          },
+          "facing_deg": 203.0,
+          "pose": "standing",
+          "hold_s": 28.0,
+          "via": {
+           "x_m": 4.7,
+           "y_m": 3.6
+          }
+         },
+         {
+          "at_s": 38.0,
+          "at": {
+           "x_m": 3.1,
+           "y_m": 3.1
+          },
+          "facing_deg": 270.0,
+          "pose": "standing",
+          "hold_s": 2.0
+         }
+        ]
+       }
+      ],
+      "cameras": [
+       {
+        "id": "a",
+        "label": "A",
+        "sensor": "super35",
+        "lens_mm": 24.0,
+        "aspect": 2.39,
+        "marks": [
+         {
+          "at_s": 0.0,
+          "at": {
+           "x_m": 1.3,
+           "y_m": 4.3
+          },
+          "facing_deg": 331.0,
+          "height_m": 1.5,
+          "tilt_deg": 0.0,
+          "hold_s": 19.0
+         },
+         {
+          "at_s": 29.0,
+          "at": {
+           "x_m": 1.9,
+           "y_m": 3.9
+          },
+          "facing_deg": 335.0,
+          "height_m": 1.5,
+          "tilt_deg": 0.0,
+          "hold_s": 11.0
+         }
+        ]
+       },
+       {
+        "id": "b",
+        "label": "B",
+        "sensor": "super35",
+        "lens_mm": 50.0,
+        "aspect": 2.39,
+        "marks": [
+         {
+          "at_s": 0.0,
+          "at": {
+           "x_m": 3.5,
+           "y_m": 4.8
+          },
+          "facing_deg": 245.0,
+          "height_m": 1.4,
+          "tilt_deg": 0.0,
+          "hold_s": 40.0
+         }
+        ]
+       }
+      ],
+      "lights": [
+       {
+        "id": "beacon",
+        "label": {
+         "de": "Leuchtfeuer",
+         "en": "Beacon"
+        },
+        "kind": "balloon",
+        "at": {
+         "x_m": 4.6,
+         "y_m": 1.5
+        },
+        "facing_deg": 135.0,
+        "beam_deg": 120.0,
+        "color_temp_k": 3200.0,
+        "power_w": 1200.0
+       },
+       {
+        "id": "lamp",
+        "label": {
+         "de": "Schreibtischlampe",
+         "en": "Desk lamp"
+        },
+        "kind": "led-panel",
+        "at": {
+         "x_m": 3.1,
+         "y_m": 1.9
+        },
+        "facing_deg": 100.0,
+        "beam_deg": 90.0,
+        "color_temp_k": 3200.0,
+        "power_w": 40.0
+       },
+       {
+        "id": "mond",
+        "label": {
+         "de": "Mond durchs Fenster",
+         "en": "Moon through the window"
+        },
+        "kind": "fresnel",
+        "at": {
+         "x_m": 3.0,
+         "y_m": 0.9
+        },
+        "facing_deg": 90.0,
+        "beam_deg": 30.0,
+        "color_temp_k": 5600.0,
+        "power_w": 650.0
+       }
+      ],
+      "shots": [
+       {
+        "id": "s14-1",
+        "number": "14.1",
+        "camera": "a",
+        "size": "wide",
+        "angle": "eye-level",
+        "movement": "static",
+        "from_s": 0.0,
+        "to_s": 11.0,
+        "description": {
+         "de": "Totale: Ilva am Tisch, der Wärter tritt ein",
+         "en": "Wide: Ilva at the table, the keeper comes in"
+        }
+       },
+       {
+        "id": "s14-2",
+        "number": "14.2",
+        "camera": "b",
+        "size": "medium-close",
+        "angle": "eye-level",
+        "movement": "static",
+        "from_s": 11.0,
+        "to_s": 27.0,
+        "description": {
+         "de": "Ilva mit der Seite",
+         "en": "Ilva with the page"
+        }
+       },
+       {
+        "id": "s14-3",
+        "number": "14.3",
+        "camera": "a",
+        "size": "medium",
+        "angle": "eye-level",
+        "movement": "dolly",
+        "lens_mm": 35.0,
+        "from_s": 19.0,
+        "to_s": 29.0,
+        "description": {
+         "de": "Langsame Fahrt auf den Wärter",
+         "en": "Slow dolly towards the keeper"
+        },
+        "gear": {
+         "de": "Dolly, 2 m Schiene",
+         "en": "Dolly, 2 m track"
+        }
+       },
+       {
+        "id": "s14-4",
+        "number": "14.4",
+        "camera": "b",
+        "size": "close-up",
+        "angle": "eye-level",
+        "movement": "static",
+        "lens_mm": 85.0,
+        "from_s": 29.0,
+        "to_s": 36.0,
+        "description": {
+         "de": "Ilva zählt im Dunkeln",
+         "en": "Ilva counts in the dark"
+        },
+        "note": {
+         "de": "Leuchtfeuer aus, sieben Sekunden halten",
+         "en": "Beacon off, hold for seven seconds"
+        }
+       },
+       {
+        "id": "s14-5",
+        "number": "14.5",
+        "camera": "a",
+        "size": "medium-wide",
+        "angle": "eye-level",
+        "movement": "static",
+        "from_s": 36.0,
+        "to_s": 40.0,
+        "description": {
+         "de": "Der leere Stuhl",
+         "en": "The empty chair"
+        }
+       }
+      ],
+      "links": [
+       {
+        "element": "auftakt",
+        "target": {
+         "kind": "shot",
+         "id": "s14-1"
+        }
+       },
+       {
+        "element": "verbot",
+        "target": {
+         "kind": "mark",
+         "character": "waerter",
+         "index": 1
+        }
+       },
+       {
+        "element": "vorlesen",
+        "target": {
+         "kind": "shot",
+         "id": "s14-2"
+        }
+       },
+       {
+        "element": "dunkel",
+        "target": {
+         "kind": "shot",
+         "id": "s14-4"
+        }
+       },
+       {
+        "element": "leer",
+        "target": {
+         "kind": "shot",
+         "id": "s14-5"
+        }
+       }
+      ],
+      "axis": {
+       "a": "ilva",
+       "b": "waerter"
+      }
+     }
+    ]
+   }
+  ]
+ },
  "it_docs": {
   "note": "Obsidian vault with Studio Weber's IT documentation (Hansei). Dates in notes are {{day:N}} placeholders, N = day offset from the anchor. Each check of Hansei finds something: a plain-text password and token, old code names (SW-NAS01, SW-VPS, SW-PI), a missing frontmatter key, an old review date, a dead link, a full compose copy. The restore note carries the returning file of the hidden layer. Three service notes drift from their stacks: Invoice Ninja's URL and port, Nextcloud's image, and Immich runs an older image than its note names (Komodo).",
   "hosts": [

@@ -19,9 +19,9 @@ All under `internal/` unless the path starts elsewhere.
 | `cmd/jidoka/` | The program: `serve`, `validate`, `run`, `rotate-key`, `healthcheck`. `serve` opens the database and wires the parts; it decides nothing. |
 | `cmd/jidoka-shim/` | The small program that starts a job's process. |
 | `web/` | Routes, templates, API, ping, sign-in callback, CSRF. |
-| `services/jobs`, `plan`, `runs` | Loading and reloading the jobs; the planner with queue, locks and the actions on the schedule (run now, dry run, pause, resume); running one job. |
+| `services/jobs`, `plan`, `runs` | Loading and reloading the jobs; the planner with queue and locks; running one job. |
 | `services/watch`, `alerts` | The watchers (missed run, missed ping); who is told what, when. |
-| `services/status`, `ops` | What the pages show (overview, job page, secrets page); the owner's actions on incidents and runs (acknowledge, mute, reload, cancel a run). |
+| `services/status`, `ops` | What the pages show (overview, job page, secrets page); the owner's actions (acknowledge, mute, reload, cancel a run; run now, dry run, pause, resume). |
 | `services/settings`, `secrets`, `access` | The global settings; secrets of jobs and of Jidoka itself; sign-in, sessions, tokens (`access/accesstest` is a stand-in sign-in service for tests). |
 | `services/beat`, `andon` | The heartbeat to a monitoring service; the state of each job for Andon. |
 | `repos/` | The SQL, one file per table. |
@@ -87,7 +87,7 @@ Each layer talks only to its neighbour directly below.
 |---|---|
 | A new field of a job | `conf` (parsing, validation), `model`; the service that uses it; the job page in `services/status` and its template |
 | A new page or API address | A route in `web/` and its template; what it shows from `services/status` or the service of its topic |
-| A new action of the owner | `services/ops` (on incidents and runs) or `services/plan` (on the schedule), a route in `web/routes_actions.go` |
+| A new action of the owner | `services/ops`, a route in `web/routes_actions.go` |
 | A new way to report | A driver in `drivers/`, its use in `services/alerts`; the channel in `conf` and on the settings page |
 | A new watcher | `services/watch` |
 | A new global setting | `conf/settings.go` (name and default), `services/settings`, the settings page |
@@ -108,6 +108,8 @@ Each layer talks only to its neighbour directly below.
 - `serve` decides which open incidents close after a reload, maps a run's end to
   the state for Andon and repeats fetching the jobs repository
   (`AUDIT.md`, finding 5).
+- The owner's actions on the schedule (run now, dry run, pause, resume) live in
+  the planner, not in `ops` (not in `AUDIT.md`).
 - Jidoka's own secrets are listed in three places; masking is built twice
   (`AUDIT.md`, finding 6).
 - `services/beat` and `services/andon` send their requests themselves, not through a

@@ -1,0 +1,9 @@
+# Rule files and tooling for agents, not part of source archives (git archive).
+/CLAUDE.md export-ignore
+/agent.md export-ignore
+/RULES.md export-ignore
+/REVIEW.md export-ignore
+/ARCHITECTURE.md export-ignore
+/AUDIT.md export-ignore
+/structure.baseline export-ignore
+/tools/structure-check.py export-ignore

@@ -21,7 +21,7 @@ All under `internal/` unless the path starts elsewhere.
 | `web/` | Routes, templates, API, ping, sign-in callback, CSRF. |
 | `services/jobs`, `plan`, `runs` | Loading and reloading the jobs; the planner with queue and locks; running one job. |
 | `services/watch`, `alerts` | The watchers (missed run, missed ping); who is told what, when. |
-| `services/status`, `ops` | What the pages show (overview, job page, secrets page); the owner's actions (acknowledge, mute, reload, cancel a run; run now, dry run, pause, resume). |
+| `services/status`, `ops` | What the pages show (overview, job page, secrets page); the owner's actions (acknowledge, mute, unmute, reload, cancel a run, renew a watch's ping token; run now, dry run, pause, resume). |
 | `services/settings`, `secrets`, `access` | The global settings; secrets of jobs and of Jidoka itself; sign-in, sessions, tokens (`access/accesstest` is a stand-in sign-in service for tests). |
 | `services/beat`, `andon` | The heartbeat to a monitoring service; the state of each job for Andon. |
 | `repos/` | The SQL, one file per table. |

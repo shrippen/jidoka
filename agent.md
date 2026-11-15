@@ -16,27 +16,10 @@ Integration. Anforderungen: `LASTENHEFT.md`.
 - Geheimnisse nie in Log, Ausgabe, Seite oder API.
 - Uhrzeiten mit Zone, wo der Browser abweicht (wie Andon, `tzMark`).
 
-## Schichten (nur zum direkten Nachbarn darunter)
-```
-cmd/jidoka      serve | validate | run | rotate-key | healthcheck
-  ↓
-web/            Routen, Templates, API, Ping, OIDC-Rückruf, CSRF   (net/http, html/template, htmx)
-  ↓
-services/       jobs (Laden, Neuladen)   plan (Planer, Schlange, Sperren)   runs (Lauf ausführen)
-                watch (Wächter)   alerts (Meldungen)   secrets   access (Anmeldung, Token)   status   settings
-  ↓
-repos/          SQL je Tabelle        drivers/  proc (Prozess), apprise, smtp
-  ↓
-db/             database/sql, Migrationen
-```
-Reine Pakete ohne I/O, von jeder Schicht nutzbar: `model` (Typen), `cron`
-(Zeitplan mit Zone), `conf` (Job-Ordner und Einstellungen → `model.Set`), `redact` (Geheimnisse
-maskieren), `crypto`, `i18n`.
+## Aufbau
+Der Aufbau (Bausteine, Schichten, wo Neues hingehört) steht in `ARCHITECTURE.md`.
 
-- Routen rufen nie Repos oder Drivers direkt auf.
-- Ablauf: `jobs` liefert ein `model.Set`; `plan` fragt je Takt (1 s) nach
-  fälligen Terminen und reicht sie an `runs`; `runs` startet über `proc`,
-  speichert den Lauf und gibt das Ergebnis an `watch` und `alerts`.
+## Konventionen
 - Zeiten in der Datenbank als UTC-Text (`db.TimeStr`), gelesen mit `db.ParseTime`.
 - Die Datenbank ist nicht als Datei verschlüsselt, nur Spalten `*_enc`:
   Jidoka startet auch ohne `MASTER_KEY` (Z7).
